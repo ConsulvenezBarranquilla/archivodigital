@@ -83,105 +83,145 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-slate-100 to-slate-200 flex items-center justify-center p-4 md:p-8">
-      <div className="w-full max-w-3xl bg-white rounded-3xl shadow-2xl border border-slate-200 p-6 md:p-10">
+    <main className="min-h-screen bg-slate-200">
 
-        {/* LOGO */}
-        <div className="flex justify-center mb-5">
-          <Image
-            src="/logo.png"
-            alt="Consulado"
-            width={110}
-            height={110}
-            priority
-          />
+      {/* BANDERA SUPERIOR */}
+      <div className="w-full">
+        <div className="h-12 bg-yellow-400"></div>
+
+        <div className="h-14 bg-blue-700 flex items-center justify-center gap-6 text-white text-xl">
+          <span>★</span>
+          <span>★</span>
+          <span>★</span>
+          <span>★</span>
+          <span>★</span>
+          <span>★</span>
+          <span>★</span>
+          <span>★</span>
         </div>
 
-        {/* TITULO */}
-    <div className="flex justify-center mb-8">
-  <h1 className="text-xl md:text-3xl font-bold text-slate-800 text-center leading-snug max-w-4xl px-2">
-    Validador de Documentos
-    <br />
-    <span className="text-sm md:text-xl font-semibold">
-      Consulado General de la República Bolivariana de Venezuela
-      <br />
-      en Barranquilla
-    </span>
-  </h1>
-</div>
+        <div className="h-10 bg-red-600"></div>
+      </div>
 
-        {/* FORMULARIO */}
-        <div className="space-y-4">
+      {/* CONTENIDO */}
+      <div className="max-w-5xl mx-auto px-4 py-8">
 
-          <select
-            value={tipoDocumento}
-            onChange={(e) => setTipoDocumento(e.target.value)}
-            className="w-full border border-slate-300 rounded-2xl p-4 text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-700"
-          >
-            <option value="">Seleccione tipo de documento</option>
-            <option value="viaje">Documento de Viaje</option>
-            <option value="enseres">Certificados de Enseres</option>
-            <option value="solteria">Carta de Soltería</option>
-            <option value="registro">Registro Consular</option>
-            <option value="constancia">Constancia Consular</option>
-            <option value="notarial">
-              Actuación Notarial (Poderes / Autorizaciones)
-            </option>
-          </select>
+        <div className="bg-white rounded-3xl shadow-2xl p-6 md:p-10">
 
-          <input
-            type="text"
-            value={codigo}
-            onChange={(e) => setCodigo(e.target.value)}
-            placeholder="Ingrese número de documento p. ej. XX/XXXX"
-            className="w-full border border-slate-300 rounded-2xl p-4 focus:outline-none focus:ring-2 focus:ring-blue-700"
-          />
-
-          <button
-            onClick={buscarDocumento}
-            className="w-full bg-blue-800 hover:bg-blue-900 text-white font-semibold rounded-2xl p-4 transition duration-200"
-          >
-            {cargando ? 'Buscando...' : 'Buscar Documento'}
-          </button>
-        </div>
-
-        {/* RESULTADOS */}
-        {resultado && (
-          <div className="mt-8 rounded-2xl border border-slate-200 bg-slate-50 p-6">
-
-            {resultado.error ? (
-              <p className="text-center text-red-600 font-semibold">
-                {resultado.error}
-              </p>
-            ) : (
-              <>
-                <p className="text-center text-green-700 font-bold text-xl mb-5">
-                  Documento Verificado
-                </p>
-
-                <div className="space-y-3">
-                  {Object.entries(resultado.datos).map(
-                    ([clave, valor], i) => (
-                      <div
-                        key={i}
-                        className="grid grid-cols-1 md:grid-cols-3 gap-2 border-b border-slate-200 pb-3"
-                      >
-                        <div className="font-semibold text-slate-700 capitalize">
-                          {clave}
-                        </div>
-
-                        <div className="md:col-span-2 text-slate-600 break-words">
-                          {String(valor)}
-                        </div>
-                      </div>
-                    )
-                  )}
-                </div>
-              </>
-            )}
+          {/* LOGO */}
+          <div className="flex justify-center mb-5">
+            <Image
+              src="/logo.png"
+              alt="Logo"
+              width={110}
+              height={110}
+              priority
+            />
           </div>
-        )}
 
+          {/* TITULO */}
+          <h1 className="text-3xl md:text-5xl font-bold text-center text-blue-950 mb-4">
+            Validador de Documentos
+          </h1>
+
+          <p className="text-center text-slate-700 text-lg md:text-2xl leading-relaxed mb-4">
+            Consulado General de la República Bolivariana de Venezuela
+            <br />
+            en Barranquilla
+          </p>
+
+          {/* LINEA TRICOLOR */}
+          <div className="flex justify-center mb-8">
+            <div className="flex w-72 h-1 rounded-full overflow-hidden">
+              <div className="w-1/3 bg-yellow-400"></div>
+              <div className="w-1/3 bg-blue-700"></div>
+              <div className="w-1/3 bg-red-600"></div>
+            </div>
+          </div>
+
+          {/* FORM */}
+          <div className="space-y-4">
+
+            <select
+              value={tipoDocumento}
+              onChange={(e) => setTipoDocumento(e.target.value)}
+              className="w-full border border-slate-300 rounded-2xl p-4 text-lg"
+            >
+              <option value="">Seleccione tipo de documento</option>
+              <option value="viaje">Documento de Viaje</option>
+              <option value="enseres">Certificados de Enseres</option>
+              <option value="solteria">Carta de Soltería</option>
+              <option value="registro">Registro Consular</option>
+              <option value="constancia">Constancia Consular</option>
+              <option value="notarial">
+                Actuación Notarial (Poderes / Autorizaciones)
+              </option>
+            </select>
+
+            <input
+              type="text"
+              placeholder="Ingrese número de documento p. ej. XX/XXXX"
+              value={codigo}
+              onChange={(e) => setCodigo(e.target.value)}
+              className="w-full border border-slate-300 rounded-2xl p-4 text-lg"
+            />
+
+            <button
+              onClick={buscarDocumento}
+              className="w-full bg-blue-950 hover:bg-blue-900 text-white font-bold text-xl rounded-2xl p-4"
+            >
+              {cargando ? 'Buscando...' : 'Buscar Documento'}
+            </button>
+          </div>
+
+          {/* RESULTADO */}
+          {resultado && (
+            <div className="mt-8 border border-green-200 bg-green-50 rounded-2xl overflow-hidden">
+
+              {resultado.error ? (
+                <div className="p-6 text-center text-red-600 font-semibold">
+                  {resultado.error}
+                </div>
+              ) : (
+                <>
+                  <div className="p-5 border-b border-green-200">
+                    <p className="text-center text-2xl font-bold text-green-700">
+                      ✔ Documento Verificado
+                    </p>
+                  </div>
+
+                  <div className="p-6 space-y-4">
+                    {Object.entries(resultado.datos).map(
+                      ([clave, valor], i) => (
+                        <div
+                          key={i}
+                          className="grid grid-cols-1 md:grid-cols-2 border-b border-slate-200 pb-3"
+                        >
+                          <div className="font-semibold text-blue-950 capitalize">
+                            {clave}
+                          </div>
+
+                          <div className="text-slate-700">
+                            {String(valor)}
+                          </div>
+                        </div>
+                      )
+                    )}
+                  </div>
+
+                  <div className="px-6 py-4 bg-white text-slate-600 text-sm">
+                    Consulta realizada correctamente
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* FOOTER */}
+        <div className="text-center text-blue-950 font-medium mt-8 text-sm md:text-base">
+          Consulado General de la República Bolivariana de Venezuela en Barranquilla
+        </div>
       </div>
     </main>
   )
