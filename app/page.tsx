@@ -4,7 +4,7 @@ import Image from 'next/image'
 
 export default function Home() {
   const [codigo, setCodigo] = useState('')
-  const [resultado, setResultado] = useState(null)
+  const [resultado, setResultado] = useState<any>(null)
   const [loading, setLoading] = useState(false)
 
   async function buscar() {
