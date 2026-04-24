@@ -94,7 +94,7 @@ export default function Home() {
 
         {/* TITULO */}
         <h1 className="text-4xl font-bold text-center text-slate-800 mb-2">
-          ArchivoDigital
+          Validador de Documentos Consulado General de la República Bolivariana de Venezuela en Barranquilla
         </h1>
 
         <p className="text-center text-slate-500 mb-8">
@@ -119,7 +119,7 @@ export default function Home() {
         {/* INPUT */}
         <input
           type="text"
-          placeholder="Ingrese número de documento"
+          placeholder="Ingrese número de documento p. ej. XX/XXXX"
           value={codigo}
           onChange={(e) => setCodigo(e.target.value)}
           className="w-full border border-slate-300 p-4 rounded-2xl mb-4"
