@@ -85,12 +85,6 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-slate-200">
 
-    
-
-        <div className="h-10 bg-red-600"></div>
-      </div>
-
-      {/* CONTENIDO */}
       <div className="max-w-5xl mx-auto px-4 py-4">
 
         <div className="bg-white rounded-3xl shadow-2xl p-6 md:p-10">
@@ -107,11 +101,11 @@ export default function Home() {
           </div>
 
           {/* TITULO */}
-          <h1 className="text-3xl md:text-5xl font-bold text-center text-blue-950 mb-4">
+          <h1 className="text-3xl md:text-5xl font-bold text-center text-blue-950 mb-3">
             Validador de Documentos
           </h1>
 
-          <p className="text-center text-slate-700 text-lg md:text-2xl leading-relaxed mb-4">
+          <p className="text-center text-slate-700 text-base md:text-2xl leading-relaxed mb-4">
             Consulado General de la República Bolivariana de Venezuela
             <br />
             en Barranquilla
@@ -126,7 +120,7 @@ export default function Home() {
             </div>
           </div>
 
-          {/* FORM */}
+          {/* FORMULARIO */}
           <div className="space-y-4">
 
             <select
@@ -209,6 +203,7 @@ export default function Home() {
         <div className="text-center text-blue-950 font-medium mt-8 text-sm md:text-base">
           Consulado General de la República Bolivariana de Venezuela en Barranquilla
         </div>
+
       </div>
     </main>
   )
