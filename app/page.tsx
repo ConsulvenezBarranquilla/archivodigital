@@ -130,7 +130,7 @@ export default function Home() {
             >
               <option value="">Seleccione tipo de documento</option>
               <option value="viaje">Documento de Viaje</option>
-              <option value="enseres">Certificados de Enseres</option>
+              <option value="enseres">Certificados de Uso</option>
               <option value="solteria">Carta de Soltería</option>
               <option value="registro">Registro Consular</option>
               <option value="constancia">Constancia Consular</option>
