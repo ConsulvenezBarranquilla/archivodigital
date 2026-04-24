@@ -98,13 +98,17 @@ export default function Home() {
         </div>
 
         {/* TITULO */}
-        <div className="flex justify-center mb-8">
-          <h1 className="text-lg md:text-2xl lg:text-3xl font-bold text-slate-800 text-center leading-snug max-w-4xl px-2">
-            Validador de Documentos del <br />
-            Consulado General de la República Bolivariana de Venezuela <br />
-            en Barranquilla
-          </h1>
-        </div>
+    <div className="flex justify-center mb-8">
+  <h1 className="text-xl md:text-3xl font-bold text-slate-800 text-center leading-snug max-w-4xl px-2">
+    Validador de Documentos
+    <br />
+    <span className="text-sm md:text-xl font-semibold">
+      Consulado General de la República Bolivariana de Venezuela
+      <br />
+      en Barranquilla
+    </span>
+  </h1>
+</div>
 
         {/* FORMULARIO */}
         <div className="space-y-4">
