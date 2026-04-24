@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Image from 'next/image'
 
 export default function Home() {
   const [tipoDocumento, setTipoDocumento] = useState('')
@@ -38,17 +39,29 @@ export default function Home() {
       const res = await fetch(hojas[tipoDocumento])
       const texto = await res.text()
 
-      const filas = texto.split('\n').map((fila) => fila.split(','))
+      const filas = texto
+        .trim()
+        .split('\n')
+        .map((fila) => fila.split(','))
+
+      const encabezados = filas[0]
 
       const encontrado = filas.find(
-        (fila) =>
+        (fila, index) =>
+          index > 0 &&
           fila[0]?.trim().toLowerCase() === codigo.trim().toLowerCase()
       )
 
       if (encontrado) {
+        const objeto: any = {}
+
+        encabezados.forEach((titulo, i) => {
+          objeto[titulo.trim()] = encontrado[i]?.trim()
+        })
+
         setResultado({
           encontrado: true,
-          datos: encontrado
+          datos: objeto
         })
       } else {
         setResultado({
@@ -65,16 +78,34 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-gray-100 flex items-center justify-center p-6">
-      <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-xl">
-        <h1 className="text-3xl font-bold text-center mb-6">
+    <main className="min-h-screen bg-slate-100 flex items-center justify-center p-6">
+      <div className="bg-white shadow-2xl rounded-3xl p-8 w-full max-w-2xl">
+
+        {/* LOGO */}
+        <div className="flex justify-center mb-4">
+          <Image
+            src="/logo.png"
+            alt="ArchivoDigital"
+            width={110}
+            height={110}
+            priority
+          />
+        </div>
+
+        {/* TITULO */}
+        <h1 className="text-4xl font-bold text-center text-slate-800 mb-2">
           ArchivoDigital
         </h1>
 
+        <p className="text-center text-slate-500 mb-8">
+          Verificación digital de documentos
+        </p>
+
+        {/* SELECT */}
         <select
           value={tipoDocumento}
           onChange={(e) => setTipoDocumento(e.target.value)}
-          className="w-full border p-3 rounded-xl mb-4"
+          className="w-full border border-slate-300 p-4 rounded-2xl mb-4 text-slate-700"
         >
           <option value="">Seleccione tipo de documento</option>
           <option value="viaje">Documento de Viaje</option>
@@ -85,34 +116,54 @@ export default function Home() {
           <option value="notarial">Actuación Notarial</option>
         </select>
 
+        {/* INPUT */}
         <input
           type="text"
           placeholder="Ingrese número de documento"
           value={codigo}
           onChange={(e) => setCodigo(e.target.value)}
-          className="w-full border p-3 rounded-xl mb-4"
+          className="w-full border border-slate-300 p-4 rounded-2xl mb-4"
         />
 
+        {/* BOTON */}
         <button
           onClick={buscarDocumento}
-          className="w-full bg-blue-600 text-white p-3 rounded-xl"
+          className="w-full bg-blue-700 hover:bg-blue-800 text-white font-semibold p-4 rounded-2xl transition"
         >
           {cargando ? 'Buscando...' : 'Buscar Documento'}
         </button>
 
+        {/* RESULTADO */}
         {resultado && (
-          <div className="mt-6 p-4 border rounded-xl">
+          <div className="mt-8 border border-slate-200 rounded-2xl p-6 bg-slate-50">
             {resultado.error ? (
-              <p className="text-red-600">{resultado.error}</p>
+              <p className="text-red-600 font-medium text-center">
+                {resultado.error}
+              </p>
             ) : (
-              <div>
-                <p className="font-semibold text-green-700 mb-2">
-                  Documento encontrado
+              <>
+                <p className="text-green-700 font-bold text-lg mb-4 text-center">
+                  Documento Verificado
                 </p>
-                {resultado.datos.map((item: string, i: number) => (
-                  <p key={i}>{item}</p>
-                ))}
-              </div>
+
+                <div className="space-y-2">
+                  {Object.entries(resultado.datos).map(
+                    ([clave, valor], i) => (
+                      <p
+                        key={i}
+                        className="border-b border-slate-200 pb-2"
+                      >
+                        <span className="font-semibold text-slate-700 capitalize">
+                          {clave}:
+                        </span>{' '}
+                        <span className="text-slate-600">
+                          {String(valor)}
+                        </span>
+                      </p>
+                    )
+                  )}
+                </div>
+              </>
             )}
           </div>
         )}
