@@ -102,7 +102,7 @@ export default function Home() {
 
           {/* TITULO */}
           <h1 className="text-3xl md:text-5xl font-bold text-center text-blue-950 mb-3">
-            Validador de Documentos
+            Consulta de Documentos
           </h1>
 
           <p className="text-center text-slate-700 text-base md:text-2xl leading-relaxed mb-4">
