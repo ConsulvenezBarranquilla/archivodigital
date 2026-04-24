@@ -85,26 +85,13 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-slate-200">
 
-      {/* BANDERA SUPERIOR */}
-      <div className="w-full">
-        <div className="h-12 bg-yellow-400"></div>
-
-        <div className="h-14 bg-blue-700 flex items-center justify-center gap-6 text-white text-xl">
-          <span>★</span>
-          <span>★</span>
-          <span>★</span>
-          <span>★</span>
-          <span>★</span>
-          <span>★</span>
-          <span>★</span>
-          <span>★</span>
-        </div>
+    
 
         <div className="h-10 bg-red-600"></div>
       </div>
 
       {/* CONTENIDO */}
-      <div className="max-w-5xl mx-auto px-4 py-8">
+      <div className="max-w-5xl mx-auto px-4 py-4">
 
         <div className="bg-white rounded-3xl shadow-2xl p-6 md:p-10">
 
