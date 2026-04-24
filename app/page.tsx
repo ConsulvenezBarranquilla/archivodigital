@@ -30,7 +30,12 @@ export default function Home() {
   }
 
   async function buscarDocumento() {
-    if (!tipoDocumento || !codigo) return
+    if (!tipoDocumento || !codigo) {
+      setResultado({
+        error: 'Seleccione tipo de documento e ingrese número.'
+      })
+      return
+    }
 
     setCargando(true)
     setResultado(null)
@@ -65,12 +70,12 @@ export default function Home() {
         })
       } else {
         setResultado({
-          error: 'Documento no encontrado'
+          error: 'Documento no encontrado.'
         })
       }
     } catch (error) {
       setResultado({
-        error: 'Error consultando base de datos'
+        error: 'Error consultando base de datos.'
       })
     }
 
@@ -78,14 +83,14 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-100 flex items-center justify-center p-6">
-      <div className="bg-white shadow-2xl rounded-3xl p-8 w-full max-w-2xl">
+    <main className="min-h-screen bg-gradient-to-b from-slate-100 to-slate-200 flex items-center justify-center p-4 md:p-8">
+      <div className="w-full max-w-3xl bg-white rounded-3xl shadow-2xl border border-slate-200 p-6 md:p-10">
 
         {/* LOGO */}
-        <div className="flex justify-center mb-4">
+        <div className="flex justify-center mb-5">
           <Image
             src="/logo.png"
-            alt="ArchivoDigital"
+            alt="Consulado"
             width={110}
             height={110}
             priority
@@ -93,73 +98,78 @@ export default function Home() {
         </div>
 
         {/* TITULO */}
-        <h1 className="text-4xl font-bold text-center text-slate-800 mb-2">
-          Validador de Documentos Consulado General de la República Bolivariana de Venezuela en Barranquilla
-        </h1>
+        <div className="flex justify-center mb-8">
+          <h1 className="text-lg md:text-2xl lg:text-3xl font-bold text-slate-800 text-center leading-snug max-w-4xl px-2">
+            Validador de Documentos del <br />
+            Consulado General de la República Bolivariana de Venezuela <br />
+            en Barranquilla
+          </h1>
+        </div>
 
-        <p className="text-center text-slate-500 mb-8">
-          Verificación digital de documentos
-        </p>
+        {/* FORMULARIO */}
+        <div className="space-y-4">
 
-        {/* SELECT */}
-        <select
-          value={tipoDocumento}
-          onChange={(e) => setTipoDocumento(e.target.value)}
-          className="w-full border border-slate-300 p-4 rounded-2xl mb-4 text-slate-700"
-        >
-          <option value="">Seleccione tipo de documento</option>
-          <option value="viaje">Documento de Viaje</option>
-          <option value="enseres">Certificados de Enseres</option>
-          <option value="solteria">Carta de Soltería</option>
-          <option value="registro">Registro Consular</option>
-          <option value="constancia">Constancia Consular</option>
-          <option value="notarial">Actuación Notarial</option>
-        </select>
+          <select
+            value={tipoDocumento}
+            onChange={(e) => setTipoDocumento(e.target.value)}
+            className="w-full border border-slate-300 rounded-2xl p-4 text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-700"
+          >
+            <option value="">Seleccione tipo de documento</option>
+            <option value="viaje">Documento de Viaje</option>
+            <option value="enseres">Certificados de Enseres</option>
+            <option value="solteria">Carta de Soltería</option>
+            <option value="registro">Registro Consular</option>
+            <option value="constancia">Constancia Consular</option>
+            <option value="notarial">
+              Actuación Notarial (Poderes / Autorizaciones)
+            </option>
+          </select>
 
-        {/* INPUT */}
-        <input
-          type="text"
-          placeholder="Ingrese número de documento p. ej. XX/XXXX"
-          value={codigo}
-          onChange={(e) => setCodigo(e.target.value)}
-          className="w-full border border-slate-300 p-4 rounded-2xl mb-4"
-        />
+          <input
+            type="text"
+            value={codigo}
+            onChange={(e) => setCodigo(e.target.value)}
+            placeholder="Ingrese número de documento p. ej. XX/XXXX"
+            className="w-full border border-slate-300 rounded-2xl p-4 focus:outline-none focus:ring-2 focus:ring-blue-700"
+          />
 
-        {/* BOTON */}
-        <button
-          onClick={buscarDocumento}
-          className="w-full bg-blue-700 hover:bg-blue-800 text-white font-semibold p-4 rounded-2xl transition"
-        >
-          {cargando ? 'Buscando...' : 'Buscar Documento'}
-        </button>
+          <button
+            onClick={buscarDocumento}
+            className="w-full bg-blue-800 hover:bg-blue-900 text-white font-semibold rounded-2xl p-4 transition duration-200"
+          >
+            {cargando ? 'Buscando...' : 'Buscar Documento'}
+          </button>
+        </div>
 
-        {/* RESULTADO */}
+        {/* RESULTADOS */}
         {resultado && (
-          <div className="mt-8 border border-slate-200 rounded-2xl p-6 bg-slate-50">
+          <div className="mt-8 rounded-2xl border border-slate-200 bg-slate-50 p-6">
+
             {resultado.error ? (
-              <p className="text-red-600 font-medium text-center">
+              <p className="text-center text-red-600 font-semibold">
                 {resultado.error}
               </p>
             ) : (
               <>
-                <p className="text-green-700 font-bold text-lg mb-4 text-center">
+                <p className="text-center text-green-700 font-bold text-xl mb-5">
                   Documento Verificado
                 </p>
 
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {Object.entries(resultado.datos).map(
                     ([clave, valor], i) => (
-                      <p
+                      <div
                         key={i}
-                        className="border-b border-slate-200 pb-2"
+                        className="grid grid-cols-1 md:grid-cols-3 gap-2 border-b border-slate-200 pb-3"
                       >
-                        <span className="font-semibold text-slate-700 capitalize">
-                          {clave}:
-                        </span>{' '}
-                        <span className="text-slate-600">
+                        <div className="font-semibold text-slate-700 capitalize">
+                          {clave}
+                        </div>
+
+                        <div className="md:col-span-2 text-slate-600 break-words">
                           {String(valor)}
-                        </span>
-                      </p>
+                        </div>
+                      </div>
                     )
                   )}
                 </div>
@@ -167,6 +177,7 @@ export default function Home() {
             )}
           </div>
         )}
+
       </div>
     </main>
   )
