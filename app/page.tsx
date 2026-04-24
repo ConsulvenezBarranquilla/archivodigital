@@ -135,8 +135,8 @@ export default function Home() {
               <option value="registro">Registro Consular</option>
               <option value="constancia">Constancia Consular</option>
               <option value="notarial">
-                Actuación Notarial (Poderes / Autorizaciones)
-              </option>
+  Actuación Notarial (Poder / Autorización de Viaje NNA)
+</option>
             </select>
 
             <input
