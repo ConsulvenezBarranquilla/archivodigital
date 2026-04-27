@@ -29,6 +29,19 @@ export default function Home() {
       'https://docs.google.com/spreadsheets/d/e/2PACX-1vTvUgpdQIdHzI09BDg5m0sBgKZKckGxtqx2N__sKvDmMxIRzANZ_fS7SFj3hsK6keulj4-3UMD_GUYK/pub?output=csv'
   }
 
+  function obtenerFechaHora() {
+    const ahora = new Date()
+
+    return ahora.toLocaleString('es-CO', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    })
+  }
+
   async function buscarDocumento() {
     if (!tipoDocumento || !codigo) {
       setResultado({
@@ -66,7 +79,8 @@ export default function Home() {
 
         setResultado({
           encontrado: true,
-          datos: objeto
+          datos: objeto,
+          fechaHora: obtenerFechaHora()
         })
       } else {
         setResultado({
@@ -84,7 +98,6 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-slate-200">
-
       <div className="max-w-5xl mx-auto px-4 py-4">
 
         <div className="bg-white rounded-3xl shadow-2xl p-6 md:p-10">
@@ -130,13 +143,13 @@ export default function Home() {
             >
               <option value="">Seleccione tipo de documento</option>
               <option value="viaje">Documento de Viaje</option>
-              <option value="enseres">Certificados de Uso</option>
+              <option value="enseres">Certificado de Uso</option>
               <option value="solteria">Carta de Soltería</option>
               <option value="registro">Registro Consular</option>
               <option value="constancia">Constancia Consular</option>
               <option value="notarial">
-  Actuación Notarial (Poder / Autorización de Viaje NNA)
-</option>
+                Actuación Notarial (Poder / Autorización de Viaje NNA)
+              </option>
             </select>
 
             <input
@@ -153,6 +166,22 @@ export default function Home() {
             >
               {cargando ? 'Buscando...' : 'Buscar Documento'}
             </button>
+
+            {/* PDF INSTRUCTIVO */}
+            <div className="flex flex-col items-center pt-2">
+              <a
+                href="https://drive.google.com/uc?export=download&id=11SHGdn22fIc_GHvkqvtnMt2K6xYKshSX"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex flex-col items-center hover:opacity-80 transition"
+              >
+                <span className="text-3xl">📄</span>
+                <span className="text-xs text-slate-600 mt-1 text-center">
+                  Instructivo de Consulta de Documentos
+                </span>
+              </a>
+            </div>
+
           </div>
 
           {/* RESULTADO */}
@@ -168,6 +197,10 @@ export default function Home() {
                   <div className="p-5 border-b border-green-200">
                     <p className="text-center text-2xl font-bold text-green-700">
                       ✔ Documento Verificado
+                    </p>
+
+                    <p className="text-center text-sm text-slate-600 mt-2">
+                      Fecha y hora de validación: {resultado.fechaHora}
                     </p>
                   </div>
 
