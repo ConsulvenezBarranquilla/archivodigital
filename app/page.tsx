@@ -167,20 +167,27 @@ export default function Home() {
               {cargando ? 'Buscando...' : 'Buscar Documento'}
             </button>
 
-            {/* PDF INSTRUCTIVO */}
-            <div className="flex flex-col items-center pt-2">
-              <a
-                href="https://drive.google.com/uc?export=download&id=11SHGdn22fIc_GHvkqvtnMt2K6xYKshSX"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex flex-col items-center hover:opacity-80 transition"
-              >
-                <span className="text-3xl">📄</span>
-                <span className="text-xs text-slate-600 mt-1 text-center">
-                  Instructivo de Consulta de Documentos
-                </span>
-              </a>
-            </div>
+           {/* PDF INSTRUCTIVO */}
+<div className="flex flex-col items-center pt-2">
+  <a
+    href="https://drive.google.com/file/d/11SHGdn22fIc_GHvkqvtnMt2K6xYKshSX/view?usp=sharing"
+    target="_blank"
+    rel="noopener noreferrer"
+    className="flex flex-col items-center hover:opacity-80 transition"
+  >
+    <div className="w-12 h-14 bg-red-600 rounded-md shadow-md relative flex items-center justify-center">
+      <div className="absolute top-0 right-0 w-4 h-4 bg-white rounded-bl-md"></div>
+
+      <span className="text-white text-[10px] font-bold tracking-wide">
+        PDF
+      </span>
+    </div>
+
+    <span className="text-xs text-slate-600 mt-2 text-center">
+      Instructivo de Consulta de Documentos
+    </span>
+  </a>
+</div>
 
           </div>
 
