@@ -1,5 +1,38 @@
 import { google } from "googleapis";
+console.log(
+  "PROJECT:",
+  process.env.GOOGLE_PROJECT_ID
+);
 
+console.log(
+  "EMAIL:",
+  process.env.GOOGLE_CLIENT_EMAIL
+);
+
+console.log(
+  "KEY EXISTS:",
+  !!process.env.GOOGLE_PRIVATE_KEY
+);
+
+console.log(
+  "KEY LENGTH:",
+  process.env.GOOGLE_PRIVATE_KEY?.length
+);
+
+console.log(
+  "KEY START:",
+  process.env.GOOGLE_PRIVATE_KEY?.substring(
+    0,
+    40
+  )
+);
+
+console.log(
+  "KEY END:",
+  process.env.GOOGLE_PRIVATE_KEY?.slice(
+    -40
+  )
+);
 const auth = new google.auth.JWT({
   email: process.env.GOOGLE_CLIENT_EMAIL,
   key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
