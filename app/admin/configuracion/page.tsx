@@ -229,12 +229,17 @@ export default function ConfiguracionPage() {
       <div className="flex flex-wrap justify-center gap-3 mb-8">
 
   <a
-    href="/admin"
-    className="bg-blue-950 text-white px-4 py-2 rounded-xl hover:bg-blue-900"
-  >
-    Dashboard
-  </a>
-
+  href="/admin"
+  className="bg-green-700 text-white px-4 py-2 rounded-xl hover:bg-green-800"
+>
+  🏠 Inicio
+</a>
+<a
+  href="/recepcion"
+  className="bg-blue-950 text-white px-4 py-2 rounded-xl hover:bg-blue-900"
+>
+  Recepción
+</a>
   <a
     href="/caja"
     className="bg-blue-950 text-white px-4 py-2 rounded-xl hover:bg-blue-900"

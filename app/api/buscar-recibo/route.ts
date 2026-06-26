@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import {
-  obtenerCorrelativos,
-  sheets,
+    sheets,
   MODULO_CAJA_SHEET_ID,
-} from "@/lib/googleSheets";
+  obtenerDocumentoPrincipal,
+  } from "@/lib/googleSheets";
 
 export async function GET(
   req: NextRequest
@@ -34,61 +34,66 @@ export async function GET(
         .get({
           spreadsheetId:
             MODULO_CAJA_SHEET_ID,
-          range: "Caja!A:K",
+          range: "Caja!A:N",
         });
 
     const rows =
       response.data.values || [];
 
     const recibo =
-      rows.find(
-        (row, index) => {
+  rows.find((row, index) => {
 
-          if (index === 0)
-            return false;
+    if (index === 0)
+      return false;
 
-          return (
-            row[1] === correlativo
-          );
+    return row[1] === correlativo;
 
-        }
-      );
+  });
 
-    if (!recibo) {
+if (!recibo) {
 
-      return NextResponse.json({
-        ok: false,
-        mensaje:
-          "Recibo no encontrado",
-      });
+  return NextResponse.json({
+    ok: false,
+    mensaje: "Recibo no encontrado",
+  });
 
-    }
+}
 
-    return NextResponse.json({
-      ok: true,
+const cedula =
+  recibo[11] || recibo[2];
 
-      fecha: recibo[0],
-      correlativo:
-        recibo[1],
-      documento:
-        recibo[2],
-      nombre:
-        recibo[3],
-      correo:
-        recibo[4],
-      actuaciones:
-        recibo[5],
-      totalUSD:
-        recibo[6],
-      usuario:
-        recibo[7],
-        caja:
-        recibo [8],
-      pdfUrl:
-        recibo[9],
-      estado:
-        recibo[10],
-    });
+const pasaporte =
+  recibo[12] || "";
+
+const nacionalidad =
+  recibo[13] || "";
+
+const documento =
+  obtenerDocumentoPrincipal(
+    cedula,
+    pasaporte,
+    nacionalidad
+  );
+
+return NextResponse.json({
+  ok: true,
+
+  fecha: recibo[0],
+  correlativo: recibo[1],
+
+  documento,
+  cedula,
+  pasaporte,
+
+  nombre: recibo[3],
+  correo: recibo[4],
+  actuaciones: recibo[5],
+  totalUSD: recibo[6],
+  usuario: recibo[7],
+  caja: recibo[8],
+  pdfUrl: recibo[9],
+  estado: recibo[10],
+});
 
   } catch (error: any) {
 

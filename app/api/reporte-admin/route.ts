@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   sheets,
   MODULO_CAJA_SHEET_ID,
+  obtenerDocumentosCaja,
 } from "@/lib/googleSheets";
 
 function convertirFecha(
@@ -57,14 +58,14 @@ export async function POST(
       await sheets.spreadsheets.values.get({
         spreadsheetId:
           MODULO_CAJA_SHEET_ID,
-        range: "Caja!A:K",
+        range: "Caja!A:N",
       });
 
     const detalleResponse =
       await sheets.spreadsheets.values.get({
         spreadsheetId:
           MODULO_CAJA_SHEET_ID,
-        range: "DetalleCaja!A:C",
+        range: "DetalleCaja!A:F",
       });
 
     const movimientos =
@@ -207,7 +208,7 @@ if (
 
             const monto =
               Number(
-                detalle[2]
+                detalle[3]
               );
 
             if (
@@ -228,22 +229,27 @@ if (
             if (
       actuacion &&
       actuacion !== "Todas" &&
-      detalle[1] !== actuacion
+      detalle[2] !== actuacion
     ) {
       return;
     }
 
             registros.push([
-              movimiento[0], // fecha
-              correlativo,
-              movimiento[2], // documento
-              movimiento[3], // nombre
-              detalle[1],    // actuacion
-              detalle[2],    // monto
-              movimiento[7], // usuario
-              movimiento[8], // caja
-              movimiento[10] // estado
-            ]);
+  movimiento[0], // 0 Fecha
+  correlativo,   // 1 Recibo
+  movimiento[2], // 2 Documento
+  movimiento[3], // 3 Nombre
+
+  detalle[1],    // 4 Código
+
+  detalle[2],    // 5 Nombre actuación
+
+  detalle[3],    // 6 Monto
+
+  movimiento[7], // 7 Usuario
+  movimiento[8], // 8 Caja
+  movimiento[10] // 9 Estado
+]);
 
           }
         );
@@ -255,7 +261,7 @@ if (
   registros
     .filter(
       (item) =>
-        item[8] ===
+        item[9] ===
         "GENERADO"
     )
     .reduce(
@@ -265,7 +271,7 @@ if (
       ) =>
         total +
         Number(
-          item[5]
+          item[6]
         ),
       0
     );
@@ -276,7 +282,7 @@ const recibosGenerados =
     registros
       .filter(
         (r) =>
-          r[8] ===
+          r[9] ===
           "GENERADO"
       )
       .map(
@@ -289,7 +295,7 @@ const anuladosUnicos =
     registros
       .filter(
         (r) =>
-          r[8] ===
+          r[9] ===
           "ANULADO"
       )
       .map(
@@ -329,10 +335,10 @@ const resumenActuaciones: any = {};
 
 registros.forEach((row: any) => {
 
-  const actuacion = row[4];
+  const actuacion = row[5];
 
   const monto =
-    Number(row[5] || 0);
+    Number(row[6] || 0);
 
   if (
     !resumenActuaciones[
@@ -353,7 +359,7 @@ registros.forEach((row: any) => {
   }
 
   if (
-  row[8] ===
+  row[9] ===
   "GENERADO"
 ) {
 
@@ -367,7 +373,27 @@ registros.forEach((row: any) => {
 
 }
 
-});    
+}); 
+const leyendaCodigos: any = {};
+
+registros.forEach((row: any) => {
+
+  const codigo =
+    row[4];
+
+  const actuacion =
+    row[5];
+
+  if (
+    !leyendaCodigos[codigo]
+  ) {
+
+    leyendaCodigos[codigo] =
+      actuacion;
+
+  }
+
+});   
 return NextResponse.json({
       ok: true,
       registros,
@@ -378,6 +404,7 @@ return NextResponse.json({
         actuacionesGeneradas.length,
       totalAnulados,
       resumenActuaciones,
+      leyendaCodigos,
     });
 
   } catch (error: any) {

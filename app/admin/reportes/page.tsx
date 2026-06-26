@@ -530,6 +530,12 @@ return (
 >
   🏠 Inicio
 </a>
+<a
+  href="/recepcion"
+  className="bg-blue-950 text-white px-4 py-2 rounded-xl hover:bg-blue-900"
+>
+  Recepción
+</a>
   <a
     href="/caja"
     className="bg-blue-950 text-white px-4 py-2 rounded-xl hover:bg-blue-900"
@@ -1432,106 +1438,61 @@ return (
 
                 <tr
   key={`${row[1]}-${row[4]}-${index}`}
-  className="
-    border-b
-    hover:bg-slate-50
-  "
+  className="border-b hover:bg-slate-50"
 >
-
   <td>{row[0]}</td>
   <td>{row[1]}</td>
   <td>{row[2]}</td>
   <td>{row[3]}</td>
-  <td>{row[4]}</td>
   <td>{row[5]}</td>
   <td>{row[6]}</td>
   <td>{row[7]}</td>
+  <td>{row[8]}</td>
 
   <td>
-
     <span
       className={
-        row[8] === "ANULADO"
+        row[9] === "ANULADO"
           ? "bg-red-100 text-red-700 px-3 py-1 rounded-full text-xs font-bold"
           : "bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold"
       }
     >
-      {row[8] === "ANULADO"
-        ? "ANULADO"
-        : "GENERADO"}
+      {row[9] === "ANULADO" ? "ANULADO" : "GENERADO"}
     </span>
-
   </td>
 
   <td>
-
     <button
       onClick={() => {
-        localStorage.setItem(
-          "documentoHistorial",
-          row[2]
-        );
-
-        window.location.href =
-          "/admin/historial";
+        localStorage.setItem("documentoHistorial", row[2]);
+        window.location.href = "/admin/historial";
       }}
     >
       👤 Historial
     </button>
-
   </td>
 
   <td>
-
-  <button
-    onClick={() =>
-      reimprimirRecibo(
-        row[1]
-      )
-    }
-  >
-    🖨 Reimprimir
-  </button>
-
-  {row[8] === "ANULADO" ? (
-
-    <button
-      disabled
-      className="
-        bg-slate-300
-        text-slate-500
-        px-3
-        py-1
-        rounded
-        cursor-not-allowed
-      "
-    >
-      ❌ Anulado
+    <button onClick={() => reimprimirRecibo(row[1])}>
+      🖨 Reimprimir
     </button>
 
-  ) : (
-
-    <button
-      onClick={() =>
-        anularRecibo(
-          row[1]
-        )
-      }
-      className="
-        bg-red-600
-        text-white
-        px-3
-        py-1
-        rounded
-      "
-    >
-      ❌ Anular
-    </button>
-
-  )}
-
-</td>
-
+    {row[9] === "ANULADO" ? (
+      <button
+        disabled
+        className="bg-slate-300 text-slate-500 px-3 py-1 rounded cursor-not-allowed"
+      >
+        ❌ Anulado
+      </button>
+    ) : (
+      <button
+        onClick={() => anularRecibo(row[1])}
+        className="bg-red-600 text-white px-3 py-1 rounded"
+      >
+        ❌ Anular
+      </button>
+    )}
+  </td>
 </tr>
              
 

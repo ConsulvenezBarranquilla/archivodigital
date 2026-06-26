@@ -39,13 +39,36 @@ const [
     });
 
     const data = await response.json();
-
+console.log(
+  "LOGIN:",
+  data
+);
     if (!data.ok) {
-      setMensaje(data.mensaje);
-      return;
-    }
+  setMensaje(data.mensaje);
+  return;
+}
 
-    setUsuarioLogin(
+if (
+  data.rol
+    ?.toString()
+    .trim()
+    .toLowerCase() ===
+  "recepcion"
+) {
+
+  localStorage.setItem(
+    "usuarioCaja",
+    JSON.stringify(data)
+  );
+
+  window.location.href =
+    "/recepcion";
+
+  return;
+
+}
+
+setUsuarioLogin(
   data
 );
 
@@ -74,19 +97,25 @@ function continuarCaja() {
   );
 
   if (
-    usuarioLogin.rol ===
-    "admin"
-  ) {
+  usuarioLogin.rol === "admin"
+) {
 
-    window.location.href =
-      "/admin";
+  window.location.href =
+    "/admin";
 
-  } else {
+} else if (
+  usuarioLogin.rol === "recepcion"
+) {
 
-    window.location.href =
-      "/caja";
+  window.location.href =
+    "/recepcion";
 
-  }
+} else {
+
+  window.location.href =
+    "/caja";
+
+}
 
 }
   return (
@@ -108,7 +137,7 @@ function continuarCaja() {
 
       <h1 className="text-3xl font-bold text-center text-blue-950 mb-3">
 
-  Ingreso al Sistema de Caja
+  Ingreso al Intranet Barranquilla
 
 </h1>
 <p className="text-center text-slate-700 mb-4">

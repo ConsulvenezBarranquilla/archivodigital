@@ -61,48 +61,43 @@ console.log(
 );
 
   function dibujarRecibo(
-    yInicio: number,
-    tituloCopia: string
-  ) {
-
-    let y = yInicio;
-
-    if (
-  datos.estado ===
-  "ANULADO"
+  yInicio: number,
+  tituloCopia: string
 ) {
 
-  page.drawText(
-    "ANULADO",
-    {
-      x: 140,
-      y: yInicio - 120,
-      size: 55,
-      font,
-      color: rgb(
-        0.8,
-        0.8,
-        0.8
-      ),
-      rotate: {
-        type: "degrees",
-        angle: 45,
-      } as any,
-      opacity: 0.35,
-    }
-  );
+  let y = yInicio;
 
-}
+  const alturaRecibo =
+    205 +
+    (datos.actuaciones.length * 14);
 
-    page.drawRectangle({
-  x: 25,
-  y: yInicio - 200,
-  width: 560,
-  height: 205,
-  borderWidth: 1,
-  borderColor: rgb(0, 0, 0),
-});
+  if (
+    datos.estado ===
+    "ANULADO"
+  ) {
 
+    page.drawText(
+      "ANULADO",
+      {
+        x: 140,
+        y: yInicio - 120,
+        size: 55,
+        font,
+        color: rgb(
+          0.8,
+          0.8,
+          0.8
+        ),
+        rotate: {
+          type: "degrees",
+          angle: 45,
+        } as any,
+        opacity: 0.35,
+      }
+    );
+
+  }
+  
 page.drawImage(
   logo,
   {
@@ -174,47 +169,23 @@ y -= 25;
     y -= 15;
 
     page.drawText(
-      `Documento: ${datos.documento}`,
-      {
-        x: 40,
-        y,
-        size: 10,
-        font,
-      }
-    );
+  `Doc: ${datos.documento} | ${datos.nombre} | ${datos.correo}`,
+  {
+    x: 40,
+    y,
+    size: 10,
+    font,
+  }
+);
 
-    y -= 15;
-
-    page.drawText(
-      `Nombre: ${datos.nombre}`,
-      {
-        x: 40,
-        y,
-        size: 10,
-        font,
-      }
-    );
-
-    y -= 15;
-
-    page.drawText(
-      `Correo: ${datos.correo}`,
-      {
-        x: 40,
-        y,
-        size: 10,
-        font,
-      }
-    );
-
-    y -= 25;
+y -= 25;
 
     page.drawText(
       "Actuaciones:",
       {
         x: 40,
         y,
-        size: 10,
+        size: 9,
         font,
       }
     );

@@ -363,9 +363,14 @@ setNuevoRol("caja");
     href="/admin"
     className="bg-blue-950 text-white px-4 py-2 rounded-xl hover:bg-blue-900"
   >
-    Dashboard
+    Inicio
   </a>
-
+<a
+  href="/recepcion"
+  className="bg-blue-950 text-white px-4 py-2 rounded-xl hover:bg-blue-900"
+>
+  Recepción
+</a>
   <a
     href="/caja"
     className="bg-blue-950 text-white px-4 py-2 rounded-xl hover:bg-blue-900"
@@ -494,6 +499,10 @@ setNuevoRol("caja");
   <option value="caja">
     Operador de Caja
   </option>
+
+  <option value="recepcion">
+  Recepción
+</option>
 
 </select>
 

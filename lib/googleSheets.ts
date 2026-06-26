@@ -61,6 +61,23 @@ export async function obtenerUsuariosCaja() {
 
   return response.data.values || [];
 }
+export function obtenerDocumentoPrincipal(
+  cedula: string,
+  pasaporte: string,
+  nacionalidad: string
+) {
+  if (
+    nacionalidad
+      .trim()
+      .toUpperCase() === "VENEZOLANO"
+  ) {
+    return cedula;
+  }
+
+  return pasaporte?.trim()
+    ? pasaporte
+    : cedula;
+}
 export async function obtenerConfiguracion() {
 
   const response =
@@ -132,7 +149,7 @@ export async function guardarMovimientoCaja(
 ) {
   await sheets.spreadsheets.values.append({
     spreadsheetId: MODULO_CAJA_SHEET_ID,
-    range: "Caja!A:K",
+    range: "Caja!A:M",
     valueInputOption: "USER_ENTERED",
     requestBody: {
       values: [datos],
@@ -144,7 +161,7 @@ export async function guardarDetalleCaja(
 ) {
   await sheets.spreadsheets.values.append({
     spreadsheetId: MODULO_CAJA_SHEET_ID,
-    range: "DetalleCaja!A:C",
+    range: "DetalleCaja!A:D",
     valueInputOption: "USER_ENTERED",
     requestBody: {
       values: [datos],
@@ -164,5 +181,29 @@ export async function actualizarEstadoRecibo(
       values: [[estado]],
     },
   });
+
+}
+export function obtenerDocumentosCaja(
+  row: any[]
+) {
+
+  const cedula =
+    row[11] || row[2] || "";
+
+  const pasaporte =
+    row[12] || "";
+
+  const documento =
+    pasaporte || cedula;
+
+  return {
+
+    cedula,
+
+    pasaporte,
+
+    documento,
+
+  };
 
 }

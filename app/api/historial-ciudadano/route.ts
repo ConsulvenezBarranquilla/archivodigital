@@ -6,7 +6,8 @@ import {
 import {
   sheets,
   MODULO_CAJA_SHEET_ID,
-} from "@/lib/googleSheets";
+  obtenerDocumentoPrincipal,
+  } from "@/lib/googleSheets";
 
 export async function POST(
   req: NextRequest
@@ -22,14 +23,14 @@ export async function POST(
       await sheets.spreadsheets.values.get({
         spreadsheetId:
           MODULO_CAJA_SHEET_ID,
-        range: "Caja!A:K",
+        range: "Caja!A:N",
       });
 
     const detalleResponse =
       await sheets.spreadsheets.values.get({
         spreadsheetId:
           MODULO_CAJA_SHEET_ID,
-        range: "DetalleCaja!A:C",
+        range: "DetalleCaja!A:D",
       });
 
     const movimientos =
@@ -39,13 +40,35 @@ export async function POST(
       detalleResponse.data.values || [];
 
     const recibos =
-      movimientos
-        .slice(1)
-        .filter(
-          (row) =>
-            row[2] ===
-            documento
-        );
+  movimientos
+    .slice(1)
+    .filter((row) => {
+
+      const buscado =
+        documento
+          ?.trim()
+          .toUpperCase();
+
+      return (
+
+        row[2]
+          ?.toString()
+          .trim()
+          .toUpperCase() === buscado ||
+
+        row[11]
+          ?.toString()
+          .trim()
+          .toUpperCase() === buscado ||
+
+        row[12]
+          ?.toString()
+          .trim()
+          .toUpperCase() === buscado
+
+      );
+
+    });
 
     const historial =
       recibos.map(
@@ -62,38 +85,64 @@ export async function POST(
                   d[0] ===
                   correlativo
               )
-              .map(
-                (d) => ({
-                  actuacion:
-                    d[1],
-                  monto:
-                    d[2],
-                })
-              );
+              .map((d) => ({
 
-          return {
-            fecha:
-              recibo[0],
+  codigo:
+    d[1],
 
-            correlativo,
+  actuacion:
+    d[2],
 
-            documento:
-              recibo[2],
+  monto:
+    d[3],
 
-            nombre:
-              recibo[3],
+}));
 
-            usuario:
-              recibo[7],
+          const cedula =
+  (recibo[11] || recibo[2] || "").toString();
 
-            caja:
-              recibo[8],
+const pasaporte =
+  (recibo[12] || "").toString();
 
-            estado:
-              recibo[10],
+const nacionalidad =
+  (recibo[13] || "").toString();
 
-            actuaciones,
-          };
+const documentoPrincipal =
+  obtenerDocumentoPrincipal(
+    cedula,
+    pasaporte,
+    nacionalidad
+  );
+
+return {
+
+  fecha:
+    recibo[0],
+
+  correlativo,
+
+  documento:
+    documentoPrincipal,
+
+  cedula,
+
+  pasaporte,
+
+  nombre:
+    recibo[3],
+
+  usuario:
+    recibo[7],
+
+  caja:
+    recibo[8],
+
+  estado:
+    recibo[10],
+
+  actuaciones,
+
+};
 
         }
       );

@@ -167,6 +167,16 @@ console.log(
   }, []);
 
   async function buscarCiudadano() {
+
+setMensaje("");
+ setMensajeRecibo("");
+
+  setActuacionesSeleccionadas([]);
+
+  setBusquedaActuacion("");
+
+  setMostrarActuaciones(false);
+
     if (!documento.trim()) {
       setMensaje(
         "Ingrese un documento"
@@ -216,6 +226,8 @@ function limpiarFormulario() {
 }
 function agregarActuacion(item: any) {
 
+  setMensajeRecibo("");
+
   
   setActuacionesSeleccionadas([
   ...actuacionesSeleccionadas,
@@ -235,6 +247,8 @@ function agregarActuacion(item: any) {
 function eliminarActuacion(
   id: number
 ) {
+
+   setMensajeRecibo("");
 
   setActuacionesSeleccionadas(
   actuacionesSeleccionadas.filter(
@@ -347,7 +361,13 @@ setMostrarActuaciones(false);
 setMensaje("");
     setMensajeRecibo(
       `Recibo generado correctamente. Correlativo: ${data.correlativo}`
+      
     );
+    setBusquedaActuacion("");
+
+setMostrarActuaciones(false);
+
+setActuacionesSeleccionadas([]);
 fetch(
   `/api/resumen-caja?caja=${usuario.caja}`
 )
@@ -751,6 +771,15 @@ console.log(
         e.target.value
       )
     }
+    onKeyDown={(e) => {
+
+    if (e.key === "Enter") {
+
+      buscarCiudadano();
+
+    }
+
+  }}
   />
 
   <button
@@ -815,15 +844,41 @@ console.log(
   </div>
 
   <div className="bg-slate-50 rounded-xl p-3">
+
+  <div className="text-sm text-slate-500">
+    Cédula
+  </div>
+
+  <div className="font-semibold text-blue-950">
+    {ciudadano.cedula}
+  </div>
+
+</div>
+
+{ciudadano.pasaporte && (
+  <div className="bg-slate-50 rounded-xl p-3">
+
     <div className="text-sm text-slate-500">
-      Documento
+      Pasaporte
     </div>
 
     <div className="font-semibold text-blue-950">
-      {ciudadano.documento}
+      {ciudadano.pasaporte}
     </div>
+
+  </div>
+)}
+<div className="bg-slate-50 rounded-xl p-3">
+
+  <div className="text-sm text-slate-500">
+    Documento principal para el Recibo
   </div>
 
+  <div className="font-semibold text-blue-950">
+    {ciudadano.documento}
+  </div>
+
+</div>
   <div className="bg-slate-50 rounded-xl p-3">
     <div className="text-sm text-slate-500">
       Correo
@@ -879,6 +934,7 @@ console.log(
       setMostrarActuaciones(true)
     }
     onChange={(e) => {
+      setMensajeRecibo("");
       setBusquedaActuacion(
         e.target.value
       );

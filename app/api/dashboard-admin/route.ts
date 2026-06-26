@@ -22,7 +22,7 @@ export async function GET() {
         spreadsheetId:
           MODULO_CAJA_SHEET_ID,
         range:
-          "DetalleCaja!A:C",
+          "DetalleCaja!A:D",
       });
 
     const usuariosResponse =
@@ -248,7 +248,7 @@ export async function GET() {
       .forEach((row) => {
 
         const actuacion =
-          row[1] || "";
+          row[2] || "";
 
         if (
           !actuacion

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   sheets,
   MODULO_CAJA_SHEET_ID,
+  obtenerDocumentoPrincipal,
 } from "@/lib/googleSheets";
 
 export async function POST(
@@ -19,14 +20,14 @@ export async function POST(
       await sheets.spreadsheets.values.get({
         spreadsheetId:
           MODULO_CAJA_SHEET_ID,
-        range: "Caja!A:K",
+        range: "Caja!A:N",
       });
 
     const detalleResponse =
       await sheets.spreadsheets.values.get({
         spreadsheetId:
           MODULO_CAJA_SHEET_ID,
-        range: "DetalleCaja!A:C",
+        range: "DetalleCaja!A:F",
       });
 
     const movimientos =
@@ -51,14 +52,29 @@ export async function POST(
       );
 
     if (!recibo) {
-
-  return NextResponse.json({
+      return NextResponse.json({
     ok: false,
     error:
       "Recibo no encontrado",
   });
 
 }
+const cedula =
+  recibo[11] || recibo[2];
+
+const pasaporte =
+  recibo[12] || "";
+
+const nacionalidad =
+  recibo[13] || "";
+
+const documento =
+  obtenerDocumentoPrincipal(
+    cedula,
+    pasaporte,
+    nacionalidad
+  );
+  
 
 console.log(
   "RECIBO:",
@@ -71,20 +87,16 @@ console.log(
 );
 
     const actuaciones =
-      detalles
-        .slice(1)
-        .filter(
-          (d) =>
-            d[0] === correlativo
-        )
-        .map(
-          (d) => ({
-            actuacion:
-              d[1],
-            monto:
-              Number(d[2]),
-          })
-        );
+  detalles
+    .slice(1)
+    .filter(
+      (d) => d[0] === correlativo
+    )
+    .map((d) => ({
+      codigo: d[1],
+      actuacion: d[2],
+      monto: Number(d[3]),
+    }));
 
     return NextResponse.json({
       ok: true,
@@ -94,8 +106,13 @@ console.log(
       fecha:
         recibo[0],
 
-      documento:
-        recibo[2],
+      documento,
+
+cedula,
+
+pasaporte,
+
+nacionalidad,
 
       nombre:
         recibo[3],

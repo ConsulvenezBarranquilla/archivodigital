@@ -7,11 +7,27 @@ import fs from "fs";
 import path from "path";
 
 type Registro = [
+
+  string, // Fecha
+
   string, // Recibo
+
   string, // Documento
+
   string, // Nombre
+
+  string, // Código
+
   string, // Actuación
-  string  // Monto
+
+  string, // Monto
+
+  string, // Usuario
+
+  string, // Caja
+
+  string  // Estado
+
 ];
 
 type DatosCierre = {
@@ -23,17 +39,26 @@ type DatosCierre = {
   totalUSD: number;
   totalRecibos: number;
   totalActuaciones: number;
+
+  leyendaCodigos: Record<
+    string,
+    string
+  >;
+
 };
 
 export async function generarPdfCierre(
   datos: DatosCierre
 ) {
-
+console.log(
+    "DATOS RECIBIDOS EN EL PDF:"
+  );
+  console.dir(datos, { depth: null });
   const pdfDoc =
     await PDFDocument.create();
 
-  const page =
-    pdfDoc.addPage([612, 792]);
+  let page =
+  pdfDoc.addPage([612, 792]);
 
   const font =
     await pdfDoc.embedFont(
@@ -44,6 +69,13 @@ export async function generarPdfCierre(
     await pdfDoc.embedFont(
       StandardFonts.HelveticaBold
     );
+
+    const tipoTexto =
+  datos.tipo === "pagas"
+    ? "Solo actuaciones pagas"
+    : datos.tipo === "gratis"
+    ? "Solo actuaciones sin pago"
+    : "Todas las actuaciones";
 
   try {
 
@@ -136,7 +168,7 @@ export async function generarPdfCierre(
   );
 
   page.drawText(
-    `Tipo: ${datos.tipo}`,
+    `Tipo: ${tipoTexto}`,
     {
       x: 40,
       y: 590,
@@ -213,7 +245,7 @@ page.drawText(
   (item) => {
 
     page.drawText(
-      item[0],
+      item[1],
       {
         x: 40,
         y,
@@ -223,7 +255,7 @@ page.drawText(
     );
 
     page.drawText(
-      item[1],
+      item[2],
       {
         x: 105,
         y,
@@ -233,7 +265,7 @@ page.drawText(
     );
 
     page.drawText(
-      item[2].substring(0, 30),
+      item[3].substring(0, 30),
       {
         x: 190,
         y,
@@ -243,24 +275,24 @@ page.drawText(
     );
 
     page.drawText(
-      item[3].substring(0, 22),
-      {
-        x: 380,
-        y,
-        size: 9,
-        font,
-      }
-    );
+  String(item[4]),
+  {
+    x: 380,
+    y,
+    size: 9,
+    font,
+  }
+);
 
     page.drawText(
-      item[4],
-      {
-        x: 530,
-        y,
-        size: 9,
-        font,
-      }
-    );
+  String(item[6]),
+  {
+    x: 530,
+    y,
+    size: 9,
+    font,
+  }
+);
 
     y -= 18;
 
@@ -316,6 +348,104 @@ page.drawText(
       font: bold,
     }
   );
+  y -= 35;
+
+const imprimirTituloLeyenda = () => {
+
+  page.drawText(
+    "LEYENDA DE CÓDIGOS",
+    {
+      x: 40,
+      y,
+      size: 11,
+      font: bold,
+    }
+  );
+
+  y -= 20;
+
+};
+
+if (y < 170) {
+
+  page = pdfDoc.addPage([612, 792]);
+
+  y = 740;
+
+  page.drawText(
+    "CIERRE DIARIO DE CAJA",
+    {
+      x: 180,
+      y,
+      size: 16,
+      font: bold,
+    }
+  );
+
+  y -= 35;
+
+  page.drawText(
+    "ANEXO - LEYENDA DE CÓDIGOS",
+    {
+      x: 40,
+      y,
+      size: 13,
+      font: bold,
+    }
+  );
+
+  y -= 30;
+
+} else {
+
+  imprimirTituloLeyenda();
+
+}
+
+Object.entries(
+  datos.leyendaCodigos
+).forEach(
+
+  ([codigo, nombre]) => {
+
+    if (y < 60) {
+
+      page = pdfDoc.addPage([612, 792]);
+
+      y = 740;
+
+      page.drawText(
+        "ANEXO - LEYENDA DE CÓDIGOS",
+        {
+          x: 40,
+          y,
+          size: 13,
+          font: bold,
+        }
+      );
+
+      y -= 30;
+
+    }
+
+    page.drawText(
+
+      `${codigo}  -  ${nombre}`,
+
+      {
+        x: 50,
+        y,
+        size: 9,
+        font,
+      }
+
+    );
+
+    y -= 15;
+
+  }
+
+);
 page.drawLine({
   start: {
     x: 40,
@@ -327,7 +457,31 @@ page.drawLine({
   },
   thickness: 1,
 });
+page.drawLine({
+  start: { x: 180, y: 95 },
+  end: { x: 430, y: 95 },
+  thickness: 1,
+});
 
+page.drawText(
+  datos.usuario,
+  {
+    x: 220,
+    y: 75,
+    size: 10,
+    font,
+  }
+);
+
+page.drawText(
+  datos.caja,
+  {
+    x: 260,
+    y: 60,
+    size: 10,
+    font,
+  }
+);
 page.drawText(
   "Documento generado por el Sistema de Caja Consular",
   {
@@ -349,15 +503,7 @@ page.drawLine({
   thickness: 1,
 });
 
-page.drawText(
-  "Documento generado por el Sistema de Caja Consular",
-  {
-    x: 150,
-    y: 22,
-    size: 9,
-    font,
-  }
-);
-  return await pdfDoc.save();
+console.log("PDF TERMINADO");  
+return await pdfDoc.save();
 
 }

@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import {
   sheets,
   MODULO_CAJA_SHEET_ID,
-} from "@/lib/googleSheets";
+  } from "@/lib/googleSheets";
 
 export async function GET() {
 
@@ -13,7 +13,7 @@ export async function GET() {
       await sheets.spreadsheets.values.get({
         spreadsheetId:
           MODULO_CAJA_SHEET_ID,
-        range: "Caja!A:K",
+        range: "Caja!A:M",
       });
 
     const rows =
@@ -45,8 +45,7 @@ export async function GET() {
 
     rows.slice(1).forEach(
       (row) => {
-        console.log("FECHA:", row[0]);
-
+        
         const fechaTexto =
           row[0] || "";
 

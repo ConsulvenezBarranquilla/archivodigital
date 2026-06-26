@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   sheets,
   MODULO_CAJA_SHEET_ID,
-} from "@/lib/googleSheets";
+  } from "@/lib/googleSheets";
 
 export async function GET(
   req: NextRequest
@@ -35,7 +35,7 @@ export async function GET(
       await sheets.spreadsheets.values.get({
         spreadsheetId:
           MODULO_CAJA_SHEET_ID,
-        range: "Caja!A:K",
+        range: "Caja!A:N",
       });
 
     const rows =

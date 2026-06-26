@@ -5,6 +5,7 @@ import {
   actualizarCorrelativo,
   guardarMovimientoCaja,
   guardarDetalleCaja,
+  obtenerDocumentoPrincipal,
 } from "@/lib/googleSheets";
 
 export async function POST(
@@ -21,6 +22,13 @@ export async function POST(
       totalUSD,
       usuario,
     } = body;
+
+    const documentoImpreso =
+  obtenerDocumentoPrincipal(
+    ciudadano.cedula,
+    ciudadano.pasaporte,
+    ciudadano.nacionalidad
+  );
 
     const anio =
       new Date().getFullYear();
@@ -79,7 +87,7 @@ export async function POST(
     await guardarMovimientoCaja([
   fecha,
   correlativo,
-  ciudadano.documento,
+  documentoImpreso,
   ciudadano.nombreCompleto,
   ciudadano.correo,
   actuaciones
@@ -90,11 +98,16 @@ export async function POST(
   usuario.caja,
   "",
   "GENERADO",
+
+  ciudadano.cedula || "",
+  ciudadano.pasaporte || "",
 ]);
+console.log(actuaciones);
 for (const actuacion of actuaciones) {
 
   await guardarDetalleCaja([
     correlativo,
+    actuacion.codigo,
     actuacion.actuacion,
     actuacion.monto,
   ]);
@@ -106,7 +119,7 @@ return NextResponse.json({
   ok: true,
   correlativo,
   fecha,
-  documento: ciudadano.documento,
+  documento: documentoImpreso,
   nombre: ciudadano.nombreCompleto,
   correo: ciudadano.correo,
   usuario: usuario.nombre,

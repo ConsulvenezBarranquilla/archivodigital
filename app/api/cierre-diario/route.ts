@@ -3,7 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   sheets,
   MODULO_CAJA_SHEET_ID,
-} from "@/lib/googleSheets";
+  obtenerDocumentoPrincipal,
+  } from "@/lib/googleSheets";
 
 export async function POST(
   req: NextRequest
@@ -27,14 +28,14 @@ export async function POST(
       await sheets.spreadsheets.values.get({
         spreadsheetId:
           MODULO_CAJA_SHEET_ID,
-        range: "Caja!A:K",
+        range: "Caja!A:N",
       });
 
     const detalleResponse =
       await sheets.spreadsheets.values.get({
         spreadsheetId:
           MODULO_CAJA_SHEET_ID,
-        range: "DetalleCaja!A:C",
+        range: "DetalleCaja!A:D",
       });
 
     const movimientos =
@@ -82,7 +83,7 @@ export async function POST(
     .filter((d) => {
 
       const monto =
-        Number(d[2]);
+        Number(d[3]);
 
       if (
         tipo ===
@@ -107,14 +108,45 @@ export async function POST(
         recibosDelDia.find(
           (r) => r[1] === d[0]
         );
+        const cedula =
+  recibo?.[11] || recibo?.[2] || "";
+
+const pasaporte =
+  recibo?.[12] || "";
+
+const nacionalidad =
+  recibo?.[13] || "";
+
+const documento =
+  obtenerDocumentoPrincipal(
+    cedula,
+    pasaporte,
+    nacionalidad
+  );
 
       return [
-        d[0],                 // Correlativo
-        recibo?.[2] || "",    // Documento
-        recibo?.[3] || "",    // Nombre
-        d[1],                 // Actuación
-        d[2],                 // Monto
-      ];
+
+  recibo?.[0] || "", // Fecha
+
+  d[0],              // Recibo
+
+  documento,         // Documento a imprimir
+
+  recibo?.[3] || "", // Nombre
+
+  d[1],              // Código
+
+  d[2],              // Actuación
+
+  d[3],              // Monto
+
+  usuario,
+
+  caja,
+
+  "GENERADO",
+
+];
 
     });
 
@@ -125,10 +157,21 @@ export async function POST(
       item
     ) =>
       total +
-      Number(item[4]),
+      Number(item[6]),
     0
   );
+const leyendaCodigos: Record<
+  string,
+  string
+> = {};
 
+registros.forEach((r) => {
+
+  leyendaCodigos[
+    r[4]
+  ] = r[5];
+
+});
     return NextResponse.json({
       ok: true,
       fecha: hoy,
@@ -141,6 +184,7 @@ export async function POST(
         correlativos.length,
       totalActuaciones:
         registros.length,
+        leyendaCodigos,
     });
 
   } catch (error: any) {

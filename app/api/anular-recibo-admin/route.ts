@@ -6,7 +6,7 @@ import {
 import {
   sheets,
   MODULO_CAJA_SHEET_ID,
-} from "@/lib/googleSheets";
+  } from "@/lib/googleSheets";
 
 export async function POST(
   req: NextRequest
@@ -22,7 +22,7 @@ export async function POST(
       await sheets.spreadsheets.values.get({
         spreadsheetId:
           MODULO_CAJA_SHEET_ID,
-        range: "Caja!A:K",
+        range: "Caja!A:M",
       });
 
     const rows =

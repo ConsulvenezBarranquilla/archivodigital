@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   sheets,
   REGISTRO_CONSULAR_SHEET_ID,
+  obtenerDocumentoPrincipal,
 } from "@/lib/googleSheets";
 
 export async function GET(req: NextRequest) {
@@ -24,21 +25,40 @@ export async function GET(req: NextRequest) {
     const response =
       await sheets.spreadsheets.values.get({
         spreadsheetId: REGISTRO_CONSULAR_SHEET_ID,
-        range: "Respuestas de formulario 1!A:N",
+        range: "Respuestas de formulario 1!A:O",
       });
 
     const rows = response.data.values || [];
 
-    const ciudadano = rows.find((row, index) => {
-      if (index === 0) return false;
+    let ciudadano = rows.find((row, index) => {
 
-      return (
-        row[1]
-          ?.toString()
-          .trim()
-          .toUpperCase() === documento
-      );
-    });
+  if (index === 0) return false;
+
+  return (
+    row[1]
+      ?.toString()
+      .trim()
+      .toUpperCase() === documento
+  );
+
+});
+
+if (!ciudadano) {
+
+  ciudadano = rows.find((row, index) => {
+
+    if (index === 0) return false;
+
+    return (
+      row[14]
+        ?.toString()
+        .trim()
+        .toUpperCase() === documento
+    );
+
+  });
+
+}
 
     if (!ciudadano) {
       return NextResponse.json({
@@ -55,32 +75,53 @@ export async function GET(req: NextRequest) {
       .filter(Boolean)
       .join(" ");
 
+      const cedula =
+  ciudadano[1] || "";
+
+const pasaporte =
+  ciudadano[14] || "";
+
+const nacionalidad =
+  ciudadano[6] || "";
+
+const documentoPrincipal =
+  obtenerDocumentoPrincipal(
+    cedula,
+    pasaporte,
+    nacionalidad
+  );
+
     return NextResponse.json({
       encontrado: true,
 
-      fechaRegistro: ciudadano[0],
+  fechaRegistro: ciudadano[0],
 
-      documento: ciudadano[1],
+  documento: documentoPrincipal,
 
-      primerNombre: ciudadano[2],
-      segundoNombre: ciudadano[3],
+  cedula,
 
-      primerApellido: ciudadano[4],
-      segundoApellido: ciudadano[5],
+  pasaporte,
 
-      nombreCompleto,
+  primerNombre: ciudadano[2],
+  segundoNombre: ciudadano[3],
 
-      nacionalidad: ciudadano[6],
-      ciudadNacimiento: ciudadano[7],
-      paisNacimiento: ciudadano[8],
+  primerApellido: ciudadano[4],
+  segundoApellido: ciudadano[5],
 
-      estadoCivil: ciudadano[9],
-      genero: ciudadano[10],
+  nombreCompleto,
 
-      correo: ciudadano[11],
-      telefono: ciudadano[12],
+  nacionalidad,
 
-      fechaNacimiento: ciudadano[13],
+  ciudadNacimiento: ciudadano[7],
+  paisNacimiento: ciudadano[8],
+
+  estadoCivil: ciudadano[9],
+  genero: ciudadano[10],
+
+  correo: ciudadano[11],
+  telefono: ciudadano[12],
+
+  fechaNacimiento: ciudadano[13],
     });
   } catch (error: any) {
     return NextResponse.json(
