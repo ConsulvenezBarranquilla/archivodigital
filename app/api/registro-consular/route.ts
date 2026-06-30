@@ -98,6 +98,8 @@ const documentoPrincipal =
 
   documento: documentoPrincipal,
 
+  documentoOriginal: documento,
+
   cedula,
 
   pasaporte,

@@ -266,9 +266,11 @@ async function generarRecibo() {
     setMensajeRecibo(
       "Generando recibo..."
     );
-
+    
+console.log("CIUDADANO ENVIADO:");
+console.dir(ciudadano, { depth: null });
     const response =
-      await fetch(
+          await fetch(
         "/api/generar-recibo",
         {
           method: "POST",
@@ -875,7 +877,7 @@ console.log(
   </div>
 
   <div className="font-semibold text-blue-950">
-    {ciudadano.documento}
+    {ciudadano?.documento}
   </div>
 
 </div>

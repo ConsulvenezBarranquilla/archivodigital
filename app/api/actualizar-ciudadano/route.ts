@@ -11,11 +11,9 @@ import {
 export async function POST(
   req: NextRequest
 ) {
-
   try {
 
-    const body =
-      await req.json();
+    const body = await req.json();
 
     // Debe existir al menos un documento
 
@@ -49,44 +47,39 @@ export async function POST(
     let fila = -1;
 
     const buscado =
-      body.documento
+      body.documentoOriginal
         ?.trim()
         .toUpperCase();
 
-    rows.forEach(
-      (row, index) => {
+    // Buscar la fila del ciudadano
 
-        if (index === 0) {
-          return;
-        }
+    rows.forEach((row, index) => {
 
-        const cedula =
-          row[1]
-            ?.toString()
-            .trim()
-            .toUpperCase();
+      if (index === 0)
+        return;
 
-        const pasaporte =
-          row[14]
-            ?.toString()
-            .trim()
-            .toUpperCase();
+      const cedula =
+        row[1]
+          ?.toString()
+          .trim()
+          .toUpperCase();
 
-        if (
+      const pasaporte =
+        row[14]
+          ?.toString()
+          .trim()
+          .toUpperCase();
 
-          cedula === buscado ||
+      if (
+        cedula === buscado ||
+        pasaporte === buscado
+      ) {
 
-          pasaporte === buscado
-
-        ) {
-
-          fila =
-            index + 1;
-
-        }
+        fila = index + 1;
 
       }
-    );
+
+    });
 
     if (fila === -1) {
 
@@ -101,74 +94,78 @@ export async function POST(
 
     }
 
-    // Validar cédula duplicada
+    const cedulaNueva =
+      body.cedula
+        ?.trim()
+        .toUpperCase();
 
-const cedulaNueva =
-  body.cedula
-    ?.trim()
-    .toUpperCase();
+    const pasaporteNuevo =
+      body.pasaporte
+        ?.trim()
+        .toUpperCase();
 
-const pasaporteNuevo =
-  body.pasaporte
-    ?.trim()
-    .toUpperCase();
+    // Validar duplicados
 
-for (let i = 1; i < rows.length; i++) {
+    for (
+      let i = 1;
+      i < rows.length;
+      i++
+    ) {
 
-  // Ignorar el mismo ciudadano
+      // Ignorar la fila del ciudadano que se edita
 
-  if (i + 1 === fila) {
-    continue;
-  }
+      if (i + 1 === fila)
+        continue;
 
-  const cedulaExistente =
-    rows[i][1]
-      ?.toString()
-      .trim()
-      .toUpperCase();
+      const cedulaExistente =
+        rows[i][1]
+          ?.toString()
+          .trim()
+          .toUpperCase();
 
-  const pasaporteExistente =
-    rows[i][14]
-      ?.toString()
-      .trim()
-      .toUpperCase();
+      const pasaporteExistente =
+        rows[i][14]
+          ?.toString()
+          .trim()
+          .toUpperCase();
 
-  if (
-    cedulaNueva &&
-    cedulaNueva === cedulaExistente
-  ) {
+      if (
+        cedulaNueva &&
+        cedulaNueva ===
+          cedulaExistente
+      ) {
 
-    return NextResponse.json({
+        return NextResponse.json({
 
-      ok: false,
+          ok: false,
 
-      error:
-        "Ya existe otro ciudadano con esa cédula.",
+          error:
+            "Ya existe otro ciudadano con esa cédula.",
 
-    });
+        });
 
-  }
+      }
 
-  if (
+      if (
+        pasaporteNuevo &&
+        pasaporteNuevo ===
+          pasaporteExistente
+      ) {
 
-    pasaporteNuevo &&
+        return NextResponse.json({
 
-    pasaporteNuevo === pasaporteExistente
+          ok: false,
 
-  ) {
+          error:
+            "Ya existe otro ciudadano con ese pasaporte.",
 
-    return NextResponse.json({
+        });
 
-      ok: false,
+      }
 
-      error:
-        "Ya existe otro ciudadano con ese pasaporte.",
+    }
 
-    });
-
-  }
-
-}
+    // Actualizar
 
     await sheets.spreadsheets.values.update({
 

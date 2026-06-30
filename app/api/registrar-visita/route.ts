@@ -18,14 +18,28 @@ export async function POST(
     documento,
     cedula,
     pasaporte,
+    nacionalidad,
     nombre,
     tipo,
   } = await req.json();
 
-  const fecha =
-    new Date().toLocaleString(
-      "es-CO"
-    );
+  const ahora = new Date();
+
+const fecha = new Intl.DateTimeFormat(
+  "sv-SE",
+  {
+    timeZone: "America/Bogota",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }
+)
+.format(new Date())
+.replace(" ", "T");
 
   await sheets.spreadsheets.values.append({
 
@@ -33,7 +47,7 @@ export async function POST(
       MODULO_CAJA_SHEET_ID,
 
     range:
-      "BitacoraVisitas!A:F",
+      "BitacoraVisitas!A:G",
 
     valueInputOption:
       "USER_ENTERED",
@@ -53,6 +67,8 @@ export async function POST(
         nombre,
 
         tipo,
+
+        nacionalidad || "",
 
       ]],
 

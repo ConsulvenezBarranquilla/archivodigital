@@ -42,6 +42,33 @@ const [
   setHistorialTramites,
 ] = useState<any[]>([]);
 
+const [mostrarReporte, setMostrarReporte] =
+  useState(false);
+
+const [mostrarModalReporte, setMostrarModalReporte] =
+  useState(false);
+
+const [fechaInicialReporte, setFechaInicialReporte] =
+  useState("");
+
+const [fechaFinalReporte, setFechaFinalReporte] =
+  useState("");
+
+const [detalleReporte, setDetalleReporte] =
+  useState<any[]>([]);
+
+const [resumenReporte, setResumenReporte] =
+  useState<any[]>([]);
+
+const [totalVisitasReporte, setTotalVisitasReporte] =
+  useState(0);
+
+const [tituloReporte, setTituloReporte] =
+  useState("");
+
+const [cargandoReporte, setCargandoReporte] =
+  useState(false);
+
   const [
     mensaje,
     setMensaje,
@@ -239,11 +266,15 @@ function mostrarToast(
   window.location.href = "/";
 
 }
-  function limpiarCampos() {
+  function limpiarPantalla() {
 
   setDocumento("");
 
   setCiudadano(null);
+
+  setCiudadanoOriginal(null);
+
+  setHayCambios(false);
 
   setHistorialVisitas([]);
 
@@ -254,6 +285,8 @@ function mostrarToast(
   setMostrarTramites(false);
 
   setMensaje("");
+
+  limpiarReporte();
 
 }
 async function cargarCatalogos() {
@@ -395,7 +428,7 @@ ${faltantes.join("\n")}`,
   setGuardando(true);
 
   try {
-
+console.log(ciudadano);
     const response =
       await fetch(
         "/api/actualizar-ciudadano",
@@ -449,6 +482,223 @@ ${faltantes.join("\n")}`,
   }
 
 }
+async function generarReporteDiario() {
+
+  setCargandoReporte(true);
+
+  try {
+
+    const response = await fetch(
+      "/api/reporte-visitas",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          tipo: "diario",
+        }),
+      }
+    );
+
+    const data = await response.json();
+    console.log("RESPUESTA API", data);
+setDetalleReporte(data.detalle || []);
+
+setResumenReporte(data.resumen || []);
+
+setTotalVisitasReporte(data.total || 0);
+
+setTituloReporte(data.titulo || "");
+
+setMostrarReporte(true);
+
+  } finally {
+
+    setCargandoReporte(false);
+
+  }
+
+}
+
+function abrirReporteFechas() {
+
+  setMostrarModalReporte(true);
+
+}
+
+function cerrarReporteFechas() {
+
+  setMostrarModalReporte(false);
+
+}
+
+function limpiarReporte() {
+
+  setMostrarReporte(false);
+
+  setDetalleReporte([]);
+
+  setResumenReporte([]);
+
+  setTotalVisitasReporte(0);
+
+  setTituloReporte("");
+
+  setFechaInicialReporte("");
+
+  setFechaFinalReporte("");
+
+  setMostrarModalReporte(false);
+
+}
+async function generarReportePorFechas() {
+
+  if (
+    !fechaInicialReporte ||
+    !fechaFinalReporte
+  ) {
+
+    mostrarToast(
+      "Debe seleccionar ambas fechas.",
+      "red"
+    );
+
+    return;
+
+  }
+
+  setMostrarModalReporte(false);
+
+  setCargandoReporte(true);
+
+  try {
+
+    const response = await fetch(
+      "/api/reporte-visitas",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+
+          tipo: "rango",
+
+          desde: fechaInicialReporte,
+
+          hasta: fechaFinalReporte,
+
+        }),
+      }
+    );
+
+    const data = await response.json();
+console.log("RESPUESTA API", data);
+setDetalleReporte(data.detalle || []);
+
+setResumenReporte(data.resumen || []);
+
+setTotalVisitasReporte(data.total || 0);
+
+setTituloReporte(data.titulo || "");
+
+setMostrarReporte(true);
+
+  } finally {
+
+    setCargandoReporte(false);
+
+  }
+
+}
+async function descargarExcelReporte() {
+
+  try {
+
+    const response = await fetch(
+      "/api/reporte-visitas-excel",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type":
+            "application/json",
+        },
+        body: JSON.stringify({
+
+          titulo:
+            tituloReporte,
+
+          desde:
+            fechaInicialReporte,
+
+          hasta:
+            fechaFinalReporte,
+
+          total:
+            totalVisitasReporte,
+
+          detalle:
+            detalleReporte,
+
+          resumen:
+            resumenReporte,
+
+        }),
+      }
+    );
+
+    if (!response.ok) {
+
+      mostrarToast(
+        "No fue posible generar el reporte.",
+        "red"
+      );
+
+      return;
+
+    }
+
+    const blob =
+      await response.blob();
+
+    const url =
+      window.URL.createObjectURL(
+        blob
+      );
+
+    const link =
+      document.createElement("a");
+
+    link.href = url;
+
+    link.download =
+      `ReporteVisitas_${Date.now()}.xlsx`;
+
+    document.body.appendChild(
+      link
+    );
+
+    link.click();
+
+    link.remove();
+
+    window.URL.revokeObjectURL(
+      url
+    );
+
+  } catch (error) {
+
+    console.error(error);
+
+    mostrarToast(
+      "Error generando el Excel.",
+      "red"
+    );
+
+  }
+
+}
 async function registrarVisita() {
     
   try {
@@ -472,6 +722,9 @@ cedula:
 
 pasaporte:
   ciudadano.pasaporte,
+
+  nacionalidad:
+    ciudadano.nacionalidad,
 
             nombre:
               ciudadano.nombreCompleto,
@@ -995,11 +1248,37 @@ await cargarEstadisticas();
   </button>
 
   <button
-  onClick={limpiarCampos}
+  onClick={limpiarPantalla}
 >
     🧹 Limpiar
   </button>
+ <button
+  onClick={generarReporteDiario}
+  className="
+    bg-green-700
+    text-white
+    px-5
+    py-3
+    rounded-xl
+    hover:bg-green-800
+  "
+>
+  📄 Reporte Diario
+</button>
 
+<button
+  onClick={abrirReporteFechas}
+  className="
+    bg-indigo-700
+    text-white
+    px-5
+    py-3
+    rounded-xl
+    hover:bg-indigo-800
+  "
+>
+  📅 Reporte por Fechas
+</button>
 </div>
 
             {mensaje && (
@@ -1495,7 +1774,7 @@ await cargarEstadisticas();
 
   <button
     onClick={
-      limpiarCampos
+      limpiarPantalla
     }
     className="
       bg-slate-500
@@ -1845,6 +2124,392 @@ await cargarEstadisticas();
 </div>
 </div>
           )}
+          {mostrarReporte && (
+
+<div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+
+<div className="bg-white rounded-2xl shadow-2xl w-[95%] max-w-7xl max-h-[92vh] overflow-auto p-8">
+
+<div className="flex justify-between items-center mb-6">
+
+<h2 className="text-3xl font-bold text-blue-950">
+
+{tituloReporte}
+
+</h2>
+
+<div className="flex gap-3">
+
+<button
+onClick={limpiarReporte}
+className="bg-slate-500 text-white px-5 py-2 rounded-xl hover:bg-slate-600"
+>
+
+🧹 Limpiar
+
+</button>
+
+<button
+onClick={descargarExcelReporte}
+disabled={detalleReporte.length===0}
+className={`
+px-5
+py-2
+rounded-xl
+text-white
+font-semibold
+
+${
+detalleReporte.length===0
+? "bg-green-300 cursor-not-allowed"
+: "bg-green-700 hover:bg-green-800"
+}
+`}
+>
+
+📥 Descargar Excel
+
+</button>
+
+<button
+onClick={()=>setMostrarReporte(false)}
+className="bg-red-600 text-white px-5 py-2 rounded-xl hover:bg-red-700"
+>
+
+Cerrar
+
+</button>
+
+</div>
+
+</div>
+
+<div className="flex justify-center mb-5">
+
+<img
+src="/logo.png"
+className="w-20"
+/>
+
+</div>
+
+<h3 className="text-center text-2xl font-bold text-blue-950">
+
+CONSULADO GENERAL DE LA REPÚBLICA BOLIVARIANA DE VENEZUELA EN BARRANQUILLA
+
+</h3>
+
+<p className="text-center mt-2 text-lg">
+
+REPORTE DE VISITAS
+
+</p>
+
+<div className="grid md:grid-cols-4 gap-4 mt-8 mb-8">
+
+<div>
+
+<strong>Período</strong>
+
+<div>
+
+{tituloReporte}
+
+</div>
+
+</div>
+
+<div>
+
+<strong>Desde</strong>
+
+<div>
+
+{fechaInicialReporte || "-"}
+
+</div>
+
+</div>
+
+<div>
+
+<strong>Hasta</strong>
+
+<div>
+
+{fechaFinalReporte || "-"}
+
+</div>
+
+</div>
+
+<div>
+
+<strong>Total</strong>
+
+<div>
+
+{totalVisitasReporte}
+
+</div>
+
+</div>
+
+</div>
+
+<div className="overflow-x-auto">
+
+<table className="w-full border-collapse">
+
+<thead>
+
+<tr className="bg-blue-950 text-white">
+
+<th className="p-3 w-14">
+
+#
+
+</th>
+
+<th className="p-3 text-left">
+
+Fecha y Hora
+
+</th>
+
+<th className="p-3 text-left">
+
+Documento
+
+</th>
+
+<th className="p-3 text-left">
+
+Nombre
+
+</th>
+
+<th className="p-3 text-left">
+
+Motivo
+
+</th>
+
+</tr>
+
+</thead>
+
+<tbody>
+
+{detalleReporte.map((item,index)=>(
+
+<tr
+key={index}
+className="border-b hover:bg-slate-50"
+>
+
+<td className="text-center">
+
+{index+1}
+
+</td>
+
+<td className="p-3">
+
+{item.fecha}
+
+</td>
+
+<td className="p-3">
+
+{item.documento}
+
+</td>
+
+<td className="p-3">
+
+{item.nombre}
+
+</td>
+
+<td className="p-3">
+
+{item.tipo}
+
+</td>
+
+</tr>
+
+))}
+
+</tbody>
+
+</table>
+
+</div>
+
+<hr className="my-8"/>
+
+<h3 className="text-xl font-bold mb-4">
+
+Resumen por tipo de visita
+
+</h3>
+
+<table className="w-full border-collapse">
+
+<thead>
+
+<tr className="bg-slate-200">
+
+<th className="p-3 text-left">
+
+Tipo
+
+</th>
+
+<th className="p-3 text-center w-32">
+
+Cantidad
+
+</th>
+
+</tr>
+
+</thead>
+
+<tbody>
+
+{resumenReporte.map((item,index)=>(
+
+<tr
+key={index}
+className="border-b"
+>
+
+<td className="p-3">
+
+{item.tipo}
+
+</td>
+
+<td className="text-center font-bold">
+
+{item.cantidad}
+
+</td>
+
+</tr>
+
+))}
+
+</tbody>
+
+<tfoot>
+
+<tr className="bg-blue-950 text-white">
+
+<td className="p-3 font-bold">
+
+TOTAL GENERAL
+
+</td>
+
+<td className="text-center font-bold">
+
+{totalVisitasReporte}
+
+</td>
+
+</tr>
+
+</tfoot>
+
+</table>
+
+</div>
+
+</div>
+
+)}
+{mostrarModalReporte && (
+
+  <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+
+    <div className="bg-white rounded-xl p-6 w-[420px] shadow-xl">
+
+      <h2 className="text-xl font-bold mb-6 text-center">
+
+        Reporte de Visitas
+
+      </h2>
+
+      <div className="mb-4">
+
+        <label className="block mb-1 font-medium">
+
+          Fecha Inicial
+
+        </label>
+
+        <input
+          type="date"
+          value={fechaInicialReporte}
+          onChange={(e)=>
+            setFechaInicialReporte(
+              e.target.value
+            )
+          }
+          className="w-full border rounded-lg px-3 py-2"
+        />
+
+      </div>
+
+      <div className="mb-6">
+
+        <label className="block mb-1 font-medium">
+
+          Fecha Final
+
+        </label>
+
+        <input
+          type="date"
+          value={fechaFinalReporte}
+          onChange={(e)=>
+            setFechaFinalReporte(
+              e.target.value
+            )
+          }
+          className="w-full border rounded-lg px-3 py-2"
+        />
+
+      </div>
+
+      <div className="flex justify-end gap-3">
+
+        <button
+          onClick={cerrarReporteFechas}
+          className="px-4 py-2 rounded-lg border"
+        >
+          Cancelar
+        </button>
+
+        <button
+          onClick={generarReportePorFechas}
+          className="px-4 py-2 rounded-lg bg-blue-700 text-white"
+        >
+          Generar Reporte
+        </button>
+
+      </div>
+
+    </div>
+
+  </div>
+
+)}
+
 </div>
 </div>
 </main>

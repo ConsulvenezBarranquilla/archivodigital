@@ -23,6 +23,9 @@ export async function POST(
       usuario,
     } = body;
 
+    console.log("CIUDADANO RECIBIDO:");
+console.dir(ciudadano, { depth: null });
+
     const documentoImpreso =
   obtenerDocumentoPrincipal(
     ciudadano.cedula,
@@ -84,23 +87,22 @@ export async function POST(
     "es-VE"
   );
 
+  console.log("NACIONALIDAD A GUARDAR:", ciudadano.nacionalidad);
     await guardarMovimientoCaja([
   fecha,
   correlativo,
   documentoImpreso,
   ciudadano.nombreCompleto,
   ciudadano.correo,
-  actuaciones
-    .map((a:any) => a.actuacion)
-    .join("; "),
+  actuaciones.map((a:any) => a.actuacion).join("; "),
   totalUSD,
   usuario.nombre,
   usuario.caja,
   "",
   "GENERADO",
-
   ciudadano.cedula || "",
   ciudadano.pasaporte || "",
+  ciudadano.nacionalidad || "",
 ]);
 console.log(actuaciones);
 for (const actuacion of actuaciones) {

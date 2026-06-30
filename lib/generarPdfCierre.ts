@@ -41,19 +41,24 @@ type DatosCierre = {
   totalActuaciones: number;
 
   leyendaCodigos: Record<
-    string,
-    string
-  >;
+  string,
+  {
+    nombre:string;
+    cantidad:number;
+  }
+>;
 
 };
 
 export async function generarPdfCierre(
   datos: DatosCierre
 ) {
-console.log(
-    "DATOS RECIBIDOS EN EL PDF:"
-  );
-  console.dir(datos, { depth: null });
+console.log("===== PDF =====");
+console.log("LEYENDA RECIBIDA:");
+console.dir(
+  datos.leyendaCodigos,
+  { depth: null }
+);
   const pdfDoc =
     await PDFDocument.create();
 
@@ -240,7 +245,7 @@ page.drawText(
 );
 
   let y = 515;
-
+console.log(datos.registros);
   datos.registros.forEach(
   (item) => {
 
@@ -275,8 +280,8 @@ page.drawText(
     );
 
     page.drawText(
-  String(item[4]),
-  {
+  String(item[4])
+  ,{
     x: 380,
     y,
     size: 9,
@@ -353,7 +358,7 @@ page.drawText(
 const imprimirTituloLeyenda = () => {
 
   page.drawText(
-    "LEYENDA DE CÓDIGOS",
+    "RESUMEN DE ACTUACIONES",
     {
       x: 40,
       y,
@@ -363,6 +368,51 @@ const imprimirTituloLeyenda = () => {
   );
 
   y -= 20;
+  page.drawText(
+  "Código",
+  {
+    x: 50,
+    y,
+    size: 9,
+    font: bold,
+  }
+);
+
+page.drawText(
+  "Actuación",
+  {
+    x: 120,
+    y,
+    size: 9,
+    font: bold,
+  }
+);
+
+page.drawText(
+  "Cantidad",
+  {
+    x: 500,
+    y,
+    size: 9,
+    font: bold,
+  }
+);
+
+y -= 10;
+
+page.drawLine({
+  start: {
+    x: 45,
+    y,
+  },
+  end: {
+    x: 565,
+    y,
+  },
+  thickness: 0.8,
+});
+
+y -= 12;
 
 };
 
@@ -385,7 +435,7 @@ if (y < 170) {
   y -= 35;
 
   page.drawText(
-    "ANEXO - LEYENDA DE CÓDIGOS",
+    "ANEXO - RESUMEN DE ACTUACIONES",
     {
       x: 40,
       y,
@@ -402,50 +452,109 @@ if (y < 170) {
 
 }
 
-Object.entries(
-  datos.leyendaCodigos
-).forEach(
+Object.entries(datos.leyendaCodigos)
 
-  ([codigo, nombre]) => {
+.sort((a, b) =>
 
-    if (y < 60) {
+  a[0].localeCompare(b[0])
 
-      page = pdfDoc.addPage([612, 792]);
+)
 
-      y = 740;
+.forEach(([codigo, item]) => {
 
-      page.drawText(
-        "ANEXO - LEYENDA DE CÓDIGOS",
-        {
-          x: 40,
-          y,
-          size: 13,
-          font: bold,
-        }
-      );
+  if (y < 60) {
 
-      y -= 30;
+    page = pdfDoc.addPage([612, 792]);
 
-    }
+    y = 740;
 
     page.drawText(
-
-      `${codigo}  -  ${nombre}`,
-
+      "ANEXO - RESUMEN DE ACTUACIONES",
       {
-        x: 50,
+        x: 40,
         y,
-        size: 9,
-        font,
+        size: 13,
+        font: bold,
       }
-
     );
 
-    y -= 15;
+    y -= 30;
+page.drawText("Código", {
+  x: 50,
+  y,
+  size: 9,
+  font: bold,
+});
+
+page.drawText("Actuación", {
+  x: 120,
+  y,
+  size: 9,
+  font: bold,
+});
+
+page.drawText("Cantidad", {
+  x: 500,
+  y,
+  size: 9,
+  font: bold,
+});
+
+y -= 10;
+
+page.drawLine({
+  start: { x: 45, y },
+  end: { x: 565, y },
+  thickness: 0.8,
+});
+
+y -= 12;
 
   }
 
+  page.drawText(
+  codigo,
+  {
+    x: 50,
+    y,
+    size: 9,
+    font: bold,
+  }
 );
+
+page.drawText(
+  item.nombre,
+  {
+    x: 120,
+    y,
+    size: 9,
+    font,
+  }
+);
+
+page.drawText(
+  String(item.cantidad),
+  {
+    x: 520,
+    y,
+    size: 9,
+    font: bold,
+  }
+);
+page.drawLine({
+  start: {
+    x: 45,
+    y: y - 4,
+  },
+  end: {
+    x: 565,
+    y: y - 4,
+  },
+  thickness: 0.3,
+});
+  y -= 15;
+
+});
 page.drawLine({
   start: {
     x: 40,
@@ -457,31 +566,7 @@ page.drawLine({
   },
   thickness: 1,
 });
-page.drawLine({
-  start: { x: 180, y: 95 },
-  end: { x: 430, y: 95 },
-  thickness: 1,
-});
 
-page.drawText(
-  datos.usuario,
-  {
-    x: 220,
-    y: 75,
-    size: 10,
-    font,
-  }
-);
-
-page.drawText(
-  datos.caja,
-  {
-    x: 260,
-    y: 60,
-    size: 10,
-    font,
-  }
-);
 page.drawText(
   "Documento generado por el Sistema de Caja Consular",
   {

@@ -92,29 +92,11 @@ const tipo =
 if (!fechaTexto)
   return;
 
-const soloFecha =
-  fechaTexto
-    .split(",")[0]
-    .trim();
-
-const partes =
-  soloFecha.split("/");
-
-if (
-  partes.length !== 3
-)
-  return;
-
 const fecha =
-  new Date(
+  new Date(fechaTexto);
 
-    Number(partes[2]),
-
-    Number(partes[1]) - 1,
-
-    Number(partes[0])
-
-  );
+if (isNaN(fecha.getTime()))
+  return;
 
         if (
           fecha.getFullYear() ===
@@ -160,11 +142,25 @@ const fecha =
 
         }
 
-        if (
-          fecha.toLocaleDateString(
-            "es-CO"
-          ) === dia
-        ) {
+        const hoyColombia =
+  new Intl.DateTimeFormat(
+    "sv-SE",
+    {
+      timeZone:
+        "America/Bogota",
+    }
+  ).format(new Date());
+
+const fechaFila =
+  new Intl.DateTimeFormat(
+    "sv-SE",
+    {
+      timeZone:
+        "America/Bogota",
+    }
+  ).format(fecha);
+
+if (fechaFila === hoyColombia) {
 
           hoyTotal++;
 

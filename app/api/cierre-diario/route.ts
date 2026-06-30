@@ -162,16 +162,57 @@ const documento =
   );
 const leyendaCodigos: Record<
   string,
-  string
+  {
+    nombre: string;
+    cantidad: number;
+  }
 > = {};
 
 registros.forEach((r) => {
 
-  leyendaCodigos[
-    r[4]
-  ] = r[5];
+  const codigo = r[4];
+
+  if (!leyendaCodigos[codigo]) {
+
+    leyendaCodigos[codigo] = {
+
+      nombre: r[5],
+
+      cantidad: 0,
+
+    };
+
+  }
+
+  leyendaCodigos[codigo].cantidad++;
 
 });
+
+const leyendaCodigosOrdenada =
+
+Object.fromEntries(
+
+  Object.entries(
+    leyendaCodigos
+  ).sort(
+
+    (a, b) =>
+
+      a[0].localeCompare(
+        b[0]
+      )
+
+  )
+
+);
+console.log("==================================");
+console.log("ESTOY EN CIERRE-DIARIO NUEVO");
+console.dir(
+  leyendaCodigosOrdenada,
+  { depth: null }
+);
+console.log("==================================");
+
     return NextResponse.json({
       ok: true,
       fecha: hoy,
@@ -181,10 +222,13 @@ registros.forEach((r) => {
       registros,
       totalUSD,
       totalRecibos:
-        correlativos.length,
+new Set(
+  correlativos
+).size,
       totalActuaciones:
         registros.length,
-        leyendaCodigos,
+        leyendaCodigos:
+leyendaCodigosOrdenada,
     });
 
   } catch (error: any) {
