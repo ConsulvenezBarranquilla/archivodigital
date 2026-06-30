@@ -3,7 +3,8 @@ import { NextResponse } from "next/server";
 import {
   sheets,
   MODULO_CAJA_SHEET_ID,
-} from "@/lib/googleSheets";
+  REGISTRO_CONSULAR_SHEET_ID,
+  } from "@/lib/googleSheets";
 
 export async function GET() {
 
@@ -14,7 +15,7 @@ export async function GET() {
         spreadsheetId:
           MODULO_CAJA_SHEET_ID,
         range:
-          "Caja!A:K",
+          "Caja!A:M",
       });
 
     const detalleResponse =
@@ -33,6 +34,22 @@ export async function GET() {
           "UsuariosCaja!A:F",
       });
 
+      const visitasResponse =
+  await sheets.spreadsheets.values.get({
+    spreadsheetId:
+      MODULO_CAJA_SHEET_ID,
+    range:
+      "BitacoraVisitas!A:G",
+  });
+
+const registroResponse =
+  await sheets.spreadsheets.values.get({
+    spreadsheetId:
+      REGISTRO_CONSULAR_SHEET_ID,
+    range:
+      "Respuestas de formulario 1!B:G",
+  });
+
     const cajaRows =
       cajaResponse.data.values || [];
 
@@ -41,6 +58,12 @@ export async function GET() {
 
     const usuariosRows =
       usuariosResponse.data.values || [];
+
+      const visitasRows =
+  visitasResponse.data.values || [];
+
+const registroRows =
+  registroResponse.data.values || [];
 
     const hoy =
       new Date()
@@ -62,6 +85,20 @@ export async function GET() {
     let usdMes = 0;
     let anuladosMes = 0;
     let actuacionesMes = 0;
+
+    let visitasHoy = 0;
+
+let visitasMes = 0;
+
+let visitasAcumuladas = 0;
+
+let ciudadanosRegistrados = 0;
+
+let venezolanos = 0;
+
+let extranjeros = 0;
+
+const ultimasVisitas: any[] = [];
 
     let caja1Recibos = 0;
     let caja1Usd = 0;
@@ -293,7 +330,124 @@ export async function GET() {
             a.cantidad
         )
         .slice(0, 10);
+visitasRows
+  .slice(1)
+  .forEach((row) => {
 
+    const fechaTexto =
+      row[0] || "";
+
+    if (!fechaTexto)
+      return;
+
+    const fechaSolo =
+      fechaTexto.substring(0, 10);
+
+    const hoyISO =
+      new Intl.DateTimeFormat(
+        "sv-SE",
+        {
+          timeZone:
+            "America/Bogota",
+        }
+      ).format(
+        new Date()
+      );
+
+    const mesVisita =
+      Number(
+        fechaSolo.substring(
+          5,
+          7
+        )
+      );
+
+    const anioVisita =
+      Number(
+        fechaSolo.substring(
+          0,
+          4
+        )
+      );
+
+    visitasAcumuladas++;
+
+    if (
+      fechaSolo ===
+      hoyISO
+    ) {
+
+      visitasHoy++;
+
+    }
+
+    if (
+
+      mesVisita ===
+        mesActual &&
+
+      anioVisita ===
+        anioActual
+
+    ) {
+
+      visitasMes++;
+
+    }
+
+    ultimasVisitas.push({
+
+      fecha:
+        fechaTexto,
+
+      documento:
+        row[1] || "",
+
+      nombre:
+        row[4] || "",
+
+      tipo:
+        row[5] || "",
+
+    });
+
+  });
+
+ultimasVisitas.reverse();
+registroRows
+  .slice(1)
+  .forEach((row) => {
+
+    const documento =
+      row[0];
+
+    if (!documento)
+      return;
+
+    ciudadanosRegistrados++;
+
+    const nacionalidad =
+      (
+        row[5] || ""
+      )
+        .toString()
+        .trim()
+        .toUpperCase();
+
+    if (
+      nacionalidad ===
+      "VENEZOLANO"
+    ) {
+
+      venezolanos++;
+
+    } else {
+
+      extranjeros++;
+
+    }
+
+  });
     const usuariosActivos =
       usuariosRows
         .slice(1)
@@ -313,11 +467,7 @@ export async function GET() {
 
       usdHoy,
 
-      anuladosHoy,
-
-      usuariosActivos,
-
-      caja1: {
+            caja1: {
 
         recibos:
           caja1Recibos,
@@ -346,13 +496,27 @@ export async function GET() {
 
       topActuaciones,
 
-      ultimosMovimientos:
-        ultimosMovimientos.slice(
-          0,
-          10
-        ),
+      visitasHoy,
+visitasMes,
+visitasAcumuladas,
 
-    });
+ciudadanosRegistrados,
+venezolanos,
+extranjeros,
+
+ultimosMovimientos:
+  ultimosMovimientos.slice(
+    0,
+    10
+  ),
+
+ultimasVisitas:
+  ultimasVisitas.slice(
+    0,
+    10
+  ),
+
+});
 
   } catch (error: any) {
 

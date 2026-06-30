@@ -208,6 +208,34 @@ export default function AdminPage() {
 
 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
 
+<div className="bg-slate-50 rounded-2xl shadow-md p-6 border-l-4 border-orange-500">
+
+  <p className="text-slate-600 text-sm">
+    🪪 Registro Consular
+  </p>
+
+  <h2 className="text-3xl font-bold text-orange-700 mt-2">
+    {dashboard.ciudadanosRegistrados}
+  </h2>
+
+  <p className="text-sm text-slate-600 mt-3">
+    Venezolanos:
+    <strong>
+      {" "}
+      {dashboard.venezolanos}
+    </strong>
+  </p>
+
+  <p className="text-sm text-slate-600">
+    Extranjeros:
+    <strong>
+      {" "}
+      {dashboard.extranjeros}
+    </strong>
+  </p>
+
+</div>
+
   <div className="bg-slate-50 rounded-2xl shadow-md p-6 border-l-4 border-blue-700">
     <p className="text-slate-600 text-sm">
       Recibos Hoy
@@ -228,25 +256,30 @@ export default function AdminPage() {
     </h2>
   </div>
 
-  <div className="bg-slate-50 rounded-2xl shadow-md p-6 border-l-4 border-red-600">
-    <p className="text-slate-600 text-sm">
-      Anulados Hoy
-    </p>
+  <div className="bg-slate-50 rounded-2xl shadow-md p-6 border-l-4 border-blue-500">
 
-    <h2 className="text-4xl font-bold text-red-600 mt-2">
-      {dashboard.anuladosHoy}
-    </h2>
-  </div>
+  <p className="text-slate-600 text-sm">
+    👥 Visitas Hoy
+  </p>
 
-  <div className="bg-slate-50 rounded-2xl shadow-md p-6 border-l-4 border-yellow-500">
-    <p className="text-slate-600 text-sm">
-      Usuarios Activos
-    </p>
+  <h2 className="text-4xl font-bold text-blue-700 mt-2">
+    {dashboard.visitasHoy}
+  </h2>
 
-    <h2 className="text-4xl font-bold text-yellow-600 mt-2">
-      {dashboard.usuariosActivos}
-    </h2>
-  </div>
+</div>
+
+<div className="bg-slate-50 rounded-2xl shadow-md p-6 border-l-4 border-green-500">
+
+  <p className="text-slate-600 text-sm">
+    📅 Visitas Mes
+  </p>
+
+  <h2 className="text-4xl font-bold text-green-700 mt-2">
+    {dashboard.visitasMes}
+  </h2>
+
+</div>
+
 
 <div className="bg-slate-50 rounded-2xl shadow-md p-6 border-l-4 border-indigo-600">
 
@@ -408,7 +441,86 @@ export default function AdminPage() {
 </div>
 
 <br />
+<div className="bg-slate-50 rounded-2xl shadow-md p-6 mt-8">
 
+  <h2 className="text-2xl font-bold text-blue-950 mb-4">
+    Últimas Visitas
+  </h2>
+
+  <div className="bg-white rounded-2xl shadow-md overflow-hidden">
+
+    <table className="w-full">
+
+      <thead className="bg-blue-950 text-white">
+
+        <tr>
+
+          <th className="p-3 text-left">
+            Fecha
+          </th>
+
+          <th className="p-3 text-left">
+            Documento
+          </th>
+
+          <th className="p-3 text-left">
+            Nombre
+          </th>
+
+          <th className="p-3 text-left">
+            Tipo
+          </th>
+
+        </tr>
+
+      </thead>
+
+      <tbody>
+
+        {dashboard.ultimasVisitas.map(
+          (
+            item: any,
+            index: number
+          ) => (
+
+            <tr
+              key={index}
+              className="
+                border-b
+                hover:bg-slate-50
+              "
+            >
+
+              <td className="p-3 whitespace-nowrap">
+                {item.fecha}
+              </td>
+
+              <td className="p-3">
+                {item.documento}
+              </td>
+
+              <td className="p-3">
+                {item.nombre}
+              </td>
+
+              <td className="p-3">
+                {item.tipo}
+              </td>
+
+            </tr>
+
+          )
+        )}
+
+      </tbody>
+
+    </table>
+
+  </div>
+
+</div>
+
+<br />
           <div className="bg-slate-50 rounded-2xl shadow-md p-6 mt-8">
 
   <h2 className="text-2xl font-bold text-blue-950 mb-4">
