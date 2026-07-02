@@ -17,8 +17,34 @@ export default function ConsultasPage() {
     setDashboard,
   ] = useState<any>(null);
 
+  const [
+  mostrarResumen,
+  setMostrarResumen,
+] = useState(false);
+
+const [
+  fechaDesde,
+  setFechaDesde,
+] = useState("");
+
+const [
+  fechaHasta,
+  setFechaHasta,
+] = useState("");
+
+const [
+  resumen,
+  setResumen,
+] = useState<any>(null);
+
+const [
+  cargandoResumen,
+  setCargandoResumen,
+] = useState(false);
+
   useEffect(() => {
 
+    
     const data =
       localStorage.getItem(
         "usuarioCaja"
@@ -64,7 +90,67 @@ export default function ConsultasPage() {
     cargarDashboard();
 
   }, []);
+async function consultarResumen() {
 
+  if (!fechaDesde || !fechaHasta) {
+
+    alert(
+      "Seleccione ambas fechas."
+    );
+
+    return;
+
+  }
+
+  setCargandoResumen(true);
+
+  try {
+
+    const response =
+      await fetch(
+        "/api/resumen-actuaciones",
+        {
+
+          method: "POST",
+
+          headers: {
+
+            "Content-Type":
+              "application/json",
+
+          },
+
+          body: JSON.stringify({
+
+            desde: fechaDesde,
+
+            hasta: fechaHasta,
+
+          }),
+
+        }
+      );
+
+    const data =
+      await response.json();
+
+    if (data.ok) {
+
+      setResumen(data);
+
+    } else {
+
+      alert(data.error);
+
+    }
+
+  } finally {
+
+    setCargandoResumen(false);
+
+  }
+
+}
   async function cargarDashboard() {
 
     const response =
@@ -85,7 +171,11 @@ export default function ConsultasPage() {
 
   if (!usuario) {
 
-    return <div>Cargando...</div>;
+    return (
+      <div>
+        Cargando...
+      </div>
+    );
 
   }
 
@@ -113,7 +203,19 @@ Centro de Consultas
 
 </h1>
 
-<p className="text-center text-slate-700 mt-3">
+<p className="text-center text-slate-700 text-lg mt-4">
+
+Bienvenido{" "}
+
+<strong>
+
+{usuario.nombre}
+
+</strong>
+
+</p>
+
+<p className="text-center text-slate-600 mt-2">
 
 Consulado General de la República
 Bolivariana de Venezuela
@@ -134,6 +236,69 @@ en Barranquilla
 </div>
 
 </div>
+
+<div className="flex flex-wrap justify-center gap-3 mb-8">
+
+{usuario.rol === "admin" && (
+
+<>
+
+<a
+href="/admin"
+className="bg-green-700 text-white px-4 py-2 rounded-xl hover:bg-green-800"
+>
+
+🏠 Inicio
+
+</a>
+
+<a
+href="/recepcion"
+className="bg-blue-950 text-white px-4 py-2 rounded-xl hover:bg-blue-900"
+>
+
+Recepción
+
+</a>
+
+<a
+href="/caja"
+className="bg-blue-950 text-white px-4 py-2 rounded-xl hover:bg-blue-900"
+>
+
+Caja
+
+</a>
+
+</>
+
+)}
+
+<a
+href="/consultas"
+className="bg-blue-950 text-white px-4 py-2 rounded-xl hover:bg-blue-900"
+>
+
+Centro de Consultas
+
+</a>
+
+{usuario.rol === "analista" && (
+
+<a
+href="/gestion-consular"
+className="bg-blue-950 text-white px-4 py-2 rounded-xl hover:bg-blue-900"
+>
+
+Sistema Gestión Consular
+
+</a>
+
+)}
+
+</div>
+
+<hr className="mb-8"/>
 
 <div className="flex justify-end mb-6">
 
@@ -160,13 +325,802 @@ Cerrar Sesión
 
 </div>
 
-{/* Aquí colocaremos las tarjetas */}
+{dashboard && (
+
+<>
+{/* ============================
+    REGISTRO CONSULAR
+============================ */}
+
+<div className="flex justify-center mb-8">
+
+  <div className="bg-slate-50 rounded-2xl shadow-md p-8 border-l-4 border-red-600 w-full max-w-md">
+
+    <p className="text-slate-600 text-center">
+
+      Registro Consular
+
+    </p>
+
+    <h2 className="text-5xl font-bold text-red-700 text-center mt-3">
+
+      {dashboard.registroConsular.registrados}
+
+    </h2>
+
+    <div className="mt-5 text-center space-y-1">
+
+      <div className="mt-5 space-y-3">
+
+  <div className="flex items-center justify-center gap-2">
+
+  <img
+    src="/bandera-venezuela.png"
+    alt="Venezuela"
+    className="w-6 h-6 rounded-sm"
+  />
+
+  <span>Venezolanos:</span>
+
+  <strong>
+
+    {dashboard.registroConsular.venezolanos}
+
+  </strong>
+
+</div>
+
+  <div className="flex items-center justify-center gap-2">
+
+    <span className="text-xl">
+      🌎
+    </span>
+
+    <span>
+      Extranjeros:
+    </span>
+
+    <strong>
+      {dashboard.registroConsular.extranjeros}
+    </strong>
+
+  </div>
+
+</div>
+
+    </div>
+
+  </div>
+
+</div>
+
+{/* ============================
+      USD Y VISITAS
+============================ */}
+
+<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+  {/* USD */}
+
+  <div className="space-y-5">
+
+    <TarjetaUSD
+
+      titulo="USD Hoy"
+
+      datos={dashboard.usd.hoy}
+
+    />
+
+    <TarjetaUSD
+
+      titulo="USD Mes"
+
+      datos={dashboard.usd.mes}
+
+    />
+
+    <TarjetaUSD
+
+      titulo="USD Año"
+
+      datos={dashboard.usd.anio}
+
+    />
+
+  </div>
+
+  {/* VISITAS */}
+
+  <div className="space-y-5">
+
+    <TarjetaVisitas
+
+      titulo="Visitas Hoy"
+
+      datos={dashboard.visitas.hoy}
+
+    />
+
+    <TarjetaVisitas
+
+      titulo="Visitas Mes"
+
+      datos={dashboard.visitas.mes}
+
+    />
+
+    <TarjetaVisitas
+
+      titulo="Visitas Año"
+
+      datos={dashboard.visitas.anio}
+
+    />
+
+  </div>
+
+</div>
+{/* ============================
+      MÓDULOS
+============================ */}
+
+<div className="mt-12 space-y-6">
+
+  <div
+
+    className="
+      bg-white
+      rounded-2xl
+      shadow-lg
+      border-l-4
+      border-blue-700
+      p-6
+      cursor-pointer
+      hover:bg-slate-50
+      transition
+    "
+
+    onClick={() => {
+
+    setMostrarResumen(true);
+
+}}
+
+  >
+
+    <h2 className="text-2xl font-bold text-blue-950">
+
+      📊 Resumen de Actuaciones y Visitas
+
+    </h2>
+
+    <p className="text-slate-600 mt-2">
+
+      Consulte estadísticas consolidadas por rango de fechas.
+
+    </p>
+
+  </div>
+
+  <div
+
+    className="
+      bg-white
+      rounded-2xl
+      shadow-lg
+      border-l-4
+      border-green-700
+      p-6
+      cursor-pointer
+      hover:bg-slate-50
+      transition
+    "
+
+    onClick={() => {
+
+      alert(
+        "Próximamente"
+      );
+
+    }}
+
+  >
+
+    <h2 className="text-2xl font-bold text-green-700">
+
+      📄 Reporte de Recibos
+
+    </h2>
+
+    <p className="text-slate-600 mt-2">
+
+      Consulte todos los recibos emitidos por rango de fechas.
+
+    </p>
+
+  </div>
+
+  <div
+
+    className="
+      bg-white
+      rounded-2xl
+      shadow-lg
+      border-l-4
+      border-red-600
+      p-6
+      cursor-pointer
+      hover:bg-slate-50
+      transition
+    "
+
+    onClick={() => {
+
+      alert(
+        "Próximamente"
+      );
+
+    }}
+
+  >
+
+    <h2 className="text-2xl font-bold text-red-700">
+
+      👥 Reporte de Visitas
+
+    </h2>
+
+    <p className="text-slate-600 mt-2">
+
+      Consulte la bitácora de visitas registradas en Recepción.
+
+    </p>
+
+  </div>
+
+</div>
+
+</>
+
+)}
 
 </div>
 
 </div>
 
-</main>
+
+{mostrarResumen && (
+
+<div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+
+<div className="bg-white rounded-3xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-auto p-8">
+
+<h2 className="text-3xl font-bold text-blue-950 mb-6">
+
+Resumen de Actuaciones y Visitas
+
+</h2>
+
+<div className="grid md:grid-cols-2 gap-4">
+
+<div>
+
+<label>
+
+Fecha Desde
+
+</label>
+
+<input
+
+type="date"
+
+value={fechaDesde}
+
+onChange={(e)=>
+
+setFechaDesde(
+e.target.value
+)
+
+}
+
+className="w-full border rounded-xl p-3"
+
+/>
+
+</div>
+
+<div>
+
+<label>
+
+Fecha Hasta
+
+</label>
+
+<input
+
+type="date"
+
+value={fechaHasta}
+
+onChange={(e)=>
+
+setFechaHasta(
+e.target.value
+)
+
+}
+
+className="w-full border rounded-xl p-3"
+
+/>
+
+</div>
+
+</div>
+
+<div className="mt-6 flex gap-3">
+
+<button
+
+onClick={consultarResumen}
+
+className="bg-blue-950 text-white px-5 py-3 rounded-xl"
+
+>
+
+Consultar
+
+</button>
+
+<button
+
+onClick={()=>{
+
+setMostrarResumen(false);
+
+setResumen(null);
+
+}}
+
+className="bg-red-600 text-white px-5 py-3 rounded-xl"
+
+>
+
+Cerrar
+
+</button>
+
+</div>
+
+{cargandoResumen && (
+
+<p className="mt-6">
+
+Consultando...
+
+</p>
+
+)}
+
+{resumen && (
+
+<div className="mt-8 space-y-8">
+
+<h3 className="text-2xl font-bold text-blue-950">
+
+Resumen de Actuaciones
+
+</h3>
+
+<div className="overflow-x-auto">
+
+<table className="min-w-full border border-slate-300">
+
+<thead className="bg-slate-100">
+
+<tr>
+
+<th className="border p-2">
+
+Código
+
+</th>
+
+<th className="border p-2">
+
+Actuación
+
+</th>
+
+<th className="border p-2 text-center">
+
+Cantidad
+
+</th>
+
+<th className="border p-2 text-end">
+
+USD
+
+</th>
+
+</tr>
+
+</thead>
+
+<tbody>
+
+{
+
+Object.entries(
+
+resumen.actuaciones
+
+)
+
+.sort(
+
+(a:any,b:any)=>
+
+a[0].localeCompare(
+
+b[0]
+
+)
+
+)
+
+.map(
+
+([codigo,item]:any)=>(
+
+<tr key={codigo}>
+
+<td className="border p-2 font-semibold">
+
+{codigo}
+
+</td>
+
+<td className="border p-2">
+
+{item.nombre}
+
+</td>
+
+<td className="border p-2 text-center">
+
+{item.cantidad}
+
+</td>
+
+<td className="border p-2 text-end">
+
+${item.usd.toLocaleString("es-CO")}
+
+</td>
+
+</tr>
+
+)
+
+)
+
+}
+
+</tbody>
+
+</table>
+
+</div>
+
+<div className="bg-slate-50 rounded-2xl p-5">
+
+<p>
+
+<strong>
+
+Total actuaciones:
+
+</strong>
+
+{" "}
+
+{resumen.totalActuaciones}
+
+</p>
+
+<p className="mt-2">
+
+<strong>
+
+Total USD:
+
+</strong>
+
+{" "}
+
+${resumen.totalUSD.toLocaleString("es-CO")}
+
+</p>
+
+</div>
+
+<hr/>
+
+<h3 className="text-2xl font-bold text-blue-950">
+
+Resumen de Visitas
+
+</h3>
+
+<div className="overflow-x-auto">
+
+<table className="min-w-full border border-slate-300">
+
+<thead className="bg-slate-100">
+
+<tr>
+
+<th className="border p-2">
+
+Tipo
+
+</th>
+
+<th className="border p-2">
+
+Total
+
+</th>
+
+</tr>
+
+</thead>
+
+<tbody>
+
+<tr>
+
+<td className="border p-2">
+
+Trámite
+
+</td>
+
+<td className="border p-2 text-center">
+
+{resumen.visitas.tramite}
+
+</td>
+
+</tr>
+
+<tr>
+
+<td className="border p-2">
+
+Información
+
+</td>
+
+<td className="border p-2 text-center">
+
+{resumen.visitas.informacion}
+
+</td>
+
+</tr>
+
+<tr>
+
+<td className="border p-2">
+
+Acompañante
+
+</td>
+
+<td className="border p-2 text-center">
+
+{resumen.visitas.acompanante}
+
+</td>
+
+</tr>
+
+<tr>
+
+<td className="border p-2">
+
+Cita Institucional
+
+</td>
+
+<td className="border p-2 text-center">
+
+{resumen.visitas.institucional}
+
+</td>
+
+</tr>
+
+<tr className="bg-slate-100 font-bold">
+
+<td className="border p-2">
+
+TOTAL
+
+</td>
+
+<td className="border p-2 text-center">
+
+{resumen.visitas.total}
+
+</td>
+
+</tr>
+
+</tbody>
+
+</table>
+
+</div>
+
+</div>
+
+)}
+
+</div>
+
+</div>
+
+)}</main>
+
+);
+
+}
+
+function TarjetaUSD({
+
+  titulo,
+
+  datos,
+
+}: any) {
+
+  return (
+
+    <div className="bg-slate-50 rounded-2xl shadow-md p-6 border-l-4 border-green-700">
+
+      <p className="text-slate-600">
+
+        {titulo}
+
+      </p>
+
+      <h2 className="text-4xl font-bold text-green-700 mt-3">
+
+        $
+
+        {datos.usd.toLocaleString("es-CO")}
+
+      </h2>
+
+      <div className="mt-5 space-y-2">
+
+        <p>
+
+          📄 Recibos{" "}
+
+          <strong>
+
+            {datos.recibos}
+
+          </strong>
+
+        </p>
+
+        <p>
+
+          📋 Actuaciones{" "}
+
+          <strong>
+
+            {datos.actuaciones}
+
+          </strong>
+
+        </p>
+
+      </div>
+
+    </div>
+
+  );
+
+}
+
+function TarjetaVisitas({
+
+  titulo,
+
+  datos,
+
+}: any) {
+
+  return (
+
+    <div className="bg-slate-50 rounded-2xl shadow-md p-6 border-l-4 border-blue-700">
+
+      <p className="text-slate-600">
+
+        {titulo}
+
+      </p>
+
+      <h2 className="text-4xl font-bold text-blue-700 mt-3">
+
+        {datos.total}
+
+      </h2>
+
+      <div className="grid grid-cols-2 gap-y-2 gap-x-4 mt-5 text-sm">
+
+        <div>
+
+          Trámite{" "}
+
+          <strong>
+
+            {datos.tramite}
+
+          </strong>
+
+        </div>
+
+        <div>
+
+          Información{" "}
+
+          <strong>
+
+            {datos.informacion}
+
+          </strong>
+
+        </div>
+
+        <div>
+
+          Acompañante{" "}
+
+          <strong>
+
+            {datos.acompanante}
+
+          </strong>
+
+        </div>
+
+        <div>
+
+          Institucional{" "}
+
+          <strong>
+
+            {datos.institucional}
+
+          </strong>
+
+        </div>
+
+      </div>
+
+    </div>
 
   );
 

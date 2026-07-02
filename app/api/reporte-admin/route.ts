@@ -14,17 +14,50 @@ function convertirFecha(
     return null;
   }
 
-  const fecha = new Date(
-    fechaTexto.replace(" ", "T")
-  );
+  const limpio =
+    fechaTexto.trim();
 
-  if (
-    isNaN(fecha.getTime())
-  ) {
+  const partes =
+    limpio.split(" ");
+
+  if (partes.length < 2) {
     return null;
   }
 
-  return fecha;
+  let fecha = partes[0];
+
+  let hora = partes[1];
+
+  const hms =
+    hora.split(":");
+
+  if (
+    hms[0].length === 1
+  ) {
+
+    hms[0] =
+      "0" + hms[0];
+
+  }
+
+  hora =
+    hms.join(":");
+
+  const fechaFinal =
+    `${fecha}T${hora}`;
+
+  const resultado =
+    new Date(fechaFinal);
+
+  if (
+    isNaN(resultado.getTime())
+  ) {
+
+    return null;
+
+  }
+
+  return resultado;
 
 }
 
@@ -100,6 +133,14 @@ export async function POST(
             fecha.toDateString() !==
             hoy.toDateString()
           ) {
+            console.log(
+      "RECHAZADO POR DIA",
+      row[1],
+      "Fecha:",
+      fecha.toDateString(),
+      "Hoy:",
+      hoy.toDateString()
+    );
             return false;
           }
 
@@ -214,13 +255,32 @@ if (
 ) {
   return false;
 }
-
+console.log(
+  "ACEPTADO",
+  row[1]
+);
         return true;
 
       });
 
     let registros: any[] = [];
+console.log("================================");
 
+console.log(
+  "RECIBOS EN CAJA:",
+  filasCaja.length
+);
+
+console.log(
+  "RECIBOS FILTRADOS:",
+  resultado.length
+);
+
+console.log(
+  resultado.map(r => r[1])
+);
+
+console.log("================================");
     resultado.forEach(
       (movimiento) => {
 
@@ -437,7 +497,8 @@ registros.forEach((row: any) => {
 
   }
 
-});   
+}); 
+
 return NextResponse.json({
       ok: true,
       registros,
