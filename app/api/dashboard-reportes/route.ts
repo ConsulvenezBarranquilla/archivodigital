@@ -13,7 +13,7 @@ export async function GET() {
       await sheets.spreadsheets.values.get({
         spreadsheetId:
           MODULO_CAJA_SHEET_ID,
-        range: "Caja!A:M",
+        range: "Caja!A:N",
       });
 
     const rows =
@@ -60,24 +60,30 @@ export async function GET() {
         }
 
         const soloFecha =
-  fechaTexto
-    .split(",")[0]
-    .trim();
-    const partes =
-  soloFecha.split("/");
-
-if (partes.length !== 3) {
-  return;
-}
-
-const dia =
-  Number(partes[0]);
-
-const mes =
-  Number(partes[1]);
+  fechaTexto.substring(0, 10);
 
 const anio =
-  Number(partes[2]);
+  Number(
+    soloFecha.substring(0, 4)
+  );
+
+const mes =
+  Number(
+    soloFecha.substring(5, 7)
+  );
+
+const dia =
+  Number(
+    soloFecha.substring(8, 10)
+  );
+
+if (
+  !anio ||
+  !mes ||
+  !dia
+) {
+  return;
+}
         
 
         const totalUsd =

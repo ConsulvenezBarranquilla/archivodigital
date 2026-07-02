@@ -6,7 +6,7 @@ import {
 import {
   sheets,
   MODULO_CAJA_SHEET_ID,
-} from "@/lib/googleSheets";
+  } from "@/lib/googleSheets";
 
 export async function GET(
   req: NextRequest
@@ -24,7 +24,7 @@ export async function GET(
         spreadsheetId:
           MODULO_CAJA_SHEET_ID,
         range:
-          "Caja!A:K",
+          "Caja!A:N",
       });
 
     const detalleResponse =
@@ -32,7 +32,7 @@ export async function GET(
         spreadsheetId:
           MODULO_CAJA_SHEET_ID,
         range:
-          "DetalleCaja!A:D",
+          "DetalleCaja!A:F",
       });
 
     const cajaRows =
@@ -65,18 +65,32 @@ const tramites =
     .slice(1)
     .filter((row) => {
 
-      return (
-        row[2]
-          ?.toString()
-          .trim()
-          .toUpperCase() ===
-        documento
-          ?.toString()
-          .trim()
-          .toUpperCase()
-      );
+  const buscado =
+    documento
+      ?.toString()
+      .trim()
+      .toUpperCase();
 
-    })
+  return (
+
+    row[2]
+      ?.toString()
+      .trim()
+      .toUpperCase() === buscado ||
+
+    row[11]
+      ?.toString()
+      .trim()
+      .toUpperCase() === buscado ||
+
+    row[12]
+      ?.toString()
+      .trim()
+      .toUpperCase() === buscado
+
+  );
+
+})
     .map((row) => {
 
       const correlativo =

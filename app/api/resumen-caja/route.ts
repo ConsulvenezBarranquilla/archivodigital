@@ -25,11 +25,12 @@ export async function GET(
 
     }
 
-    const hoy =
-      new Date()
-        .toLocaleDateString(
-          "es-CO"
-        );
+    const hoy = new Intl.DateTimeFormat(
+  "sv-SE",
+  {
+    timeZone: "America/Bogota",
+  }
+).format(new Date());
 
     const response =
       await sheets.spreadsheets.values.get({
@@ -49,10 +50,9 @@ export async function GET(
       .slice(1)
       .forEach((row) => {
 
-        const fecha =
-          row[0]
-            ?.split(",")[0]
-            ?.trim();
+       const fecha =
+  (row[0] || "")
+    .substring(0, 10);
 
         const cajaFila =
           row[8];

@@ -105,22 +105,30 @@ export default function ConfiguracionPage() {
     );
 
   const a =
-    document.createElement(
-      "a"
-    );
+    document.createElement("a");
 
   a.href = url;
 
-  a.download =
-    "Backup_Modulo_Caja.xlsx";
+  const disposition =
+    response.headers.get(
+      "Content-Disposition"
+    );
 
-  document.body.appendChild(
-    a
-  );
+  const nombreArchivo =
+    disposition
+      ?.match(/filename="?([^"]+)"?/)?.[1] ||
+    "Backup_Sistema_Consular.xlsx";
+
+  a.download =
+    nombreArchivo;
+
+  document.body.appendChild(a);
 
   a.click();
 
   a.remove();
+
+  window.URL.revokeObjectURL(url);
 
 }
   async function guardarConfiguracion() {

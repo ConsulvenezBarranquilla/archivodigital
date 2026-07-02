@@ -4,7 +4,8 @@ import ExcelJS from "exceljs";
 import {
   sheets,
   MODULO_CAJA_SHEET_ID,
-  } from "@/lib/googleSheets";
+  REGISTRO_CONSULAR_SHEET_ID,
+} from "@/lib/googleSheets";
 
 export async function GET() {
   try {
@@ -13,44 +14,96 @@ export async function GET() {
       new ExcelJS.Workbook();
 
     const hojas = [
-      "Caja",
-      "DetalleCaja",
-      "UsuariosCaja",
-      "Configuracion",
-      "Correlativos",
-      "Actuaciones",
-    ];
 
-    for (const nombreHoja of hojas) {
+  // MODULO CAJA
+  {
+    spreadsheetId: MODULO_CAJA_SHEET_ID,
+    nombre: "Caja",
+  },
 
-      const response =
-        await sheets.spreadsheets.values.get({
-          spreadsheetId:
-            MODULO_CAJA_SHEET_ID,
-          range:
-            `${nombreHoja}!A:Z`,
-        });
+  {
+    spreadsheetId: MODULO_CAJA_SHEET_ID,
+    nombre: "DetalleCaja",
+  },
 
-      const rows =
-        response.data.values || [];
+  {
+    spreadsheetId: MODULO_CAJA_SHEET_ID,
+    nombre: "UsuariosCaja",
+  },
 
-      const worksheet =
-        workbook.addWorksheet(
-          nombreHoja
-        );
+  {
+    spreadsheetId: MODULO_CAJA_SHEET_ID,
+    nombre: "Configuracion",
+  },
 
-      rows.forEach(
-        (row) => {
+  {
+    spreadsheetId: MODULO_CAJA_SHEET_ID,
+    nombre: "Correlativos",
+  },
 
-          worksheet.addRow(
-            row
-          );
+  {
+    spreadsheetId: MODULO_CAJA_SHEET_ID,
+    nombre: "Actuaciones",
+  },
 
-        }
-      );
+  {
+    spreadsheetId: MODULO_CAJA_SHEET_ID,
+    nombre: "BitacoraVisitas",
+  },
 
-    }
+  // REGISTRO CONSULAR
 
+  {
+    spreadsheetId: REGISTRO_CONSULAR_SHEET_ID,
+    nombre: "Respuestas de formulario 1",
+  },
+
+  {
+    spreadsheetId: REGISTRO_CONSULAR_SHEET_ID,
+    nombre: "Catalogos",
+  },
+
+  {
+    spreadsheetId: REGISTRO_CONSULAR_SHEET_ID,
+    nombre: "HistorialRegistro",
+  },
+
+  {
+    spreadsheetId: REGISTRO_CONSULAR_SHEET_ID,
+    nombre: "Duplicados",
+  },
+
+];
+
+    for (const hoja of hojas) {
+
+  const response =
+    await sheets.spreadsheets.values.get({
+
+      spreadsheetId:
+        hoja.spreadsheetId,
+
+      range:
+        `${hoja.nombre}!A:ZZ`,
+
+    });
+
+  const rows =
+    response.data.values || [];
+
+  const worksheet =
+    workbook.addWorksheet(
+      hoja.nombre
+    );
+
+  rows.forEach((row) => {
+
+    worksheet.addRow(row);
+
+  });
+
+}
+      
     const fecha =
   new Date()
     .toISOString()
@@ -72,7 +125,7 @@ return new NextResponse(
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 
       "Content-Disposition":
-        `attachment; filename=Backup_Modulo_Caja_${fecha}.xlsx`,
+        `attachment; filename=Backup_Sistema_Consular_${fecha}.xlsx`,
     },
   }
 );

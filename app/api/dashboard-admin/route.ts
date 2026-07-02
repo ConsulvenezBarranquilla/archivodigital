@@ -65,11 +65,12 @@ const registroResponse =
 const registroRows =
   registroResponse.data.values || [];
 
-    const hoy =
-      new Date()
-        .toLocaleDateString(
-          "es-CO"
-        );
+    const hoy = new Intl.DateTimeFormat(
+  "sv-SE",
+  {
+    timeZone: "America/Bogota",
+  }
+).format(new Date());
 
     const mesActual =
       new Date().getMonth() + 1;
@@ -128,29 +129,22 @@ const ultimasVisitas: any[] = [];
           row[10] || "";
 
         const fechaSolo =
-          fecha.split(",")[0];
+  fecha.substring(0, 10);
 
-        const partes =
-          fechaSolo.split("/");
+const anio =
+  Number(
+    fechaSolo.substring(0, 4)
+  );
 
-        let dia = 0;
-        let mes = 0;
-        let anio = 0;
+const mes =
+  Number(
+    fechaSolo.substring(5, 7)
+  );
 
-        if (
-          partes.length === 3
-        ) {
-
-          dia =
-            Number(partes[0]);
-
-          mes =
-            Number(partes[1]);
-
-          anio =
-            Number(partes[2]);
-
-        }
+const dia =
+  Number(
+    fechaSolo.substring(8, 10)
+  );
 
         if (
           fechaSolo === hoy

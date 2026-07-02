@@ -22,14 +22,23 @@ export async function POST(
             return false;
 
           return (
-            row[0]?.trim() ===
-              usuario.trim() &&
-            row[1]?.trim() ===
-              password.trim() &&
-            row[4]
-              ?.toUpperCase()
-              .trim() === "SI"
-          );
+
+  row[0]
+    ?.trim()
+    .toUpperCase() ===
+  usuario
+    .trim()
+    .toUpperCase() &&
+
+  row[1]
+    ?.trim() ===
+  password.trim() &&
+
+  row[4]
+    ?.trim()
+    .toUpperCase() === "SI"
+
+);
 
         }
       );

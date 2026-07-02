@@ -18,11 +18,12 @@ export async function POST(
       tipo,
     } = await req.json();
 
-    const hoy =
-      new Date()
-        .toLocaleDateString(
-          "es-CO"
-        );
+    const hoy = new Intl.DateTimeFormat(
+  "sv-SE",
+  {
+    timeZone: "America/Bogota",
+  }
+).format(new Date());
 
     const cajaResponse =
       await sheets.spreadsheets.values.get({
@@ -51,18 +52,21 @@ export async function POST(
           if (index === 0)
             return false;
 
-          const fecha =
-            row[0]
-              ?.split(",")[0]
-              ?.trim();
+          const fechaRegistro =
+  (row[0] || "")
+    .substring(0, 10);
 
-          return (
-            fecha === hoy &&
-            row[7] === usuario &&
-            row[8] === caja &&
-            row[10] ===
-              "GENERADO"
-          );
+return (
+
+  fechaRegistro === hoy &&
+
+  row[7] === usuario &&
+
+  row[8] === caja &&
+
+  row[10] === "GENERADO"
+
+);
 
         }
       );

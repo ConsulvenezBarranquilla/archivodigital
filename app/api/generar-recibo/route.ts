@@ -82,10 +82,19 @@ console.dir(ciudadano, { depth: null });
         4,
         "0"
       )}/${anio}`;
-      const fecha =
-  new Date().toLocaleString(
-    "es-VE"
-  );
+      const fecha = new Intl.DateTimeFormat(
+  "sv-SE",
+  {
+    timeZone: "America/Bogota",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }
+).format(new Date());
 
   console.log("NACIONALIDAD A GUARDAR:", ciudadano.nacionalidad);
     await guardarMovimientoCaja([

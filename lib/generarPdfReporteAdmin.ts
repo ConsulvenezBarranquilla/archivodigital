@@ -258,10 +258,7 @@ page.drawText(
     font,
   }
 );
-console.log(
-  "NOMBRE PDF:",
-  item[3]
-);
+
 const nombre =
   dividirTexto(
     item[3],

@@ -67,14 +67,66 @@ if (
   return;
 
 }
+if (
+  data.rol
+    ?.toString()
+    .trim()
+    .toLowerCase() ===
+  "consulta"
+) {
 
-setUsuarioLogin(
-  data
-);
+  localStorage.setItem(
+    "usuarioCaja",
+    JSON.stringify(data)
+  );
 
-setMostrarSelectorCaja(
-  true
-);
+  window.location.href =
+    "/consultas";
+
+  return;
+
+}
+
+if (
+  data.rol
+    ?.toString()
+    .trim()
+    .toLowerCase() ===
+  "analista"
+) {
+
+  localStorage.setItem(
+    "usuarioCaja",
+    JSON.stringify(data)
+  );
+
+  window.location.href =
+    "/consultas";
+
+  return;
+
+}
+setUsuarioLogin(data);
+
+if (
+  data.rol
+    ?.toString()
+    .trim()
+    .toLowerCase() === "admin" ||
+
+  data.rol
+    ?.toString()
+    .trim()
+    .toLowerCase() === "caja"
+) {
+
+  setMostrarSelectorCaja(true);
+
+} else {
+
+  setMostrarSelectorCaja(false);
+
+}
 
 setMensaje("");
 
@@ -102,13 +154,6 @@ function continuarCaja() {
 
   window.location.href =
     "/admin";
-
-} else if (
-  usuarioLogin.rol === "recepcion"
-) {
-
-  window.location.href =
-    "/recepcion";
 
 } else {
 

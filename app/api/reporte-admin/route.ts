@@ -3,30 +3,28 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   sheets,
   MODULO_CAJA_SHEET_ID,
-  obtenerDocumentosCaja,
+  obtenerDocumentoPrincipal,
 } from "@/lib/googleSheets";
 
 function convertirFecha(
   fechaTexto: string
 ) {
 
-  const fecha =
-    fechaTexto
-      ?.split(",")[0]
-      ?.trim();
-
-  const partes =
-    fecha.split("/");
-
-  if (partes.length !== 3) {
+  if (!fechaTexto) {
     return null;
   }
 
-  return new Date(
-    Number(partes[2]),
-    Number(partes[1]) - 1,
-    Number(partes[0])
+  const fecha = new Date(
+    fechaTexto.replace(" ", "T")
   );
+
+  if (
+    isNaN(fecha.getTime())
+  ) {
+    return null;
+  }
+
+  return fecha;
 
 }
 
@@ -132,10 +130,14 @@ export async function POST(
         ) {
 
           const fechaDesde =
-            new Date(desde);
+  new Date(
+    `${desde}T00:00:00`
+  );
 
-          const fechaHasta =
-            new Date(hasta);
+const fechaHasta =
+  new Date(
+    `${hasta}T23:59:59`
+  );
 
           if (
             fecha < fechaDesde ||
@@ -154,12 +156,40 @@ if (
   return false;
 }
 
-        if (
-          documento &&
-          row[2] !== documento
-        ) {
-          return false;
-        }
+        if (documento) {
+
+  const buscado =
+    documento
+      .trim()
+      .toUpperCase();
+
+  const documentoImpreso =
+    (row[2] || "")
+      .toString()
+      .trim()
+      .toUpperCase();
+
+  const cedula =
+    (row[11] || row[2] || "")
+      .toString()
+      .trim()
+      .toUpperCase();
+
+  const pasaporte =
+    (row[12] || "")
+      .toString()
+      .trim()
+      .toUpperCase();
+
+  if (
+    documentoImpreso !== buscado &&
+    cedula !== buscado &&
+    pasaporte !== buscado
+  ) {
+    return false;
+  }
+
+}
 
         if (
   caja &&
@@ -233,11 +263,25 @@ if (
     ) {
       return;
     }
+const cedula =
+  movimiento[11] || movimiento[2];
 
+const pasaporte =
+  movimiento[12] || "";
+
+const nacionalidad =
+  movimiento[13] || "";
+
+const documentoPrincipal =
+  obtenerDocumentoPrincipal(
+    cedula,
+    pasaporte,
+    nacionalidad
+  );
             registros.push([
   movimiento[0], // 0 Fecha
   correlativo,   // 1 Recibo
-  movimiento[2], // 2 Documento
+  documentoPrincipal, // 2 Documento
   movimiento[3], // 3 Nombre
 
   detalle[1],    // 4 Código
@@ -328,7 +372,7 @@ registros.sort(
 const actuacionesGeneradas =
   registros.filter(
     (r) =>
-      r[8] ===
+      r[9] ===
       "GENERADO"
   );
 const resumenActuaciones: any = {};
