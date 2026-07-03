@@ -1,5 +1,9 @@
 import ExcelJS from "exceljs";
 
+import {
+  fechaHoraActual,
+    } from "@/lib/fechas";
+
 type Detalle = {
   fechaISO?: string;
   fecha: string;
@@ -77,9 +81,7 @@ export async function generarExcelReporteVisitas(
     "Fecha de generación";
 
   detalle.getCell(`B${fila}`).value =
-    new Date().toLocaleString(
-      "es-CO"
-    );
+  fechaHoraActual();
 
   fila++;
 

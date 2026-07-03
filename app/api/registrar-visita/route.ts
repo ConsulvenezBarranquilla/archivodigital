@@ -8,6 +8,10 @@ import {
   MODULO_CAJA_SHEET_ID,
   } from "@/lib/googleSheets";
 
+  import {
+  fechaHoraActual,
+} from "@/lib/fechas";
+
 export async function POST(
   req: NextRequest
 ) {
@@ -23,23 +27,9 @@ export async function POST(
     tipo,
   } = await req.json();
 
-  const ahora = new Date();
-
-const fecha = new Intl.DateTimeFormat(
-  "sv-SE",
-  {
-    timeZone: "America/Bogota",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  }
-)
-.format(new Date())
-.replace(" ", "T");
+  
+const fecha =
+  fechaHoraActual();
 
   await sheets.spreadsheets.values.append({
 

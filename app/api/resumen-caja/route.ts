@@ -5,6 +5,10 @@ import {
   MODULO_CAJA_SHEET_ID,
   } from "@/lib/googleSheets";
 
+  import {
+  hoyISO,
+} from "@/lib/fechas";
+
 export async function GET(
   req: NextRequest
 ) {
@@ -25,12 +29,7 @@ export async function GET(
 
     }
 
-    const hoy = new Intl.DateTimeFormat(
-  "sv-SE",
-  {
-    timeZone: "America/Bogota",
-  }
-).format(new Date());
+    const hoy = hoyISO();
 
     const response =
       await sheets.spreadsheets.values.get({

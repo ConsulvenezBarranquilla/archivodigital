@@ -6,6 +6,11 @@ import {
   obtenerDocumentoPrincipal,
 } from "@/lib/googleSheets";
 
+import {
+  convertirFecha,
+  hoyISO,
+} from "@/lib/fechas";
+
 export async function POST(
   req: NextRequest
 ) {
@@ -31,29 +36,13 @@ export async function POST(
 
     const filas =
       response.data.values || [];
-console.log("===== REPORTE VISITAS =====");
-
-console.log("TIPO:", tipo);
-
-console.log("DESDE:", desde);
-
-console.log("HASTA:", hasta);
-
-console.log("TOTAL FILAS:", filas.length);
-
-console.log("PRIMERAS 5 FECHAS:");
 
 filas.slice(1, 6).forEach((fila, i) => {
 
   console.log(i + 1, fila[0]);
 
 });
-    const hoy = new Intl.DateTimeFormat(
-  "sv-SE",
-  {
-    timeZone: "America/Bogota",
-  }
-).format(new Date());
+    const hoy = hoyISO();
 
 const visitasFiltradas = filas.slice(1).filter((fila) => {
 
@@ -110,21 +99,26 @@ const visitasFiltradas = filas.slice(1).filter((fila) => {
   const nacionalidad =
     fila[6] || "";
 
-  const fecha = new Date(fila[0]);
+  const fecha =
+  convertirFecha(
+    fila[0]
+  );
 
-  const fechaMostrar =
-    fecha.toLocaleString(
-      "es-CO",
-      {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-        hour12: true,
-      }
-    );
+const fechaMostrar =
+  fecha
+    ? fecha.toLocaleString(
+        "es-CO",
+        {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+          hour12: true,
+        }
+      )
+    : fila[0];
 
   return {
 
@@ -224,7 +218,7 @@ Array.from(
   resumen,
 
 });
-console.log("VISITAS FILTRADAS:", visitasFiltradas.length);
+
   } catch (error: any) {
 
     return NextResponse.json({

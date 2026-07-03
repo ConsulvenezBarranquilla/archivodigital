@@ -53,12 +53,7 @@ type DatosCierre = {
 export async function generarPdfCierre(
   datos: DatosCierre
 ) {
-console.log("===== PDF =====");
-console.log("LEYENDA RECIBIDA:");
-console.dir(
-  datos.leyendaCodigos,
-  { depth: null }
-);
+
   const pdfDoc =
     await PDFDocument.create();
 
@@ -245,7 +240,7 @@ page.drawText(
 );
 
   let y = 515;
-console.log(datos.registros);
+
   datos.registros.forEach(
   (item) => {
 
@@ -576,19 +571,7 @@ page.drawText(
     font,
   }
 );
-page.drawLine({
-  start: {
-    x: 40,
-    y: 40,
-  },
-  end: {
-    x: 570,
-    y: 40,
-  },
-  thickness: 1,
-});
 
-console.log("PDF TERMINADO");  
 return await pdfDoc.save();
 
 }

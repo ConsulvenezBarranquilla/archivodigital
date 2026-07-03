@@ -4,7 +4,11 @@ import {
   sheets,
   MODULO_CAJA_SHEET_ID,
   REGISTRO_CONSULAR_SHEET_ID,
-  } from "@/lib/googleSheets";
+} from "@/lib/googleSheets";
+
+import {
+  hoyISO,
+} from "@/lib/fechas";
 
 export async function GET() {
 
@@ -65,12 +69,7 @@ const registroResponse =
 const registroRows =
   registroResponse.data.values || [];
 
-    const hoy = new Intl.DateTimeFormat(
-  "sv-SE",
-  {
-    timeZone: "America/Bogota",
-  }
-).format(new Date());
+    const hoy = hoyISO();
 
     const mesActual =
       new Date().getMonth() + 1;
@@ -141,10 +140,6 @@ const mes =
     fechaSolo.substring(5, 7)
   );
 
-const dia =
-  Number(
-    fechaSolo.substring(8, 10)
-  );
 
         if (
           fechaSolo === hoy
@@ -241,12 +236,12 @@ const dia =
     row[5] || "";
 
   actuacionesMes +=
-    actuacionesTexto
-      .split(",")
-      .filter(
-  (x: string) =>
-    x.trim() !== ""
-).length;
+  actuacionesTexto
+    .split(";")
+    .filter(
+      (x:string) =>
+        x.trim() !== ""
+    ).length;
 
 }
 
@@ -337,18 +332,7 @@ visitasRows
     const fechaSolo =
       fechaTexto.substring(0, 10);
 
-    const hoyISO =
-      new Intl.DateTimeFormat(
-        "sv-SE",
-        {
-          timeZone:
-            "America/Bogota",
-        }
-      ).format(
-        new Date()
-      );
-
-    const mesVisita =
+        const mesVisita =
       Number(
         fechaSolo.substring(
           5,
@@ -368,7 +352,7 @@ visitasRows
 
     if (
       fechaSolo ===
-      hoyISO
+      hoy
     ) {
 
       visitasHoy++;

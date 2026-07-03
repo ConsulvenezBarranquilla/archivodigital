@@ -75,7 +75,9 @@ export async function GET(
   );
 
 })
-
+historial.sort((a, b) =>
+  b.fecha.localeCompare(a.fecha)
+);
 return NextResponse.json({
   ok: true,
   historial,

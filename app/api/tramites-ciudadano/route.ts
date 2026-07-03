@@ -41,25 +41,6 @@ export async function GET(
 const detalleRows =
   detalleResponse.data.values || [];
 
-console.log(
-  "DOCUMENTO BUSCADO:",
-  documento
-);
-
-console.log(
-  "PRIMEROS DOCUMENTOS CAJA:"
-);
-
-cajaRows
-  .slice(1, 6)
-  .forEach((row) => {
-
-    console.log(
-      row[2]
-    );
-
-  });
-
 const tramites =
   cajaRows
     .slice(1)
@@ -142,14 +123,7 @@ const tramites =
 
     });
 
-console.log(
-  "TRAMITES ENCONTRADOS:",
-  tramites.length
-);
 
-console.log(
-  tramites
-);
         return NextResponse.json({
       ok: true,
       tramites,

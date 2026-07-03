@@ -30,41 +30,38 @@ export async function GET(req: NextRequest) {
 
     const rows = response.data.values || [];
 
-    let ciudadano = rows.find((row, index) => {
+    const ciudadano = rows.find((row, index) => {
 
-  if (index === 0) return false;
+  if (index === 0) {
+    return false;
+  }
+
+  const cedula =
+    (row[1] || "")
+      .toString()
+      .trim()
+      .toUpperCase();
+
+  const pasaporte =
+    (row[14] || "")
+      .toString()
+      .trim()
+      .toUpperCase();
 
   return (
-    row[1]
-      ?.toString()
-      .trim()
-      .toUpperCase() === documento
+    cedula === documento ||
+    pasaporte === documento
   );
 
 });
 
 if (!ciudadano) {
 
-  ciudadano = rows.find((row, index) => {
-
-    if (index === 0) return false;
-
-    return (
-      row[14]
-        ?.toString()
-        .trim()
-        .toUpperCase() === documento
-    );
-
+  return NextResponse.json({
+    encontrado: false,
   });
 
 }
-
-    if (!ciudadano) {
-      return NextResponse.json({
-        encontrado: false,
-      });
-    }
 
     const nombreCompleto = [
       ciudadano[2],

@@ -8,6 +8,11 @@ import {
   obtenerDocumentoPrincipal,
 } from "@/lib/googleSheets";
 
+import {
+  fechaHoraActual,
+  anioActual,
+} from "@/lib/fechas";
+
 export async function POST(
   req: NextRequest
 ) {
@@ -34,7 +39,7 @@ console.dir(ciudadano, { depth: null });
   );
 
     const anio =
-      new Date().getFullYear();
+    anioActual();
 
     const correlativos =
       await obtenerCorrelativos();
@@ -82,19 +87,8 @@ console.dir(ciudadano, { depth: null });
         4,
         "0"
       )}/${anio}`;
-      const fecha = new Intl.DateTimeFormat(
-  "sv-SE",
-  {
-    timeZone: "America/Bogota",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  }
-).format(new Date());
+      const fecha =
+  fechaHoraActual();
 
   console.log("NACIONALIDAD A GUARDAR:", ciudadano.nacionalidad);
     await guardarMovimientoCaja([

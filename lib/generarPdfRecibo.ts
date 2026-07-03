@@ -4,6 +4,10 @@ import {
   rgb,
 } from "pdf-lib";
 
+import {
+  formatoFechaHora,
+} from "@/lib/fechas";
+
 import fs from "fs";
 import path from "path";
 
@@ -157,7 +161,7 @@ y -= 25;
     y -= 10;
 
     page.drawText(
-      `Fecha: ${datos.fecha}`,
+      `Fecha: ${formatoFechaHora(datos.fecha)}`,
       {
         x: 40,
         y,

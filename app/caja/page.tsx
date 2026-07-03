@@ -16,12 +16,7 @@ export default function CajaPage() {
 
   const [mensaje, setMensaje] =
     useState("");
-
-  const [
-  usuarioActual,
-  setUsuarioActual,
-] = useState<any>(null);
-
+  
 const [
   mensajeRecibo,
   setMensajeRecibo,
@@ -132,10 +127,6 @@ if (!data) {
 const usuarioLocal =
   JSON.parse(data);
 
-console.log(
-  "Usuario cargado:",
-  usuarioLocal
-);
 
 setUsuario(usuarioLocal);
 fetch(
@@ -151,10 +142,7 @@ fetch(
     }
 
   });
-console.log(
-  "Usuario cargado:",
-  JSON.parse(data)
-);
+
     fetch("/api/actuaciones")
       .then((res) => res.json())
       .then((data) => {
@@ -267,8 +255,7 @@ async function generarRecibo() {
       "Generando recibo..."
     );
     
-console.log("CIUDADANO ENVIADO:");
-console.dir(ciudadano, { depth: null });
+
     const response =
           await fetch(
         "/api/generar-recibo",
@@ -511,10 +498,6 @@ async function generarCierreDiario() {
 
 }
  
-console.log(
-  "mostrarConfirmacion",
-  mostrarConfirmacion
-);
   return (
     <>
     {mostrarConfirmacion && (

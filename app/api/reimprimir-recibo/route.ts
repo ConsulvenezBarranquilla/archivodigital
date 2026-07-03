@@ -37,19 +37,12 @@ export async function POST(
       detalleResponse.data.values || [];
 
     const recibo =
-      movimientos.find(
-        (row, index) => {
-
-          if (index === 0) {
-            return false;
-          }
-
-          return (
-            row[1] === correlativo
-          );
-
-        }
-      );
+  movimientos
+    .slice(1)
+    .find(
+      (row) =>
+        row[1] === correlativo
+    );
 
     if (!recibo) {
       return NextResponse.json({
@@ -76,15 +69,6 @@ const documento =
   );
   
 
-console.log(
-  "RECIBO:",
-  recibo
-);
-
-console.log(
-  "ESTADO RECIBO:",
-  recibo[10]
-);
 
     const actuaciones =
   detalles

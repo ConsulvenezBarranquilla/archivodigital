@@ -5,6 +5,10 @@ import {
   MODULO_CAJA_SHEET_ID,
   } from "@/lib/googleSheets";
 
+  import {
+  hoyISO,
+} from "@/lib/fechas";
+
 export async function GET() {
 
   try {
@@ -20,16 +24,22 @@ export async function GET() {
       response.data.values || [];
 
     const hoy =
-      new Date();
+  hoyISO();
 
-    const diaActual =
-      hoy.getDate();
+const diaActual =
+  Number(
+    hoy.substring(8,10)
+  );
 
-    const mesActual =
-      hoy.getMonth() + 1;
+const mesActual =
+  Number(
+    hoy.substring(5,7)
+  );
 
-    const anioActual =
-      hoy.getFullYear();
+const anioActual =
+  Number(
+    hoy.substring(0,4)
+  );
 
     let recibosHoy = 0;
     let usdHoy = 0;

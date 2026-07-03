@@ -6,60 +6,13 @@ import {
   obtenerDocumentoPrincipal,
 } from "@/lib/googleSheets";
 
-function convertirFecha(
-  fechaTexto: string
-) {
+import {
+  convertirFecha,
+  inicioDelDia,
+  finDelDia,
+  hoy,
+} from "@/lib/fechas";
 
-  if (!fechaTexto) {
-    return null;
-  }
-
-  const limpio =
-    fechaTexto.trim();
-
-  const partes =
-    limpio.split(" ");
-
-  if (partes.length < 2) {
-    return null;
-  }
-
-  let fecha = partes[0];
-
-  let hora = partes[1];
-
-  const hms =
-    hora.split(":");
-
-  if (
-    hms[0].length === 1
-  ) {
-
-    hms[0] =
-      "0" + hms[0];
-
-  }
-
-  hora =
-    hms.join(":");
-
-  const fechaFinal =
-    `${fecha}T${hora}`;
-
-  const resultado =
-    new Date(fechaFinal);
-
-  if (
-    isNaN(resultado.getTime())
-  ) {
-
-    return null;
-
-  }
-
-  return resultado;
-
-}
 
 export async function POST(
   req: NextRequest
@@ -126,23 +79,17 @@ export async function POST(
           periodo === "dia"
         ) {
 
-          const hoy =
-            new Date();
+          const hoyActual =
+  hoy();
 
-          if (
-            fecha.toDateString() !==
-            hoy.toDateString()
-          ) {
-            console.log(
-      "RECHAZADO POR DIA",
-      row[1],
-      "Fecha:",
-      fecha.toDateString(),
-      "Hoy:",
-      hoy.toDateString()
-    );
-            return false;
-          }
+if (
+  fecha.toDateString() !==
+  hoyActual.toDateString()
+) {
+
+  return false;
+
+}
 
         }
 
@@ -171,14 +118,19 @@ export async function POST(
         ) {
 
           const fechaDesde =
-  new Date(
-    `${desde}T00:00:00`
-  );
+  inicioDelDia(desde);
 
 const fechaHasta =
-  new Date(
-    `${hasta}T23:59:59`
-  );
+  finDelDia(hasta);
+
+if (
+  !fechaDesde ||
+  !fechaHasta
+) {
+
+  return false;
+
+}
 
           if (
             fecha < fechaDesde ||
@@ -255,32 +207,12 @@ if (
 ) {
   return false;
 }
-console.log(
-  "ACEPTADO",
-  row[1]
-);
         return true;
 
       });
 
     let registros: any[] = [];
-console.log("================================");
 
-console.log(
-  "RECIBOS EN CAJA:",
-  filasCaja.length
-);
-
-console.log(
-  "RECIBOS FILTRADOS:",
-  resultado.length
-);
-
-console.log(
-  resultado.map(r => r[1])
-);
-
-console.log("================================");
     resultado.forEach(
       (movimiento) => {
 
@@ -478,27 +410,47 @@ registros.forEach((row: any) => {
 }
 
 }); 
-const leyendaCodigos: any = {};
+const leyendaCodigos: Record<
+  string,
+  {
+    nombre: string;
+    cantidad: number;
+  }
+> = {};
 
 registros.forEach((row: any) => {
 
-  const codigo =
-    row[4];
+  const codigo = row[4];
+  const actuacion = row[5];
 
-  const actuacion =
-    row[5];
+  if (!leyendaCodigos[codigo]) {
 
-  if (
-    !leyendaCodigos[codigo]
-  ) {
+    leyendaCodigos[codigo] = {
 
-    leyendaCodigos[codigo] =
-      actuacion;
+      nombre: actuacion,
+
+      cantidad: 0,
+
+    };
 
   }
 
-}); 
+  if (row[9] === "GENERADO") {
 
+    leyendaCodigos[codigo].cantidad++;
+
+  }
+
+});
+console.log(
+  "Leyenda enviada:",
+  leyendaCodigos
+);
+
+console.log(
+  "Registros:",
+  registros.length
+);
 return NextResponse.json({
       ok: true,
       registros,

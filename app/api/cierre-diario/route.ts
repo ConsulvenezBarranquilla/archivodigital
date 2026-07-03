@@ -6,6 +6,10 @@ import {
   obtenerDocumentoPrincipal,
   } from "@/lib/googleSheets";
 
+  import {
+  hoyISO,
+} from "@/lib/fechas";
+
 export async function POST(
   req: NextRequest
 ) {
@@ -18,12 +22,7 @@ export async function POST(
       tipo,
     } = await req.json();
 
-    const hoy = new Intl.DateTimeFormat(
-  "sv-SE",
-  {
-    timeZone: "America/Bogota",
-  }
-).format(new Date());
+    const hoy = hoyISO();
 
     const cajaResponse =
       await sheets.spreadsheets.values.get({
@@ -209,13 +208,6 @@ Object.fromEntries(
   )
 
 );
-console.log("==================================");
-console.log("ESTOY EN CIERRE-DIARIO NUEVO");
-console.dir(
-  leyendaCodigosOrdenada,
-  { depth: null }
-);
-console.log("==================================");
 
     return NextResponse.json({
       ok: true,

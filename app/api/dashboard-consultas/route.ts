@@ -6,6 +6,10 @@ import {
   REGISTRO_CONSULAR_SHEET_ID,
 } from "@/lib/googleSheets";
 
+import {
+  hoyISO,
+} from "@/lib/fechas";
+
 export async function GET() {
 
   try {
@@ -42,16 +46,8 @@ export async function GET() {
           "Respuestas de formulario 1!B:G",
 
       });
-const hoyISO =
-  new Intl.DateTimeFormat(
-    "sv-SE",
-    {
-      timeZone:
-        "America/Bogota",
-    }
-  ).format(
-    new Date()
-  );
+const hoy =
+  hoyISO();
 
 const mesActual =
   new Date().getMonth() + 1;
@@ -182,7 +178,7 @@ cajaRows
     // HOY
 
     if(
-        fechaSolo===hoyISO
+        fechaSolo===hoy
     ){
 
         usdHoy+=usd;
@@ -217,6 +213,49 @@ cajaRows
     }
 
 });
+function sumarVisita(
+  obj:any,
+  tipo:string
+){
+
+    obj.total++;
+
+    if(
+        tipo==="TRÁMITE" ||
+        tipo==="TRAMITE"
+    ){
+
+        obj.tramite++;
+
+    }else if(
+
+        tipo==="INFORMACIÓN" ||
+        tipo==="INFORMACION"
+
+    ){
+
+        obj.informacion++;
+
+    }else if(
+
+        tipo==="ACOMPAÑANTE"
+
+    ){
+
+        obj.acompanante++;
+
+    }else if(
+
+        tipo==="CITA INSTITUCIONAL"
+
+    ){
+
+        obj.institucional++;
+
+    }
+
+}
+
 visitasRows
 .slice(1)
 .forEach((row)=>{
@@ -247,35 +286,14 @@ visitasRows
         .trim()
         .toUpperCase();
 
-    function sumar(obj:any){
-
-        obj.total++;
-
-        if(tipo==="TRÁMITE" || tipo==="TRAMITE"){
-
-            obj.tramite++;
-
-        }else if(tipo==="INFORMACIÓN" || tipo==="INFORMACION"){
-
-            obj.informacion++;
-
-        }else if(tipo==="ACOMPAÑANTE"){
-
-            obj.acompanante++;
-
-        }else if(tipo==="CITA INSTITUCIONAL"){
-
-            obj.institucional++;
-
-        }
-
-    }
-
     if(
-        fechaSolo===hoyISO
+        fechaSolo===hoy
     ){
 
-        sumar(visitasHoy);
+        sumarVisita(
+            visitasHoy,
+            tipo
+        );
 
     }
 
@@ -284,7 +302,10 @@ visitasRows
         anio===anioActual
     ){
 
-        sumar(visitasMes);
+        sumarVisita(
+            visitasMes,
+            tipo
+        );
 
     }
 
@@ -292,7 +313,10 @@ visitasRows
         anio===anioActual
     ){
 
-        sumar(visitasAnio);
+        sumarVisita(
+            visitasAnio,
+            tipo
+        );
 
     }
 

@@ -8,6 +8,11 @@ import {
   REGISTRO_CONSULAR_SHEET_ID,
 } from "@/lib/googleSheets";
 
+import {
+  convertirFecha,
+  hoyISO,
+} from "@/lib/fechas";
+
 export async function GET() {
 
   try {
@@ -34,18 +39,17 @@ const registroRows =
       response.data.values || [];
 
     const hoy =
-      new Date();
+  hoyISO();
 
-    const dia =
-      hoy.toLocaleDateString(
-        "es-CO"
-      );
+const mes =
+  Number(
+    hoy.substring(5,7)
+  ) - 1;
 
-    const mes =
-      hoy.getMonth();
-
-    const anio =
-      hoy.getFullYear();
+const anio =
+  Number(
+    hoy.substring(0,4)
+  );
 
     let hoyTotal = 0;
     let mesTotal = 0;
@@ -93,9 +97,11 @@ if (!fechaTexto)
   return;
 
 const fecha =
-  new Date(fechaTexto);
+  convertirFecha(
+    fechaTexto
+  );
 
-if (isNaN(fecha.getTime()))
+if (!fecha)
   return;
 
         if (
@@ -142,25 +148,15 @@ if (isNaN(fecha.getTime()))
 
         }
 
-        const hoyColombia =
-  new Intl.DateTimeFormat(
-    "sv-SE",
-    {
-      timeZone:
-        "America/Bogota",
-    }
-  ).format(new Date());
+        const fechaFila =
+  fechaTexto.substring(
+    0,
+    10
+  );
 
-const fechaFila =
-  new Intl.DateTimeFormat(
-    "sv-SE",
-    {
-      timeZone:
-        "America/Bogota",
-    }
-  ).format(fecha);
-
-if (fechaFila === hoyColombia) {
+if (
+  fechaFila === hoy
+) {
 
           hoyTotal++;
 

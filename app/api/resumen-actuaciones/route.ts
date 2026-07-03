@@ -8,6 +8,12 @@ import {
   MODULO_CAJA_SHEET_ID,
 } from "@/lib/googleSheets";
 
+import {
+  convertirFecha,
+  inicioDelDia,
+  finDelDia,
+  } from "@/lib/fechas";
+
 export async function POST(
   req: NextRequest
 ) {
@@ -63,17 +69,22 @@ const visitasRows =
   visitasResponse.data.values || [];
 
   const fechaDesde =
-  new Date(desde);
+  inicioDelDia(desde);
 
 const fechaHasta =
-  new Date(hasta);
+  finDelDia(hasta);
 
-fechaHasta.setHours(
-  23,
-  59,
-  59,
-  999
-);
+if (
+  !fechaDesde ||
+  !fechaHasta
+) {
+
+  return NextResponse.json({
+    ok:false,
+    error:"Fechas inválidas",
+  });
+
+}
 
 const recibosValidos =
   new Set<string>();
@@ -190,9 +201,7 @@ visitasRows
   .forEach((row) => {
 
     const fecha =
-      convertirFecha(
-        row[0]
-      );
+      convertirFecha(row[0]);
 
     if (!fecha) {
       return;
@@ -242,65 +251,7 @@ visitasRows
     }
 
   });
-  function convertirFecha(
-  texto: string
-){
 
-  if(!texto)
-    return null;
-
-  const fecha =
-    texto.substring(0,10);
-
-  const partes =
-    fecha.split("-");
-
-  if(partes.length===3){
-
-    return new Date(
-
-      Number(partes[0]),
-
-      Number(partes[1])-1,
-
-      Number(partes[2])
-
-    );
-
-  }
-
-  const partes2 =
-    fecha.split("/");
-
-  if(partes2.length===3){
-
-    return new Date(
-
-      Number(partes2[2]),
-
-      Number(partes2[1])-1,
-
-      Number(partes2[0])
-
-    );
-
-  }
-
-  return null;
-
-}
-console.log("================================");
-console.log("ACTUACIONES");
-console.dir(actuaciones, {
-  depth: null,
-});
-
-console.log("VISITAS");
-console.dir(visitas, {
-  depth: null,
-});
-
-console.log("================================");
 return NextResponse.json({
 
   ok: true,
@@ -326,4 +277,5 @@ return NextResponse.json({
   });
 
 }
+
 }
