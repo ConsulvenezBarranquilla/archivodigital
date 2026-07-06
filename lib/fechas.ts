@@ -46,7 +46,20 @@ export function convertirFecha(
   );
 
 }
+export function formatoFechaHoraRecibo(
+  fechaTexto: string
+) {
 
+  if (!fechaTexto) return "";
+
+  const [fecha, hora] = fechaTexto.split(" ");
+
+  const [anio, mes, dia] =
+    fecha.split("-");
+
+  return `${dia}/${mes}/${anio} ${hora}`;
+
+}
 export function inicioDelDia(
   fecha: string
 ) {

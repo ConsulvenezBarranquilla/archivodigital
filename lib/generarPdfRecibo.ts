@@ -5,7 +5,7 @@ import {
 } from "pdf-lib";
 
 import {
-  formatoFechaHora,
+  formatoFechaHoraRecibo,
 } from "@/lib/fechas";
 
 import fs from "fs";
@@ -161,10 +161,10 @@ y -= 25;
     y -= 10;
 console.log("----------------");
 console.log("Fecha recibida:", datos.fecha);
-console.log("Fecha formateada:", formatoFechaHora(datos.fecha));
+console.log("Fecha formateada:", formatoFechaHoraRecibo(datos.fecha));
 console.log("----------------");
     page.drawText(
-      `Fecha: ${formatoFechaHora(datos.fecha)}`,
+      `Fecha: ${formatoFechaHoraRecibo(datos.fecha)}`,
       {
         x: 40,
         y,
