@@ -42,6 +42,81 @@ const [
   setCargandoResumen,
 ] = useState(false);
 
+const [
+  mostrarReporteRecibos,
+  setMostrarReporteRecibos,
+] = useState(false);
+
+const [
+  reporteRecibos,
+  setReporteRecibos,
+] = useState<any>(null);
+
+const [
+  cargandoReporte,
+  setCargandoReporte,
+] = useState(false);
+
+const [
+  reporteDesde,
+  setReporteDesde,
+] = useState("");
+
+const [
+  reporteHasta,
+  setReporteHasta,
+] = useState("");
+
+const [
+  reporteDocumento,
+  setReporteDocumento,
+] = useState("");
+
+const [
+  reporteEstado,
+  setReporteEstado,
+] = useState("Todos");
+
+const [
+  reporteTipo,
+  setReporteTipo,
+] = useState("Todas");
+
+const [
+  mostrarReporteVisitas,
+  setMostrarReporteVisitas,
+] = useState(false);
+
+const [
+  reporteVisitas,
+  setReporteVisitas,
+] = useState<any>(null);
+
+const [
+  cargandoVisitas,
+  setCargandoVisitas,
+] = useState(false);
+
+const [
+  visitasDesde,
+  setVisitasDesde,
+] = useState("");
+
+const [
+  visitasHasta,
+  setVisitasHasta,
+] = useState("");
+
+const [
+  visitasDocumento,
+  setVisitasDocumento,
+] = useState("");
+
+const [
+  visitasTipo,
+  setVisitasTipo,
+] = useState("Todas");
+
   useEffect(() => {
 
     
@@ -147,6 +222,150 @@ async function consultarResumen() {
   } finally {
 
     setCargandoResumen(false);
+
+  }
+
+}
+async function consultarReporteRecibos() {
+
+  if (!reporteDesde || !reporteHasta) {
+
+    alert(
+      "Seleccione ambas fechas."
+    );
+
+    return;
+
+  }
+
+  setCargandoReporte(true);
+
+  try {
+
+    const response =
+      await fetch(
+        "/api/reporte-consultas",
+        {
+
+          method: "POST",
+
+          headers: {
+
+            "Content-Type":
+              "application/json",
+
+          },
+
+          body: JSON.stringify({
+
+            desde: reporteDesde,
+
+            hasta: reporteHasta,
+
+            documento: reporteDocumento,
+
+            estado: reporteEstado,
+
+            tipo: reporteTipo,
+
+          }),
+
+        }
+      );
+
+    const data =
+      await response.json();
+
+    if (data.ok) {
+
+      setReporteRecibos(data);
+
+    } else {
+
+      alert(data.error);
+
+    }
+
+  } catch {
+
+    alert(
+      "No fue posible consultar el reporte."
+    );
+
+  } finally {
+
+    setCargandoReporte(false);
+
+  }
+
+}
+async function consultarReporteVisitas() {
+
+  if (!visitasDesde || !visitasHasta) {
+
+    alert(
+      "Seleccione ambas fechas."
+    );
+
+    return;
+
+  }
+
+  setCargandoVisitas(true);
+
+  try {
+
+    const response =
+      await fetch(
+        "/api/reporte-consultas",
+        {
+
+          method: "POST",
+
+          headers: {
+
+            "Content-Type":
+              "application/json",
+
+          },
+
+          body: JSON.stringify({
+
+            desde: visitasDesde,
+
+            hasta: visitasHasta,
+
+            documento: visitasDocumento,
+
+            tipo: visitasTipo,
+
+          }),
+
+        }
+      );
+
+    const data =
+      await response.json();
+
+    if (data.ok) {
+
+      setReporteVisitas(data);
+
+    } else {
+
+      alert(data.error);
+
+    }
+
+  } catch {
+
+    alert(
+      "No fue posible consultar las visitas."
+    );
+
+  } finally {
+
+    setCargandoVisitas(false);
 
   }
 
@@ -519,11 +738,9 @@ Cerrar Sesión
 
     onClick={() => {
 
-      alert(
-        "Próximamente"
-      );
+  setMostrarReporteRecibos(true);
 
-    }}
+}}
 
   >
 
@@ -557,11 +774,9 @@ Cerrar Sesión
 
     onClick={() => {
 
-      alert(
-        "Próximamente"
-      );
+  setMostrarReporteVisitas(true);
 
-    }}
+}}
 
   >
 
@@ -585,9 +800,7 @@ Cerrar Sesión
 
 )}
 
-</div>
 
-</div>
 
 
 {mostrarResumen && (
@@ -973,12 +1186,568 @@ TOTAL
 </div>
 
 )}
+</div>   {/* cierra bg-white */}
+
+</div>)}   {/* cierra fondo oscuro */}
+
+       {/* cierra mostrarResumen */}
+{mostrarReporteRecibos && (
+
+<div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+
+<div className="bg-white rounded-3xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-auto p-8">
+
+<h2 className="text-3xl font-bold text-blue-950 mb-6">
+
+Reporte de Recibos
+
+</h2>
+
+<div className="grid md:grid-cols-2 gap-4">
+
+<div>
+
+<label>Fecha Desde</label>
+
+<input
+type="date"
+value={reporteDesde}
+onChange={(e)=>setReporteDesde(e.target.value)}
+className="w-full border rounded-xl p-3"
+/>
+
+</div>
+
+<div>
+
+<label>Fecha Hasta</label>
+
+<input
+type="date"
+value={reporteHasta}
+onChange={(e)=>setReporteHasta(e.target.value)}
+className="w-full border rounded-xl p-3"
+/>
+
+</div>
+
+<div className="md:col-span-2">
+
+<label>Documento (Cédula o Pasaporte)</label>
+
+<input
+value={reporteDocumento}
+onChange={(e)=>setReporteDocumento(e.target.value)}
+className="w-full border rounded-xl p-3"
+/>
+
+</div>
+
+<div>
+
+<label>Estado</label>
+
+<select
+value={reporteEstado}
+onChange={(e)=>setReporteEstado(e.target.value)}
+className="w-full border rounded-xl p-3"
+>
+
+<option>Todos</option>
+<option>GENERADO</option>
+<option>ANULADO</option>
+
+</select>
+
+</div>
+
+<div>
+
+<label>Tipo</label>
+
+<select
+value={reporteTipo}
+onChange={(e)=>setReporteTipo(e.target.value)}
+className="w-full border rounded-xl p-3"
+>
+
+<option>Todas</option>
+<option>Pagas</option>
+<option>Gratuitas</option>
+
+</select>
 
 </div>
 
 </div>
 
-)}</main>
+<div className="flex gap-3 mt-6">
+
+<button
+
+onClick={
+  consultarReporteRecibos
+}
+
+className="bg-blue-950 text-white px-5 py-3 rounded-xl"
+
+>
+
+Consultar
+
+</button>
+
+<button
+
+onClick={()=>{
+
+setMostrarReporteRecibos(false);
+setReporteRecibos(null);
+
+}}
+
+className="bg-red-600 text-white px-5 py-3 rounded-xl"
+
+>
+
+Cerrar
+
+</button>
+
+</div>
+{cargandoReporte && (
+
+<p className="mt-6">
+
+Consultando...
+
+</p>
+
+)}
+{reporteRecibos && (
+
+  <>
+
+<div className="mt-8">
+
+<h3 className="text-2xl font-bold text-blue-950 mb-4">
+
+Resultados
+
+</h3>
+
+<div className="overflow-auto rounded-xl border">
+
+<table className="min-w-full text-sm">
+
+<thead className="bg-blue-900 text-white">
+
+<tr>
+
+<th className="p-3">Fecha</th>
+
+<th className="p-3">Recibo</th>
+
+<th className="p-3">Documento</th>
+
+<th className="p-3">Nombre</th>
+
+<th className="p-3">Actuación</th>
+
+<th className="p-3">USD</th>
+
+<th className="p-3">Estado</th>
+
+</tr>
+
+</thead>
+
+<tbody>
+
+{reporteRecibos.registros.map(
+
+(item:any,index:number)=>(
+
+<tr
+key={index}
+className="border-b hover:bg-slate-50"
+>
+
+<td className="p-2">
+
+{item[0]}
+
+</td>
+
+<td className="p-2">
+
+{item[1]}
+
+</td>
+
+<td className="p-2">
+
+{item[2]}
+
+</td>
+
+<td className="p-2">
+
+{item[3]}
+
+</td>
+
+<td className="p-2">
+
+{item[4]}
+
+</td>
+
+<td className="p-2 text-right">
+
+{item[5]}
+
+</td>
+
+<td className="p-2">
+
+{item[6]}
+
+</td>
+
+</tr>
+
+)
+
+)}
+
+</tbody>
+
+</table>
+
+</div>
+
+<div className="grid grid-cols-4 gap-4 mt-6">
+
+  <div className="bg-slate-100 rounded-xl p-4">
+
+    <p>Recibos</p>
+
+    <h2 className="text-2xl font-bold">
+      {reporteRecibos.totalRecibos}
+    </h2>
+
+  </div>
+
+  <div className="bg-slate-100 rounded-xl p-4">
+
+    <p>Actuaciones</p>
+
+    <h2 className="text-2xl font-bold">
+      {reporteRecibos.totalActuaciones}
+    </h2>
+
+  </div>
+
+  <div className="bg-slate-100 rounded-xl p-4">
+
+    <p>Anulados</p>
+
+    <h2 className="text-2xl font-bold text-red-600">
+      {reporteRecibos.totalAnulados}
+    </h2>
+
+  </div>
+
+  <div className="bg-slate-100 rounded-xl p-4">
+
+    <p>Total USD</p>
+
+    <h2 className="text-2xl font-bold text-green-700">
+      ${reporteRecibos.totalUSD.toLocaleString("es-CO")}
+    </h2>
+
+  </div>
+
+</div>
+</div>   
+</>
+
+)}
+
+</div>
+
+</div>
+
+)}
+
+{mostrarReporteVisitas && (
+
+<div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+
+<div className="bg-white rounded-3xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-auto p-8">
+
+<h2 className="text-3xl font-bold text-blue-950 mb-6">
+
+Reporte de Visitas
+
+</h2>
+
+<div className="grid md:grid-cols-2 gap-4">
+
+<div>
+
+<label>Fecha Desde</label>
+
+<input
+type="date"
+value={visitasDesde}
+onChange={(e)=>setVisitasDesde(e.target.value)}
+className="w-full border rounded-xl p-3"
+/>
+
+</div>
+
+<div>
+
+<label>Fecha Hasta</label>
+
+<input
+type="date"
+value={visitasHasta}
+onChange={(e)=>setVisitasHasta(e.target.value)}
+className="w-full border rounded-xl p-3"
+/>
+
+</div>
+
+<div>
+
+<label>Documento</label>
+
+<input
+value={visitasDocumento}
+onChange={(e)=>setVisitasDocumento(e.target.value)}
+placeholder="Cédula o Pasaporte"
+className="w-full border rounded-xl p-3"
+/>
+
+</div>
+
+<div>
+
+<label>Tipo de Visita</label>
+
+<select
+value={visitasTipo}
+onChange={(e)=>setVisitasTipo(e.target.value)}
+className="w-full border rounded-xl p-3"
+>
+
+<option>Todas</option>
+<option>Trámite</option>
+<option>Información</option>
+<option>Acompañante</option>
+<option>Cita Institucional</option>
+
+</select>
+
+</div>
+
+</div>
+
+<div className="flex gap-3 mt-6">
+
+<button
+
+onClick={consultarReporteVisitas}
+
+className="bg-blue-950 text-white px-5 py-3 rounded-xl"
+
+>
+
+Consultar
+
+</button>
+
+<button
+
+onClick={()=>{
+
+setMostrarReporteVisitas(false);
+
+setReporteVisitas(null);
+
+}}
+
+className="bg-red-600 text-white px-5 py-3 rounded-xl"
+
+>
+
+Cerrar
+
+</button>
+
+</div>
+
+{cargandoVisitas && (
+
+<p className="mt-6">
+
+Consultando...
+
+</p>
+
+)}
+
+{reporteVisitas && (
+
+<>
+
+<div className="grid grid-cols-5 gap-4 mt-8">
+
+<div className="bg-slate-100 rounded-xl p-4">
+
+<p>Total</p>
+
+<h2 className="text-2xl font-bold">
+
+{reporteVisitas.total}
+
+</h2>
+
+</div>
+
+<div className="bg-slate-100 rounded-xl p-4">
+
+<p>Trámite</p>
+
+<h2 className="text-2xl font-bold">
+
+{reporteVisitas.tramite}
+
+</h2>
+
+</div>
+
+<div className="bg-slate-100 rounded-xl p-4">
+
+<p>Información</p>
+
+<h2 className="text-2xl font-bold">
+
+{reporteVisitas.informacion}
+
+</h2>
+
+</div>
+
+<div className="bg-slate-100 rounded-xl p-4">
+
+<p>Acompañante</p>
+
+<h2 className="text-2xl font-bold">
+
+{reporteVisitas.acompanante}
+
+</h2>
+
+</div>
+
+<div className="bg-slate-100 rounded-xl p-4">
+
+<p>Institucional</p>
+
+<h2 className="text-2xl font-bold">
+
+{reporteVisitas.institucional}
+
+</h2>
+
+</div>
+
+</div>
+
+<div className="mt-8 overflow-auto rounded-xl border">
+
+<table className="min-w-full text-sm">
+
+<thead className="bg-blue-900 text-white">
+
+<tr>
+
+<th className="p-3">Fecha</th>
+
+<th className="p-3">Documento</th>
+
+<th className="p-3">Ciudadano</th>
+
+<th className="p-3">Tipo</th>
+
+</tr>
+
+</thead>
+
+<tbody>
+
+{reporteVisitas.registros.map(
+
+(item:any,index:number)=>(
+
+<tr
+key={index}
+className="border-b hover:bg-slate-50"
+>
+
+<td className="p-2">
+
+{item[0]}
+
+</td>
+
+<td className="p-2">
+
+{item[1]}
+
+</td>
+
+<td className="p-2">
+
+{item[2]}
+
+</td>
+
+<td className="p-2">
+
+{item[3]}
+
+</td>
+
+</tr>
+
+)
+
+)}
+
+</tbody>
+
+</table>
+
+</div>
+
+</>
+
+)}
+
+</div>
+
+</div>
+
+)}
+</div>   {/* bg-white principal */}
+
+</div>   {/* max-w-7xl */}
+</main>
 
 );
 

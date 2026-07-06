@@ -270,11 +270,11 @@ export default function ConfiguracionPage() {
   </a>
 
   <a
-    href="/admin/historial"
-    className="bg-blue-950 text-white px-4 py-2 rounded-xl hover:bg-blue-900"
-  >
-    Historial
-  </a>
+  href="/consultas"
+  className="bg-blue-950 text-white px-4 py-2 rounded-xl hover:bg-blue-900"
+>
+  Consultas
+</a>
 
   <a
     href="/admin/configuracion"
