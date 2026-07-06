@@ -6,75 +6,44 @@ export function convertirFecha(
     return null;
   }
 
-  const limpio =
-    fechaTexto.trim();
+  const limpio = fechaTexto.trim();
 
-  // Ya viene en formato ISO
-  if (limpio.includes("T")) {
-
-    const fecha =
-      new Date(limpio);
-
-    return isNaN(fecha.getTime())
-      ? null
-      : fecha;
-
-  }
-
-  // Solo fecha
-  if (
-    limpio.length === 10 &&
-    limpio.includes("-")
-  ) {
-
-    const fecha =
-      new Date(
-        `${limpio}T00:00:00`
-      );
-
-    return isNaN(fecha.getTime())
-      ? null
-      : fecha;
-
-  }
-
-  // Fecha + hora separadas por espacio
-  const partes =
-    limpio.split(" ");
+  const partes = limpio
+    .replace("T", " ")
+    .split(" ");
 
   if (partes.length < 2) {
-    return null;
-  }
 
-  const fecha =
-    partes[0];
+    const soloFecha = partes[0].split("-");
 
-  let hora =
-    partes[1];
+    if (soloFecha.length !== 3) {
+      return null;
+    }
 
-  const hms =
-    hora.split(":");
-
-  if (
-    hms[0].length === 1
-  ) {
-
-    hms[0] =
-      "0" + hms[0];
-
-  }
-
-  hora =
-    hms.join(":");
-
-  const resultado =
-    new Date(
-      `${fecha}T${hora}`
+    return new Date(
+      Number(soloFecha[0]),
+      Number(soloFecha[1]) - 1,
+      Number(soloFecha[2])
     );
 
-  return isNaN(resultado.getTime())
-    ? null
-    : resultado;
+  }
+
+  const [fecha, hora] = partes;
+
+  const [anio, mes, dia] =
+    fecha.split("-").map(Number);
+
+  const [h, m, s] =
+    hora.split(":").map(Number);
+
+  return new Date(
+    anio,
+    mes - 1,
+    dia,
+    h,
+    m,
+    s
+  );
 
 }
 
