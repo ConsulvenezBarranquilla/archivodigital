@@ -5,13 +5,27 @@ import {
   obtenerDocumentoPrincipal,
 } from "@/lib/googleSheets";
 
+function normalizar(texto: string) {
+
+  return texto
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .trim();
+
+}
+
 export async function GET(req: NextRequest) {
   try {
     const documento = req.nextUrl.searchParams
       .get("documento")
       ?.trim()
       .toUpperCase();
+const buscado =
+  normalizar(documento || "");
 
+const pareceDocumento =
+  /^[A-Z]?\d+$/.test(buscado);
     if (!documento) {
       return NextResponse.json(
         {
@@ -30,30 +44,162 @@ export async function GET(req: NextRequest) {
 
     const rows = response.data.values || [];
 
-    const ciudadano = rows.find((row, index) => {
+    let ciudadano: any = null;
 
-  if (index === 0) {
-    return false;
-  }
+if (pareceDocumento) {
 
-  const cedula =
-    (row[1] || "")
-      .toString()
-      .trim()
-      .toUpperCase();
+  ciudadano = rows.find((row, index) => {
 
-  const pasaporte =
-    (row[14] || "")
-      .toString()
-      .trim()
-      .toUpperCase();
+    if (index === 0) {
+      return false;
+    }
 
-  return (
-    cedula === documento ||
-    pasaporte === documento
+    const cedula =
+      (row[1] || "")
+        .toString()
+        .trim()
+        .toUpperCase();
+
+    const pasaporte =
+      (row[14] || "")
+        .toString()
+        .trim()
+        .toUpperCase();
+
+    return (
+      cedula === buscado ||
+      pasaporte === buscado
+    );
+
+  });
+
+} else {
+
+  const coincidencias = rows
+    .slice(1)
+    .filter((row) => {
+
+      const nombre = normalizar(
+
+  [
+
+    row[2],
+    row[3],
+    row[4],
+    row[5],
+
+  ]
+    .filter(Boolean)
+    .join(" ")
+
+);
+const palabras =
+  buscado.split(" ");
+
+return palabras.every(
+
+  palabra =>
+
+    nombre.includes(palabra)
+
+);
+    });
+coincidencias.sort((a, b) => {
+
+  const nombreA = normalizar(
+    [
+      a[2],
+      a[3],
+      a[4],
+      a[5]
+    ]
+      .filter(Boolean)
+      .join(" ")
   );
 
+  const nombreB = normalizar(
+    [
+      b[2],
+      b[3],
+      b[4],
+      b[5]
+    ]
+      .filter(Boolean)
+      .join(" ")
+  );
+
+  return nombreA.localeCompare(nombreB);
+
 });
+  if (coincidencias.length === 0) {
+
+    return NextResponse.json({
+      encontrado: false,
+    });
+
+  }
+
+  if (coincidencias.length > 1) {
+
+    return NextResponse.json({
+
+      encontrado: true,
+
+      multiple: true,
+
+      coincidencias:
+
+        coincidencias.map((row) => {
+
+          const cedula =
+            row[1] || "";
+
+          const pasaporte =
+            row[14] || "";
+
+          const nacionalidad =
+            row[6] || "";
+
+          return {
+
+            documento:
+              obtenerDocumentoPrincipal(
+                cedula,
+                pasaporte,
+                nacionalidad
+              ),
+
+            cedula,
+
+            pasaporte,
+
+            nombreCompleto: [
+
+              row[2],
+              row[3],
+              row[4],
+              row[5],
+
+            ]
+              .filter(Boolean)
+              .join(" "),
+
+            nacionalidad,
+
+            fechaNacimiento:
+              row[13] || "",
+
+          };
+
+        }),
+
+    });
+
+  }
+
+  ciudadano = coincidencias[0];
+
+}
 
 if (!ciudadano) {
 

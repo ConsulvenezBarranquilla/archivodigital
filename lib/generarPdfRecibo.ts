@@ -159,7 +159,10 @@ y -= 25;
 );
 
     y -= 10;
-
+console.log("----------------");
+console.log("Fecha recibida:", datos.fecha);
+console.log("Fecha formateada:", formatoFechaHora(datos.fecha));
+console.log("----------------");
     page.drawText(
       `Fecha: ${formatoFechaHora(datos.fecha)}`,
       {

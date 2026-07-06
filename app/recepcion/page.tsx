@@ -22,6 +22,16 @@ export default function RecepcionPage() {
     setCiudadano,
   ] = useState<any>(null);
 
+const [
+  coincidencias,
+  setCoincidencias,
+] = useState<any[]>([]);
+
+const [
+  mostrarCoincidencias,
+  setMostrarCoincidencias,
+] = useState(false);
+
   const [
   mostrarVisitas,
   setMostrarVisitas,
@@ -178,7 +188,19 @@ setUsuario(user);
 
   const data =
     await response.json();
+if (data.multiple) {
 
+  setCoincidencias(
+    data.coincidencias
+  );
+
+  setMostrarCoincidencias(true);
+
+  setMensaje("");
+
+  return;
+
+}
   if (!data.encontrado) {
 
     setCiudadano(null);
@@ -208,7 +230,31 @@ setUsuario(user);
   setMensaje("");
 
 }
+async function seleccionarCiudadano(
+  data: any
+) {
 
+  setMostrarCoincidencias(false);
+
+  setCoincidencias([]);
+
+  setCiudadano(data);
+
+  setCiudadanoOriginal(data);
+
+  setHayCambios(false);
+
+  await cargarHistorialVisitas(
+    data.documento
+  );
+
+  await cargarHistorialTramites(
+    data.documento
+  );
+
+  setMensaje("");
+
+}
 function actualizarCampo(
   campo: string,
   valor: any
@@ -1203,7 +1249,7 @@ await cargarEstadisticas();
             </h2>
 
             <label className="block mb-2 font-medium">
-  Cédula o Pasaporte
+  Buscar por Cédula, Pasaporte o Nombre
 </label>
 
             <input
@@ -1299,7 +1345,132 @@ await cargarEstadisticas();
             )}
 
           </div>
+{mostrarCoincidencias && (
 
+<div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+
+<div className="bg-white rounded-2xl shadow-2xl w-[800px] max-h-[80vh] overflow-auto p-6">
+
+<h2 className="text-2xl font-bold mb-5">
+
+Se encontraron varios ciudadanos
+
+</h2>
+
+<table className="w-full">
+
+<thead>
+
+<tr className="border-b">
+
+<th className="text-left p-2">
+Documento
+</th>
+
+<th className="text-left p-2">
+Nombre
+</th>
+
+<th className="text-left p-2">
+Nacionalidad
+</th>
+
+<th></th>
+
+</tr>
+
+</thead>
+
+<tbody>
+
+{coincidencias.map((c,index)=>(
+
+<tr
+key={index}
+className="border-b"
+>
+
+<td className="p-2">
+
+{c.documento}
+
+</td>
+
+<td className="p-2">
+
+{c.nombreCompleto}
+
+</td>
+
+<td className="p-2">
+
+{c.nacionalidad}
+
+</td>
+
+<td className="p-2">
+
+<button
+
+className="bg-blue-700 text-white px-4 py-2 rounded"
+
+onClick={async()=>{
+
+const r=await fetch(
+
+`/api/registro-consular?documento=${c.documento}`
+
+);
+
+const ciudadano=await r.json();
+
+seleccionarCiudadano(ciudadano);
+
+}}
+
+>
+
+Seleccionar
+
+</button>
+
+</td>
+
+</tr>
+
+))}
+
+</tbody>
+
+</table>
+
+<div className="text-right mt-5">
+
+<button
+
+onClick={()=>{
+
+setMostrarCoincidencias(false);
+
+setCoincidencias([]);
+
+}}
+
+className="bg-red-600 text-white px-5 py-2 rounded"
+
+>
+
+Cerrar
+
+</button>
+
+</div>
+
+</div>
+
+</div>
+
+)}
           {ciudadano && (
 
             <div
