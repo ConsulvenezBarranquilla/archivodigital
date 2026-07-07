@@ -466,6 +466,7 @@ export default function AdminPage() {
           <th className="p-3 text-left">
             Nombre
           </th>
+          
 
           <th className="p-3 text-left">
             Tipo
@@ -542,6 +543,10 @@ export default function AdminPage() {
         </th>
 
         <th className="p-3">
+          Actuación
+        </th>
+
+        <th className="p-3">
           USD
         </th>
 
@@ -580,6 +585,10 @@ export default function AdminPage() {
             <td className="p-3">
               {item.nombre}
             </td>
+
+            <td className="p-3 font-semibold text-blue-700">
+  {item.codigo}
+</td>
 
             <td className="p-3">
               ${item.usd}

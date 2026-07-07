@@ -142,129 +142,123 @@ const mes =
 
 
         if (
-          fechaSolo === hoy
-        ) {
-
-          recibosHoy++;
-
-          if (
-            estado ===
-            "ANULADO"
-          ) {
-
-            anuladosHoy++;
-
-          }
-
-          if (
-            estado ===
-            "GENERADO"
-          ) {
-
-            usdHoy +=
-              totalUsd;
-
-          }
-
-          if (
-            caja ===
-            "Caja 1"
-          ) {
-
-            caja1Recibos++;
-
-            if (
-              estado ===
-              "GENERADO"
-            ) {
-
-              caja1Usd +=
-                totalUsd;
-
-            }
-
-          }
-
-          if (
-            caja ===
-            "Caja 2"
-          ) {
-
-            caja2Recibos++;
-
-            if (
-              estado ===
-              "GENERADO"
-            ) {
-
-              caja2Usd +=
-                totalUsd;
-
-            }
-
-          }
-
-        }
-
-        if (
-          mes ===
-            mesActual &&
-          anio ===
-            anioActual
-        ) {
-
-          recibosMes++;
-
-          if (
-            estado ===
-            "ANULADO"
-          ) {
-
-            anuladosMes++;
-
-          }
-
-          if (
-  estado ===
-  "GENERADO"
+  fechaSolo === hoy
 ) {
 
-  usdMes +=
-    totalUsd;
+  if (
+    estado ===
+    "ANULADO"
+  ) {
 
-  const actuacionesTexto =
-    row[5] || "";
+    anuladosHoy++;
 
-  actuacionesMes +=
-  actuacionesTexto
-    .split(";")
-    .filter(
-      (x:string) =>
-        x.trim() !== ""
-    ).length;
+  }
+
+  if (
+    estado ===
+    "GENERADO"
+  ) {
+
+    recibosHoy++;
+
+    usdHoy +=
+      totalUsd;
+
+    if (
+      caja ===
+      "Caja 1"
+    ) {
+
+      caja1Recibos++;
+
+      caja1Usd +=
+        totalUsd;
+
+    }
+
+    if (
+      caja ===
+      "Caja 2"
+    ) {
+
+      caja2Recibos++;
+
+      caja2Usd +=
+        totalUsd;
+
+    }
+
+  }
 
 }
 
-        }
+        if (
+  mes === mesActual &&
+  anio === anioActual
+) {
 
+  if (
+    estado === "ANULADO"
+  ) {
+
+    anuladosMes++;
+
+  }
+
+  if (
+    estado === "GENERADO"
+  ) {
+
+    recibosMes++;
+
+    usdMes += totalUsd;
+
+    const actuacionesTexto =
+      row[5] || "";
+
+    actuacionesMes +=
+      actuacionesTexto
+        .split(";")
+        .filter(
+          (x: string) =>
+            x.trim() !== ""
+        ).length;
+
+  }
+
+}
+const correlativo =
+  row[1] || "";
+
+const primerDetalle =
+  detalleRows
+    .slice(1)
+    .find(
+      (d) =>
+        d[0] === correlativo
+    );
+
+const codigoActuacion =
+  primerDetalle?.[1] || "";
         ultimosMovimientos.push({
 
-          correlativo:
-            row[1] || "",
+  correlativo,
 
-          nombre:
-            row[3] || "",
+  nombre:
+    row[3] || "",
 
-          usd:
-            totalUsd,
+  codigo:
+    codigoActuacion,
 
-          caja,
+  usd:
+    totalUsd,
 
-          estado,
+  caja,
 
-        });
+  estado,
 
-      });
+});
+});
 
     const actuacionesMap =
       new Map();
