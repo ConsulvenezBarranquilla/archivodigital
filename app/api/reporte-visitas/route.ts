@@ -8,7 +8,8 @@ import {
 
 import {
   convertirFecha,
-  hoyISO,
+  inicioDelDia,
+  finDelDia,
 } from "@/lib/fechas";
 
 export async function POST(
@@ -18,9 +19,10 @@ export async function POST(
   try {
 
     const {
-      tipo,
       desde,
       hasta,
+      documento,
+      tipo,
     } = await req.json();
 
     const response =
@@ -37,198 +39,208 @@ export async function POST(
     const filas =
       response.data.values || [];
 
-filas.slice(1, 6).forEach((fila, i) => {
+    const fechaDesde =
+      inicioDelDia(desde);
 
-  console.log(i + 1, fila[0]);
+    const fechaHasta =
+      finDelDia(hasta);
 
-});
-    const hoy = hoyISO();
+    const resultado =
+      filas.slice(1).filter((row) => {
 
-const visitasFiltradas = filas.slice(1).filter((fila) => {
+        const fecha =
+          convertirFecha(row[0]);
 
-  const fechaRegistro =
-    (fila[0] || "").substring(0, 10);
+        if (
+          !fecha ||
+          !fechaDesde ||
+          !fechaHasta
+        ) {
 
-  console.log(
-    "Fila:",
-    fila[0],
-    "| FechaRegistro:",
-    fechaRegistro,
-    "| Hoy:",
-    hoy
-  );
+          return false;
 
-  if (tipo === "diario") {
-
-    const coincide = fechaRegistro === hoy;
-
-    console.log("Coincide:", coincide);
-
-    return coincide;
-
-  }
-
-  if (tipo === "rango") {
-
-    console.log(
-      "Comparando rango:",
-      fechaRegistro,
-      desde,
-      hasta
-    );
-
-    return (
-      fechaRegistro >= desde &&
-      fechaRegistro <= hasta
-    );
-
-  }
-
-  return true;
-
-});
-
-  const detalle = visitasFiltradas.map((fila) => {
-
-  const cedula =
-    fila[2] || "";
-
-  const pasaporte =
-    fila[3] || "";
-
-  const nacionalidad =
-    fila[6] || "";
-
-  const fecha =
-  convertirFecha(
-    fila[0]
-  );
-
-const fechaMostrar =
-  fecha
-    ? fecha.toLocaleString(
-        "es-CO",
-        {
-          day: "2-digit",
-          month: "2-digit",
-          year: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-          second: "2-digit",
-          hour12: true,
         }
-      )
-    : fila[0];
 
-  return {
+        if (
+          fecha < fechaDesde ||
+          fecha > fechaHasta
+        ) {
 
-    fechaISO: fila[0],
+          return false;
 
-    fecha: fechaMostrar,
+        }
 
-    documento:
-      obtenerDocumentoPrincipal(
-        cedula,
-        pasaporte,
-        nacionalidad
-      ),
+        if (documento) {
 
-    nombre:
-      fila[4] || "",
+          const buscado =
+            documento
+              .trim()
+              .toUpperCase();
 
-    tipo:
-      fila[5] || "",
+          const cedula =
+            (row[2] || "")
+              .toString()
+              .trim()
+              .toUpperCase();
 
-  };
+          const pasaporte =
+            (row[3] || "")
+              .toString()
+              .trim()
+              .toUpperCase();
 
-});
+          if (
 
-console.log("VISITAS FILTRADAS:", visitasFiltradas);
+            cedula !== buscado &&
+            pasaporte !== buscado
 
-console.log("DETALLE:", detalle);
+          ) {
 
-console.log("TOTAL DETALLE:", detalle.length);
+            return false;
 
-const resumenMap =
-  new Map<
-    string,
-    number
-  >();
+          }
 
-detalle.forEach((item) => {
+        }
 
-  resumenMap.set(
+        if (
 
-    item.tipo,
+          tipo &&
+          tipo !== "Todas" &&
+          row[5] !== tipo
 
-    (resumenMap.get(item.tipo) || 0) + 1
+        ) {
 
-  );
+          return false;
 
-});
+        }
 
-const resumen =
+        return true;
 
-Array.from(
-  resumenMap.entries()
-)
+      });
 
-.map(
+    const registros =
+      resultado.map((row) => {
 
-  ([tipo, cantidad]) => ({
+        const cedula =
+          row[2] || "";
 
-    tipo,
+        const pasaporte =
+          row[3] || "";
 
-    cantidad,
+        const nacionalidad =
+          row[6] || "";
 
-  })
+        const documentoPrincipal =
+          obtenerDocumentoPrincipal(
 
-)
+            cedula,
+            pasaporte,
+            nacionalidad
 
-.sort(
+          );
 
-  (a, b) =>
+        return [
 
-    b.cantidad - a.cantidad
+  row[0],                // Fecha
 
-);
+  documentoPrincipal,    // Documento
+
+  row[4] || "",          // Nombre
+
+  row[5] || "",          // Tipo
+
+];
+
+      });
+
+    registros.sort((a, b) => {
+
+      const fechaA =
+        convertirFecha(a[0]);
+
+      const fechaB =
+        convertirFecha(b[0]);
+
+      if (
+        !fechaA ||
+        !fechaB
+      ) {
+
+        return 0;
+
+      }
+
+      return (
+        fechaB.getTime() -
+        fechaA.getTime()
+      );
+
+    });
+
+    const tramite =
+      registros.filter(
+        (r) =>
+          r[3] === "Trámite"
+      ).length;
+
+    const informacion =
+      registros.filter(
+        (r) =>
+          r[3] === "Información"
+      ).length;
+
+    const acompanante =
+      registros.filter(
+        (r) =>
+          r[3] === "Acompañante"
+      ).length;
+
+    const institucional =
+      registros.filter(
+        (r) =>
+          r[3] ===
+          "Cita Institucional"
+      ).length;
 
     return NextResponse.json({
 
-  ok: true,
+      ok: true,
 
-  titulo:
+      registros,
 
-  tipo === "diario"
+      total:
+        registros.length,
 
-    ? "REPORTE DIARIO DE VISITAS"
+      tramite,
 
-    : `REPORTE DE VISITAS (${desde} al ${hasta})`,
+      informacion,
 
-  desde,
+      acompanante,
 
-  hasta,
+      institucional,
 
-  total:
-
-    detalle.length,
-
-  detalle,
-
-  resumen,
-
-});
+    });
 
   } catch (error: any) {
 
-    return NextResponse.json({
+    return NextResponse.json(
 
-      ok: false,
+      {
 
-      error:
-        error.message,
+        ok: false,
 
-    });
+        error:
+          error.message,
+
+      },
+
+      {
+
+        status: 500,
+
+      }
+
+    );
 
   }
 

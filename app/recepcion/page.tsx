@@ -52,6 +52,7 @@ const [
   setHistorialTramites,
 ] = useState<any[]>([]);
 
+
 const [mostrarReporte, setMostrarReporte] =
   useState(false);
 
@@ -107,6 +108,16 @@ const [
   ultimaActualizacion,
   setUltimaActualizacion,
 ] = useState("");
+
+const [
+  mostrarEliminar,
+  setMostrarEliminar
+] = useState(false);
+
+const [
+  eliminando,
+  setEliminando,
+] = useState(false);
 
 const [
   catalogos,
@@ -186,13 +197,13 @@ setUsuario(user);
       `/api/registro-consular?documento=${documento}`
     );
 
-  const data =
-    await response.json();
-if (data.multiple) {
+  const data = await response.json();
 
-  setCoincidencias(
-    data.coincidencias
-  );
+
+if (data.multiple === true) {
+
+  
+  setCoincidencias(data.coincidencias);
 
   setMostrarCoincidencias(true);
 
@@ -201,6 +212,8 @@ if (data.multiple) {
   return;
 
 }
+
+console.log("NO ENTRÓ AL IF");
   if (!data.encontrado) {
 
     setCiudadano(null);
@@ -528,6 +541,83 @@ console.log(ciudadano);
   }
 
 }
+async function eliminarCiudadano() {
+
+  if (!ciudadano) {
+
+    return;
+
+  }
+
+  try {
+
+    setEliminando(true);
+
+    const response =
+      await fetch(
+
+        "/api/eliminar-ciudadano",
+
+        {
+
+          method: "POST",
+
+          headers: {
+
+            "Content-Type":
+              "application/json",
+
+          },
+
+          body: JSON.stringify({
+
+            documentoOriginal:
+              ciudadano.documentoOriginal,
+
+          }),
+
+        }
+
+      );
+
+    const data =
+      await response.json();
+
+    if (!data.ok) {
+
+      alert(
+        data.error
+      );
+
+      return;
+
+    }
+
+    alert(
+      "Ciudadano eliminado correctamente."
+    );
+
+    setMostrarEliminar(
+      false
+    );
+
+    limpiarPantalla();
+
+  } catch (error) {
+
+    alert(
+      "Error eliminando ciudadano."
+    );
+
+  } finally {
+
+    setEliminando(
+      false
+    );
+
+  }
+
+}
 async function generarReporteDiario() {
 
   setCargandoReporte(true);
@@ -535,7 +625,7 @@ async function generarReporteDiario() {
   try {
 
     const response = await fetch(
-      "/api/reporte-visitas",
+      "/api/reporte-diario-visitas",
       {
         method: "POST",
         headers: {
@@ -621,7 +711,7 @@ async function generarReportePorFechas() {
   try {
 
     const response = await fetch(
-      "/api/reporte-visitas",
+      "/api/reporte-diario-visitas",
       {
         method: "POST",
         headers: {
@@ -1345,6 +1435,91 @@ await cargarEstadisticas();
             )}
 
           </div>
+    {mostrarEliminar && (
+
+<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+
+  <div className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-lg">
+
+    <h2 className="text-2xl font-bold text-red-700 mb-5">
+
+      Eliminar Ciudadano
+
+    </h2>
+
+    <p className="mb-6 text-slate-700">
+
+      ¿Está seguro que desea eliminar definitivamente este ciudadano?
+
+    </p>
+
+    <div className="bg-red-50 rounded-xl p-4 mb-6">
+
+      <div>
+
+        <strong>
+
+          {ciudadano.nombreCompleto}
+
+        </strong>
+
+      </div>
+
+      <div>
+
+        {ciudadano.documento}
+
+      </div>
+
+    </div>
+
+    <div className="flex justify-end gap-3">
+
+      <button
+
+        onClick={() =>
+          setMostrarEliminar(false)
+        }
+
+        className="bg-slate-500 text-white px-5 py-3 rounded-xl"
+
+      >
+
+        Cancelar
+
+      </button>
+
+      <button
+
+        disabled={eliminando}
+
+        onClick={
+          eliminarCiudadano
+        }
+
+        className="bg-red-700 text-white px-5 py-3 rounded-xl hover:bg-red-800 disabled:bg-red-400"
+
+      >
+
+        {
+
+          eliminando
+
+            ? "Eliminando..."
+
+            : "Eliminar"
+
+        }
+
+      </button>
+
+    </div>
+
+  </div>
+
+</div>
+
+)}      
 {mostrarCoincidencias && (
 
 <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
@@ -1353,7 +1528,7 @@ await cargarEstadisticas();
 
 <h2 className="text-2xl font-bold mb-5">
 
-Se encontraron varios ciudadanos
+Se encontraron los siguientes ciudadanos
 
 </h2>
 
@@ -1418,7 +1593,7 @@ onClick={async()=>{
 
 const r=await fetch(
 
-`/api/registro-consular?documento=${c.documento}`
+`/api/detalle-ciudadano?documento=${c.documento}`
 
 );
 
@@ -1912,50 +2087,67 @@ Cerrar
   <div className="flex gap-3 mt-6">
 
   <button
-  onClick={guardarCambios}
-
-  disabled={
-    !hayCambios ||
-    guardando
-  }
-
-  className={`
-    px-5
-    py-3
-    rounded-xl
-    text-white
-    font-semibold
-    transition
-
-    ${
+    onClick={guardarCambios}
+    disabled={
+      !hayCambios ||
       guardando
-        ? "bg-blue-400 cursor-not-allowed"
-        : hayCambios
-        ? "bg-green-700 hover:bg-green-800"
-        : "bg-slate-400 cursor-not-allowed"
     }
-  `}
->
+    className={`
+      px-5
+      py-3
+      rounded-xl
+      text-white
+      font-semibold
+      transition
 
-  {guardando
-    ? "⏳ Guardando..."
-    : "💾 Guardar Cambios"}
+      ${
+        guardando
+          ? "bg-blue-400 cursor-not-allowed"
+          : hayCambios
+          ? "bg-green-700 hover:bg-green-800"
+          : "bg-slate-400 cursor-not-allowed"
+      }
+    `}
+  >
 
-</button>
+    {guardando
+      ? "⏳ Guardando..."
+      : "💾 Guardar Cambios"}
+
+  </button>
 
   <button
-    onClick={
-      limpiarPantalla
-    }
+    onClick={limpiarPantalla}
     className="
       bg-slate-500
       text-white
       px-5
       py-3
       rounded-xl
+      hover:bg-slate-600
     "
   >
+
     🧹 Limpiar
+
+  </button>
+
+  <button
+    onClick={() =>
+      setMostrarEliminar(true)
+    }
+    className="
+      bg-red-700
+      text-white
+      px-5
+      py-3
+      rounded-xl
+      hover:bg-red-800
+    "
+  >
+
+    🗑️ Eliminar Ciudadano
+
   </button>
 
 </div>

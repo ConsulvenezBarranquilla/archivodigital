@@ -18,35 +18,62 @@ export async function POST(
 
   try {
 
+    const filtros =
+      await req.json();
+
     const {
+
       desde,
       hasta,
+      recibo,
       documento,
+      actuacion,
       tipo,
-    } = await req.json();
+      estado,
 
-    const response =
+    } = filtros;
+
+    const cajaResponse =
       await sheets.spreadsheets.values.get({
 
         spreadsheetId:
           MODULO_CAJA_SHEET_ID,
 
         range:
-          "BitacoraVisitas!A:G",
+          "Caja!A:N",
 
       });
 
-    const filas =
-      response.data.values || [];
+    const detalleResponse =
+      await sheets.spreadsheets.values.get({
+
+        spreadsheetId:
+          MODULO_CAJA_SHEET_ID,
+
+        range:
+          "DetalleCaja!A:F",
+
+      });
+
+    const movimientos =
+      cajaResponse.data.values || [];
+
+    const detalles =
+      detalleResponse.data.values || [];
+
+    const filasCaja =
+      movimientos.slice(1);
+
+    const filasDetalle =
+      detalles.slice(1);
 
     const fechaDesde =
       inicioDelDia(desde);
 
     const fechaHasta =
       finDelDia(hasta);
-
-    const resultado =
-      filas.slice(1).filter((row) => {
+          const resultado =
+      filasCaja.filter((row) => {
 
         const fecha =
           convertirFecha(row[0]);
@@ -70,6 +97,21 @@ export async function POST(
 
         }
 
+        if (recibo) {
+
+          if (
+            (row[1] || "")
+              .toString()
+              .trim() !==
+            recibo.trim()
+          ) {
+
+            return false;
+
+          }
+
+        }
+
         if (documento) {
 
           const buscado =
@@ -77,20 +119,27 @@ export async function POST(
               .trim()
               .toUpperCase();
 
-          const cedula =
+          const documentoImpreso =
             (row[2] || "")
               .toString()
               .trim()
               .toUpperCase();
 
+          const cedula =
+            (row[11] || row[2] || "")
+              .toString()
+              .trim()
+              .toUpperCase();
+
           const pasaporte =
-            (row[3] || "")
+            (row[12] || "")
               .toString()
               .trim()
               .toUpperCase();
 
           if (
 
+            documentoImpreso !== buscado &&
             cedula !== buscado &&
             pasaporte !== buscado
 
@@ -104,9 +153,9 @@ export async function POST(
 
         if (
 
-          tipo &&
-          tipo !== "Todas" &&
-          row[5] !== tipo
+          estado &&
+          estado !== "Todos" &&
+          row[10] !== estado
 
         ) {
 
@@ -118,106 +167,265 @@ export async function POST(
 
       });
 
-    const registros =
-      resultado.map((row) => {
+    let registros: any[] = [];
+        resultado.forEach(
+      (movimiento) => {
 
-        const cedula =
-          row[2] || "";
+        const correlativo =
+          movimiento[1];
 
-        const pasaporte =
-          row[3] || "";
-
-        const nacionalidad =
-          row[6] || "";
-
-        const documentoPrincipal =
-          obtenerDocumentoPrincipal(
-
-            cedula,
-            pasaporte,
-            nacionalidad
-
+        const detallesRecibo =
+          filasDetalle.filter(
+            (d) =>
+              d[0] === correlativo
           );
 
-        return [
+        detallesRecibo.forEach(
+          (detalle) => {
 
-  row[0],                // Fecha
+            const monto =
+              Number(
+                detalle[3] || 0
+              );
 
-  documentoPrincipal,    // Documento
+            if (
+              tipo === "Pagas" &&
+              monto <= 0
+            ) {
 
-  row[4] || "",          // Nombre
+              return;
 
-  row[5] || "",          // Tipo
+            }
 
-];
+            if (
+              tipo === "Gratuitas" &&
+              monto > 0
+            ) {
+
+              return;
+
+            }
+
+            if (
+
+              actuacion &&
+              actuacion !== "Todas" &&
+              detalle[2] !== actuacion
+
+            ) {
+
+              return;
+
+            }
+
+            const cedula =
+              movimiento[11] ||
+              movimiento[2] ||
+              "";
+
+            const pasaporte =
+              movimiento[12] ||
+              "";
+
+            const nacionalidad =
+              movimiento[13] ||
+              "";
+
+            const documentoPrincipal =
+              obtenerDocumentoPrincipal(
+
+                cedula,
+                pasaporte,
+                nacionalidad
+
+              );
+
+            registros.push([
+
+  movimiento[0],      // 0 Fecha
+
+  correlativo,        // 1 Recibo
+
+  documentoPrincipal, // 2 Documento
+
+  movimiento[3],      // 3 Nombre
+
+  detalle[2],         // 4 Actuación
+
+  monto,              // 5 USD
+
+  movimiento[10],     // 6 Estado
+
+]);
+
+          }
+
+        );
 
       });
+          const totalUSD =
+      registros
+        .filter(
+          (item) =>
+            item[6] ===
+            "GENERADO"
+        )
+        .reduce(
+          (
+            total,
+            item
+          ) =>
+            total +
+            Number(
+              item[5]
+            ),
+          0
+        );
 
-    registros.sort((a, b) => {
+    const recibosGenerados =
+      new Set(
 
-      const fechaA =
-        convertirFecha(a[0]);
+        registros
 
-      const fechaB =
-        convertirFecha(b[0]);
+          .filter(
+            (r) =>
+              r[6] ===
+              "GENERADO"
+          )
+
+          .map(
+            (r) => r[1]
+          )
+
+      );
+
+    const anuladosUnicos =
+      new Set(
+
+        registros
+
+          .filter(
+            (r) =>
+              r[6] ===
+              "ANULADO"
+          )
+
+          .map(
+            (r) => r[1]
+          )
+
+      );
+
+    const totalAnulados =
+      anuladosUnicos.size;
+
+    const actuacionesGeneradas =
+      registros.filter(
+        (r) =>
+          r[6] ===
+          "GENERADO"
+      );
+
+    registros.sort(
+      (a, b) => {
+
+        const fechaA =
+          convertirFecha(
+            a[0]
+          );
+
+        const fechaB =
+          convertirFecha(
+            b[0]
+          );
+
+        if (
+          !fechaA ||
+          !fechaB
+        ) {
+
+          return 0;
+
+        }
+
+        return (
+          fechaB.getTime() -
+          fechaA.getTime()
+        );
+
+      }
+    );
+
+    const resumenActuaciones: any =
+      {};
+
+    registros.forEach((row) => {
+
+      const codigo =
+        row[4];
+
+      const actuacion =
+        row[4];
+
+      const monto =
+        Number(
+          row[5] || 0
+        );
 
       if (
-        !fechaA ||
-        !fechaB
+        !resumenActuaciones[
+          codigo
+        ]
       ) {
 
-        return 0;
+        resumenActuaciones[
+          codigo
+        ] = {
+
+          nombre:
+            actuacion,
+
+          cantidad: 0,
+
+          usd: 0,
+
+        };
 
       }
 
-      return (
-        fechaB.getTime() -
-        fechaA.getTime()
-      );
+      if (
+        row[6] ===
+        "GENERADO"
+      ) {
+
+        resumenActuaciones[
+          codigo
+        ].cantidad++;
+
+        resumenActuaciones[
+          codigo
+        ].usd += monto;
+
+      }
 
     });
-
-    const tramite =
-      registros.filter(
-        (r) =>
-          r[3] === "Trámite"
-      ).length;
-
-    const informacion =
-      registros.filter(
-        (r) =>
-          r[3] === "Información"
-      ).length;
-
-    const acompanante =
-      registros.filter(
-        (r) =>
-          r[3] === "Acompañante"
-      ).length;
-
-    const institucional =
-      registros.filter(
-        (r) =>
-          r[3] ===
-          "Cita Institucional"
-      ).length;
-
-    return NextResponse.json({
+        return NextResponse.json({
 
       ok: true,
 
       registros,
 
-      total:
-        registros.length,
+      totalUSD,
 
-      tramite,
+      totalRecibos:
+        recibosGenerados.size,
 
-      informacion,
+      totalActuaciones:
+        actuacionesGeneradas.length,
 
-      acompanante,
+      totalAnulados,
 
-      institucional,
+      resumenActuaciones,
 
     });
 

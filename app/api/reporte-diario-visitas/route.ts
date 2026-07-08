@@ -1,0 +1,242 @@
+import {
+  NextRequest,
+  NextResponse,
+} from "next/server";
+
+import {
+  sheets,
+  MODULO_CAJA_SHEET_ID,
+  obtenerDocumentoPrincipal,
+} from "@/lib/googleSheets";
+
+import {
+  convertirFecha,
+  hoyISO,
+} from "@/lib/fechas";
+
+export async function POST(
+  req: NextRequest
+) {
+
+  try {
+
+    const {
+      tipo,
+      desde,
+      hasta,
+    } = await req.json();
+
+   
+    const response =
+      await sheets.spreadsheets.values.get({
+
+        spreadsheetId:
+          MODULO_CAJA_SHEET_ID,
+
+        range:
+          "BitacoraVisitas!A:G",
+
+      });
+
+    const filas =
+      response.data.values || [];
+
+    const hoy =
+      hoyISO();
+          const visitasFiltradas =
+      filas.slice(1).filter((fila) => {
+
+        const fechaRegistro =
+          (fila[0] || "")
+            .substring(0, 10);
+
+        if (
+          tipo === "diario"
+        ) {
+
+          return (
+            fechaRegistro ===
+            hoy
+          );
+
+        }
+
+        if (
+          tipo === "rango"
+        ) {
+
+          return (
+
+            fechaRegistro >=
+              desde &&
+
+            fechaRegistro <=
+              hasta
+
+          );
+
+        }
+
+        return true;
+
+      });
+          const detalle =
+      visitasFiltradas.map((fila) => {
+
+        const cedula =
+          fila[2] || "";
+
+        const pasaporte =
+          fila[3] || "";
+
+        const nacionalidad =
+          fila[6] || "";
+
+        const fecha =
+          convertirFecha(
+            fila[0]
+          );
+
+        const fechaMostrar =
+          fecha
+            ? fecha.toLocaleString(
+                "es-CO",
+                {
+                  day: "2-digit",
+                  month: "2-digit",
+                  year: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  second: "2-digit",
+                  hour12: true,
+                }
+              )
+            : fila[0];
+
+        return {
+
+          fechaISO:
+            fila[0],
+
+          fecha:
+            fechaMostrar,
+
+          documento:
+            obtenerDocumentoPrincipal(
+
+              cedula,
+
+              pasaporte,
+
+              nacionalidad
+
+            ),
+
+          nombre:
+            fila[4] || "",
+
+          tipo:
+            fila[5] || "",
+
+        };
+
+      });
+
+    const resumenMap =
+      new Map<
+        string,
+        number
+      >();
+
+    detalle.forEach((item) => {
+
+      resumenMap.set(
+
+        item.tipo,
+
+        (
+          resumenMap.get(
+            item.tipo
+          ) || 0
+        ) + 1
+
+      );
+
+    });
+
+    const resumen =
+
+      Array.from(
+        resumenMap.entries()
+      )
+
+      .map(
+
+        ([tipo, cantidad]) => ({
+
+          tipo,
+
+          cantidad,
+
+        })
+
+      )
+
+      .sort(
+
+        (a, b) =>
+
+          b.cantidad -
+          a.cantidad
+
+      );
+          return NextResponse.json({
+
+      ok: true,
+
+      titulo:
+
+        tipo === "diario"
+
+          ? "REPORTE DIARIO DE VISITAS"
+
+          : `REPORTE DE VISITAS (${desde} al ${hasta})`,
+
+      desde,
+
+      hasta,
+
+      total:
+
+        detalle.length,
+
+      detalle,
+
+      resumen,
+
+    });
+
+  } catch (error: any) {
+
+    return NextResponse.json(
+
+      {
+
+        ok: false,
+
+        error:
+          error.message,
+
+      },
+
+      {
+
+        status: 500,
+
+      }
+
+    );
+
+  }
+
+}

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+
 import {
   sheets,
   REGISTRO_CONSULAR_SHEET_ID,
@@ -15,131 +16,178 @@ function normalizar(texto: string) {
 
 }
 
-export async function GET(req: NextRequest) {
-  try {
-    const documento = req.nextUrl.searchParams
-      .get("documento")
-      ?.trim()
-      .toUpperCase();
-const buscado =
-  normalizar(documento || "");
+export async function GET(
+  req: NextRequest
+) {
 
-const pareceDocumento =
-  /^[A-Z]?\d+$/.test(buscado);
+  try {
+        const documento = req.nextUrl.searchParams
+      .get("documento")
+      ?.trim() || "";
+
     if (!documento) {
+
       return NextResponse.json(
+
         {
+
           encontrado: false,
-          error: "Documento requerido",
+
+          error:
+            "Documento requerido",
+
         },
-        { status: 400 }
+
+        {
+
+          status: 400,
+
+        }
+
       );
+
     }
+
+    const buscado =
+      normalizar(documento);
 
     const response =
       await sheets.spreadsheets.values.get({
-        spreadsheetId: REGISTRO_CONSULAR_SHEET_ID,
-        range: "Respuestas de formulario 1!A:O",
+
+        spreadsheetId:
+          REGISTRO_CONSULAR_SHEET_ID,
+
+        range:
+          "Respuestas de formulario 1!A:O",
+
       });
 
-    const rows = response.data.values || [];
+    const rows =
+      response.data.values || [];
 
-    let ciudadano: any = null;
+            // ===============================
+    // Buscar primero por documento
+    // ===============================
 
-if (pareceDocumento) {
-
-  ciudadano = rows.find((row, index) => {
+    let coincidencias =
+  rows.filter((row, index) => {
 
     if (index === 0) {
+
       return false;
+
     }
 
     const cedula =
-      (row[1] || "")
-        .toString()
-        .trim()
-        .toUpperCase();
+      normalizar(
+        row[1] || ""
+      );
 
     const pasaporte =
-      (row[14] || "")
-        .toString()
-        .trim()
-        .toUpperCase();
+      normalizar(
+        row[14] || ""
+      );
 
     return (
+
       cedula === buscado ||
+
       pasaporte === buscado
+
     );
 
   });
 
-} else {
+if (
+  coincidencias.length === 0
+) {
 
-  const coincidencias = rows
-    .slice(1)
-    .filter((row) => {
+  coincidencias =
+    rows
+      .slice(1)
+      .filter((row) => {
 
-      const nombre = normalizar(
+        const nombre =
+          normalizar(
 
-  [
+            [
 
-    row[2],
-    row[3],
-    row[4],
-    row[5],
+              row[2],
+              row[3],
+              row[4],
+              row[5],
 
-  ]
-    .filter(Boolean)
-    .join(" ")
+            ]
+              .filter(Boolean)
+              .join(" ")
 
-);
-const palabras =
-  buscado.split(" ");
+          );
 
-return palabras.every(
+        const palabras =
+          buscado.split(" ");
 
-  palabra =>
+        return palabras.every(
 
-    nombre.includes(palabra)
+          palabra =>
 
-);
+            nombre.includes(palabra)
+
+        );
+
+      });
+
+}
+        coincidencias.sort((a, b) => {
+
+      const nombreA =
+        normalizar(
+
+          [
+
+            a[2],
+            a[3],
+            a[4],
+            a[5],
+
+          ]
+            .filter(Boolean)
+            .join(" ")
+
+        );
+
+      const nombreB =
+        normalizar(
+
+          [
+
+            b[2],
+            b[3],
+            b[4],
+            b[5],
+
+          ]
+            .filter(Boolean)
+            .join(" ")
+
+        );
+
+      return nombreA.localeCompare(
+        nombreB
+      );
+
     });
-coincidencias.sort((a, b) => {
 
-  const nombreA = normalizar(
-    [
-      a[2],
-      a[3],
-      a[4],
-      a[5]
-    ]
-      .filter(Boolean)
-      .join(" ")
-  );
+    if (
+      coincidencias.length === 0
+    ) {
 
-  const nombreB = normalizar(
-    [
-      b[2],
-      b[3],
-      b[4],
-      b[5]
-    ]
-      .filter(Boolean)
-      .join(" ")
-  );
+      return NextResponse.json({
 
-  return nombreA.localeCompare(nombreB);
+        encontrado: false,
 
-});
-  if (coincidencias.length === 0) {
+      });
 
-    return NextResponse.json({
-      encontrado: false,
-    });
-
-  }
-
-  if (coincidencias.length > 1) {
+    }
 
     return NextResponse.json({
 
@@ -162,119 +210,74 @@ coincidencias.sort((a, b) => {
 
           return {
 
+            indice:
+              rows.indexOf(row),
+
             documento:
               obtenerDocumentoPrincipal(
+
                 cedula,
+
                 pasaporte,
+
                 nacionalidad
+
               ),
 
             cedula,
 
             pasaporte,
 
-            nombreCompleto: [
+            nombreCompleto:
 
-              row[2],
-              row[3],
-              row[4],
-              row[5],
+              [
 
-            ]
-              .filter(Boolean)
-              .join(" "),
+                row[2],
+                row[3],
+                row[4],
+                row[5],
+
+              ]
+                .filter(Boolean)
+                .join(" "),
 
             nacionalidad,
 
             fechaNacimiento:
               row[13] || "",
 
+              correo:
+  row[11] || "",
+
+  telefono:
+  row[12] || "",
+
           };
 
         }),
 
     });
+      } catch (error: any) {
 
-  }
-
-  ciudadano = coincidencias[0];
-
-}
-
-if (!ciudadano) {
-
-  return NextResponse.json({
-    encontrado: false,
-  });
-
-}
-
-    const nombreCompleto = [
-      ciudadano[2],
-      ciudadano[3],
-      ciudadano[4],
-      ciudadano[5],
-    ]
-      .filter(Boolean)
-      .join(" ");
-
-      const cedula =
-  ciudadano[1] || "";
-
-const pasaporte =
-  ciudadano[14] || "";
-
-const nacionalidad =
-  ciudadano[6] || "";
-
-const documentoPrincipal =
-  obtenerDocumentoPrincipal(
-    cedula,
-    pasaporte,
-    nacionalidad
-  );
-
-    return NextResponse.json({
-      encontrado: true,
-
-  fechaRegistro: ciudadano[0],
-
-  documento: documentoPrincipal,
-
-  documentoOriginal: documento,
-
-  cedula,
-
-  pasaporte,
-
-  primerNombre: ciudadano[2],
-  segundoNombre: ciudadano[3],
-
-  primerApellido: ciudadano[4],
-  segundoApellido: ciudadano[5],
-
-  nombreCompleto,
-
-  nacionalidad,
-
-  ciudadNacimiento: ciudadano[7],
-  paisNacimiento: ciudadano[8],
-
-  estadoCivil: ciudadano[9],
-  genero: ciudadano[10],
-
-  correo: ciudadano[11],
-  telefono: ciudadano[12],
-
-  fechaNacimiento: ciudadano[13],
-    });
-  } catch (error: any) {
     return NextResponse.json(
+
       {
+
         encontrado: false,
-        error: error.message,
+
+        error:
+          error.message,
+
       },
-      { status: 500 }
+
+      {
+
+        status: 500,
+
+      }
+
     );
+
   }
+
 }

@@ -275,7 +275,7 @@ async function consultarReporteRecibos() {
 
     const data =
       await response.json();
-
+console.log(data);
     if (data.ok) {
 
       setReporteRecibos(data);
@@ -317,7 +317,7 @@ async function consultarReporteVisitas() {
 
     const response =
       await fetch(
-        "/api/reporte-consultas",
+        "/api/reporte-visitas",
         {
 
           method: "POST",
@@ -1409,7 +1409,13 @@ className="border-b hover:bg-slate-50"
 
 </td>
 
-<td className="p-2">
+<td
+  className={`p-2 font-semibold ${
+    item[6] === "ANULADO"
+      ? "text-red-600"
+      : "text-green-700"
+  }`}
+>
 
 {item[6]}
 

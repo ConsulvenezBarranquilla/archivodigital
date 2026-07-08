@@ -175,7 +175,7 @@ setMensaje("");
     setMensaje("Buscando...");
 
     const response = await fetch(
-      `/api/registro-consular?documento=${documento}`
+      `/api/detalle-ciudadano-caja?documento=${documento}`
     );
 
     const data = await response.json();
