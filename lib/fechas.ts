@@ -7,7 +7,49 @@ export function convertirFecha(
   }
 
   const limpio = fechaTexto.trim();
+// ------------------------------------------
+// Formato DD/MM/YYYY o DD/MM/YYYY HH:mm:ss
+// ------------------------------------------
 
+if (limpio.includes("/")) {
+
+  const partes = limpio.split(" ");
+
+  const [dia, mes, anio] =
+    partes[0].split("/").map(Number);
+
+  let hora = 0;
+  let minuto = 0;
+  let segundo = 0;
+
+  if (partes.length > 1) {
+
+    const hms =
+      partes[1].split(":").map(Number);
+
+    hora = hms[0] || 0;
+    minuto = hms[1] || 0;
+    segundo = hms[2] || 0;
+
+  }
+
+  return new Date(
+
+    anio,
+
+    mes - 1,
+
+    dia,
+
+    hora,
+
+    minuto,
+
+    segundo
+
+  );
+
+}
   const partes = limpio
     .replace("T", " ")
     .split(" ");
@@ -150,5 +192,55 @@ export function formatoFechaHora(
       hour12: true,
     }
   );
+
+}
+/*------------------------------------------
+ FECHA PARA INPUT TYPE="DATE"
+------------------------------------------*/
+
+export function fechaInput(
+
+  fechaTexto: string
+
+) {
+
+  const fecha = convertirFecha(fechaTexto);
+
+  if (!fecha) {
+
+    return "";
+
+  }
+
+  const anio = fecha.getFullYear();
+
+  const mes = String(
+
+    fecha.getMonth() + 1
+
+  ).padStart(2, "0");
+
+  const dia = String(
+
+    fecha.getDate()
+
+  ).padStart(2, "0");
+
+  return `${anio}-${mes}-${dia}`;
+
+}
+export function fechaDesdeInput(
+  fecha: string
+) {
+
+  if (!fecha) {
+
+    return "";
+
+  }
+
+  const [anio, mes, dia] = fecha.split("-");
+
+  return `${dia}/${mes}/${anio}`;
 
 }

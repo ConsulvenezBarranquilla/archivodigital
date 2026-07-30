@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { obtenerPaginaInicio } from "@/lib/rutas";
 
 export default function IngresoPage() {
   const [usuario, setUsuario] = useState("");
@@ -48,12 +49,12 @@ console.log(
   return;
 }
 
+const rol = data.rol?.toString().trim().toLowerCase();
+
 if (
-  data.rol
-    ?.toString()
-    .trim()
-    .toLowerCase() ===
-  "recepcion"
+  rol === "recepcion" ||
+  rol === "consultas" ||
+  rol === "analista"
 ) {
 
   localStorage.setItem(
@@ -62,49 +63,9 @@ if (
   );
 
   window.location.href =
-    "/recepcion";
+    obtenerPaginaInicio(rol);
 
   return;
-
-}
-if (
-  data.rol
-    ?.toString()
-    .trim()
-    .toLowerCase() ===
-  "consulta"
-) {
-
-  localStorage.setItem(
-    "usuarioCaja",
-    JSON.stringify(data)
-  );
-
-  window.location.href =
-    "/consultas";
-
-  return;
-
-}
-
-if (
-  data.rol
-    ?.toString()
-    .trim()
-    .toLowerCase() ===
-  "analista"
-) {
-
-  localStorage.setItem(
-    "usuarioCaja",
-    JSON.stringify(data)
-  );
-
-  window.location.href =
-    "/consultas";
-
-  return;
-
 }
 setUsuarioLogin(data);
 
@@ -148,19 +109,8 @@ function continuarCaja() {
     })
   );
 
-  if (
-  usuarioLogin.rol === "admin"
-) {
-
   window.location.href =
-    "/admin";
-
-} else {
-
-  window.location.href =
-    "/caja";
-
-}
+  obtenerPaginaInicio(usuarioLogin.rol);
 
 }
   return (

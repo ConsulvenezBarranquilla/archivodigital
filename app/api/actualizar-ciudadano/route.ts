@@ -6,6 +6,7 @@ import {
 import {
   sheets,
   REGISTRO_CONSULAR_SHEET_ID,
+  MODULO_CAJA_SHEET_ID,
 } from "@/lib/googleSheets";
 
 export async function POST(
@@ -215,7 +216,133 @@ export async function POST(
       },
 
     });
+// ===============================
+// Sincronizar datos en Caja
+// ===============================
 
+const cajaResponse =
+  await sheets.spreadsheets.values.get({
+
+    spreadsheetId:
+      MODULO_CAJA_SHEET_ID,
+
+    range:
+      "Caja!A:N",
+
+  });
+
+const cajaRows =
+  cajaResponse.data.values || [];
+
+const actualizaciones: any[] = [];
+
+cajaRows
+  .slice(1)
+  .forEach((row, index) => {
+
+    const documento =
+      (row[2] || "")
+        .toString()
+        .trim()
+        .toUpperCase();
+
+    const cedula =
+      (row[11] || "")
+        .toString()
+        .trim()
+        .toUpperCase();
+
+    const pasaporte =
+      (row[12] || "")
+        .toString()
+        .trim()
+        .toUpperCase();
+
+    if (
+
+      documento !== buscado &&
+
+      cedula !== buscado &&
+
+      pasaporte !== buscado
+
+    ) {
+
+      return;
+
+    }
+
+    const nombreCompleto = [
+
+      body.primerNombre,
+
+      body.segundoNombre,
+
+      body.primerApellido,
+
+      body.segundoApellido,
+
+    ]
+      .filter(Boolean)
+      .join(" ");
+
+    actualizaciones.push({
+
+      range:
+        `Caja!C${index + 2}:N${index + 2}`,
+
+      values: [[
+
+        body.cedula || body.pasaporte,
+
+        nombreCompleto,
+
+        body.correo,
+
+        row[5],   // Actuaciones
+
+        row[6],   // Total USD
+
+        row[7],   // Usuario
+
+        row[8],   // Caja
+
+        row[9],   // PDF
+
+        row[10],  // Estado
+
+        body.cedula,
+
+        body.pasaporte,
+
+        body.nacionalidad,
+
+      ]],
+
+    });
+
+  });
+
+if (actualizaciones.length) {
+
+  await sheets.spreadsheets.values.batchUpdate({
+
+    spreadsheetId:
+      MODULO_CAJA_SHEET_ID,
+
+    requestBody: {
+
+      valueInputOption:
+        "USER_ENTERED",
+
+      data:
+        actualizaciones,
+
+    },
+
+  });
+
+}
     return NextResponse.json({
 
       ok: true,

@@ -10,7 +10,7 @@ import {
   hoyISO,
 } from "@/lib/fechas";
 
-export async function GET() {
+export async function GET(req: Request) {
 
   try {
 
@@ -29,6 +29,17 @@ export async function GET() {
         range:
           "DetalleCaja!A:D",
       });
+
+const gestionResponse =
+  await sheets.spreadsheets.values.get({
+    spreadsheetId:
+      MODULO_CAJA_SHEET_ID,
+    range:
+      "GestionConsular!A:L",
+  });
+
+const gestionRows =
+  gestionResponse.data.values || [];
 
     const usuariosResponse =
       await sheets.spreadsheets.values.get({
@@ -71,6 +82,35 @@ const registroRows =
 
     const hoy = hoyISO();
 
+    const url = new URL(req.url);
+
+const anioFiltro =
+  url.searchParams.get("anio");
+
+const mesFiltro =
+  url.searchParams.get("mes");
+
+const aniosDisponibles =
+  new Set<string>();
+
+const mesesDisponibles =
+  new Map<string, string>();
+
+const nombresMeses = [
+  "Enero",
+  "Febrero",
+  "Marzo",
+  "Abril",
+  "Mayo",
+  "Junio",
+  "Julio",
+  "Agosto",
+  "Septiembre",
+  "Octubre",
+  "Noviembre",
+  "Diciembre",
+];
+
     const mesActual =
       new Date().getMonth() + 1;
 
@@ -85,6 +125,18 @@ const registroRows =
     let usdMes = 0;
     let anuladosMes = 0;
     let actuacionesMes = 0;
+
+    let planillasHoy = 0;
+let planillasMes = 0;
+
+let actuacionesSGCHoy = 0;
+let actuacionesSGCMes = 0;
+
+let rentaSGCHoy = 0;
+let rentaSGCMes = 0;
+
+const planillasHoySet = new Set<string>();
+const planillasMesSet = new Set<string>();
 
     let visitasHoy = 0;
 
@@ -260,59 +312,186 @@ const codigoActuacion =
 });
 });
 
-    const actuacionesMap =
-      new Map();
+gestionRows
+  .slice(1)
+  .forEach((row) => {
 
-    detalleRows
-      .slice(1)
-      .forEach((row) => {
+    const correlativo =
+      row[0] || "";
 
-        const actuacion =
-          row[2] || "";
+    const planilla =
+      row[3] || "";
 
-        if (
-          !actuacion
-        ) return;
+    const fechaPlanilla =
+      row[4] || "";
 
-        actuacionesMap.set(
+    const estado =
+      (row[6] || "")
+        .toString()
+        .trim()
+        .toUpperCase();
 
-          actuacion,
+    if (
+      estado !== "VINCULADO" ||
+      !planilla
+    ) {
+      return;
+    }
 
-          (
-            actuacionesMap.get(
-              actuacion
-            ) || 0
-          ) + 1
+    const fechaSolo =
+      fechaPlanilla.substring(0,10);
 
+    const anio =
+      Number(
+        fechaSolo.substring(0,4)
+      );
+
+    const mes =
+      Number(
+        fechaSolo.substring(5,7)
+      );
+
+    const caja =
+      cajaRows
+        .slice(1)
+        .find(
+          r => r[1] === correlativo
         );
 
-      });
+    const usd =
+      Number(
+        caja?.[6] || 0
+      );
 
-    const topActuaciones =
-      Array.from(
-        actuacionesMap.entries()
-      )
-        .map(
-          (
-            [nombre,
-             cantidad]
-          ) => ({
+    // Hoy
+    if (
+      fechaSolo === hoy
+    ) {
 
-            nombre,
+      actuacionesSGCHoy++;
 
-            cantidad,
+      rentaSGCHoy += usd;
 
-          })
-        )
-        .sort(
-          (
-            a,
-            b
-          ) =>
-            b.cantidad -
-            a.cantidad
-        )
-        .slice(0, 10);
+      planillasHoySet.add(
+        planilla
+      );
+
+    }
+
+    // Mes actual
+    if (
+      mes === mesActual &&
+      anio === anioActual
+    ) {
+
+      actuacionesSGCMes++;
+
+      rentaSGCMes += usd;
+
+      planillasMesSet.add(
+        planilla
+      );
+
+    }
+
+  });
+
+planillasHoy =
+  planillasHoySet.size;
+
+planillasMes =
+  planillasMesSet.size;
+
+    const actuacionesMap = new Map<string, number>();
+
+detalleRows
+  .slice(1)
+  .forEach((detalle) => {
+
+    const correlativo = detalle[0] || "";
+
+    const recibo = cajaRows
+      .slice(1)
+      .find(r => r[1] === correlativo);
+
+    if (!recibo) return;
+
+    const fecha = recibo[0] || "";
+
+    const fechaSolo =
+      fecha.substring(0, 10);
+
+    const anio =
+  fechaSolo.substring(0,4);
+
+const mes =
+  fechaSolo.substring(5,7);
+
+aniosDisponibles.add(anio);
+
+if (
+  !anioFiltro ||
+  anio === anioFiltro
+) {
+
+  mesesDisponibles.set(
+    mes,
+    nombresMeses[
+      Number(mes)-1
+    ]
+  );
+
+}
+
+if (
+  anioFiltro &&
+  anio !== anioFiltro
+) {
+  return;
+}
+
+if (
+  mesFiltro &&
+  mes !== mesFiltro
+) {
+  return;
+}
+
+    const actuacion =
+      detalle[2] || "";
+
+    if (!actuacion) return;
+
+    actuacionesMap.set(
+      actuacion,
+      (actuacionesMap.get(actuacion) || 0) + 1
+    );
+
+  });
+
+const topActuaciones =
+  Array.from(actuacionesMap.entries())
+    .map(([nombre, cantidad]) => ({
+      nombre,
+      cantidad,
+    }))
+    .sort((a,b)=>b.cantidad-a.cantidad)
+    .slice(0,10);
+
+const anios =
+  Array.from(aniosDisponibles)
+    .sort((a,b)=>b.localeCompare(a));
+
+const meses =
+  Array.from(mesesDisponibles.entries())
+    .sort((a,b)=>b[0].localeCompare(a[0]))
+    .map(([value,label])=>({
+
+      value,
+
+      label,
+
+    }));
 visitasRows
   .slice(1)
   .forEach((row) => {
@@ -462,11 +641,21 @@ registroRows
       recibosMes,
 
       usdMes,
+      rentaSGCHoy,
+rentaSGCMes,
+
+planillasHoy,
+planillasMes,
+
+actuacionesSGCHoy,
+actuacionesSGCMes,
 
       anuladosMes,
       actuacionesMes,
 
       topActuaciones,
+      aniosDisponibles: anios,
+      mesesDisponibles: meses,
 
       visitasHoy,
 visitasMes,

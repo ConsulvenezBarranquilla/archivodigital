@@ -4,14 +4,12 @@ import {
   useEffect,
   useState,
 } from "react";
+import SistemaLayout from "@/components/layout/SistemaLayout";
+import { MODULOS } from "@/lib/modulos";
 
 export default function RecepcionPage() {
 
-  const [
-    usuario,
-    setUsuario,
-  ] = useState<any>(null);
-
+  
   const [
     documento,
     setDocumento,
@@ -131,54 +129,14 @@ const [toastColor, setToastColor] =
   useState("green");
 
  useEffect(() => {
+    cargarEstadisticas();
+    cargarCatalogos();
 
-  const data =
-    localStorage.getItem(
-      "usuarioCaja"
-    );
-
-  if (!data) {
-
-    window.location.href =
-      "/";
-
-    return;
-
-  }
-
-  const user =
-  JSON.parse(data);
-
-if (
-  user.rol !== "recepcion" &&
-  user.rol !== "admin"
-) {
-
-  window.location.href = "/";
-  return;
-
-}
-
-setUsuario(user);
-
-  setUsuario(user);
-
-  cargarEstadisticas();
-
-  cargarCatalogos();
-
-  const intervalo =
-    setInterval(() => {
-
-      cargarEstadisticas();
-
+    const intervalo = setInterval(() => {
+        cargarEstadisticas();
     }, 60000);
 
-  return () =>
-    clearInterval(
-      intervalo
-    );
-
+    return () => clearInterval(intervalo);
 }, []);
 
  async function buscarCiudadano() {
@@ -310,21 +268,7 @@ function mostrarToast(
   }, 2500);
 
 }
-  function cerrarSesion() {
-
-  if (usuario?.rol === "admin") {
-
-    window.location.href = "/admin";
-
-    return;
-
-  }
-
-  localStorage.removeItem("usuarioCaja");
-
-  window.location.href = "/";
-
-}
+  
   function limpiarPantalla() {
 
   setDocumento("");
@@ -969,90 +913,17 @@ await cargarEstadisticas();
   }
 
 }
-  if (!usuario) {
-
-    return (
-      <div>
-        Cargando...
-      </div>
-    );
-
-  }
-
+ 
   return (
 
-    <main className="min-h-screen bg-slate-200">
-
-      <div className="max-w-7xl mx-auto px-4 py-4">
-
-        <div className="bg-white rounded-3xl shadow-2xl p-6 md:p-10">
-
-          <div className="flex justify-center mb-5">
-
-            <img
-              src="/logo.png"
-              alt="Logo"
-              className="w-24"
-            />
-
-          </div>
-{toast && (
-
-<div
-  className={`
-    fixed
-    top-5
-    right-5
-    z-50
-    max-w-md
-    px-6
-    py-4
-    rounded-xl
-    shadow-2xl
-    text-white
-    font-semibold
-    whitespace-pre-line
-
-    ${
-      toastColor === "green"
-        ? "bg-green-600"
-        : "bg-red-600"
-    }
-  `}
+    <SistemaLayout
+    titulo="Recepción"
+    permiso={MODULOS.RECEPCION}
 >
-  {toast}
-</div>
 
-)}
-          <div className="flex justify-end mb-4">
+<div className="space-y-8">
 
-  {usuario?.rol === "admin" && (
-
-    <button
-      onClick={() => {
-        window.location.href = "/admin";
-      }}
-      className="bg-green-700 text-white px-4 py-2 rounded-xl hover:bg-green-800 mr-2"
-    >
-      Panel Adm
-    </button>
-
-  )}
-
-  <button
-    onClick={cerrarSesion}
-    className="bg-red-600 text-white px-4 py-2 rounded-xl hover:bg-red-700"
-  >
-    Cerrar Sesión
-  </button>
-
-</div>
-
-          <h1 className="text-3xl md:text-5xl font-bold text-center text-blue-950 mb-3">
-
-  Registro Consular
-
-</h1>
+     
 
 {estadisticas && (
 
@@ -1299,30 +1170,7 @@ await cargarEstadisticas();
     mt-8
   "
 ></div>
-<p className="text-center text-slate-700 text-lg mb-4">
-
-  Bienvenido{" "}
-  <strong>
-    {usuario.nombre}
-  </strong>
-
-</p>
-
-          <div className="flex justify-center mb-8">
-
-            <div className="flex w-72 h-1 rounded-full overflow-hidden">
-
-              <div className="w-1/3 bg-yellow-400"></div>
-
-              <div className="w-1/3 bg-blue-700"></div>
-
-              <div className="w-1/3 bg-red-600"></div>
-
-            </div>
-
-          </div>
-
-          <div
+       <div
             className="
               bg-slate-50
               rounded-2xl
@@ -2874,8 +2722,8 @@ TOTAL GENERAL
 )}
 
 </div>
-</div>
-</main>
+
+</SistemaLayout>
 
 );
 }

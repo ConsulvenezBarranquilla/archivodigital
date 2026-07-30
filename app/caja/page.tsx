@@ -6,6 +6,9 @@ import {
   useRef,
 } from "react";
 
+import SistemaLayout from "@/components/layout/SistemaLayout";
+import { MODULOS } from "@/lib/modulos";
+
 export default function CajaPage() {
   const [usuario, setUsuario] = useState<any>(null);
 
@@ -54,6 +57,12 @@ const [
   mostrarConfirmacion,
   setMostrarConfirmacion,
 ] = useState(false);
+
+const [mostrarCambioCaja, setMostrarCambioCaja] =
+    useState(false);
+
+const [cajaDestino, setCajaDestino] =
+    useState<number | null>(null);
 
 const actuacionesRef =
   useRef<HTMLDivElement>(null);
@@ -115,44 +124,28 @@ useEffect(() => {
 
 }, []);
   useEffect(() => {
-    const data =
-  localStorage.getItem("usuarioCaja");
 
-if (!data) {
-  window.location.href =
-    "/ingreso";
-  return;
-}
+    const data = localStorage.getItem("usuarioCaja");
 
-const usuarioLocal =
-  JSON.parse(data);
+    if (data) {
+        const usuarioLocal = JSON.parse(data);
+        setUsuario(usuarioLocal);
 
-
-setUsuario(usuarioLocal);
-fetch(
-  `/api/resumen-caja?caja=${usuarioLocal.caja}`
-)
-  .then((res) => res.json())
-  .then((data) => {
-
-    if (data.ok) {
-
-      setResumenCaja(data);
-
+        fetch(`/api/resumen-caja?caja=${usuarioLocal.caja}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.ok) setResumenCaja(data);
+            });
     }
 
-  });
-
     fetch("/api/actuaciones")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.ok) {
-          setActuaciones(
-            data.actuaciones
-          );
-        }
-      });
-  }, []);
+        .then(res => res.json())
+        .then(data => {
+            if (data.ok)
+                setActuaciones(data.actuaciones);
+        });
+
+}, []);
 
   async function buscarCiudadano() {
 
@@ -195,7 +188,65 @@ setMensaje("");
   if (!usuario) {
     return <div>Cargando...</div>;
   }
-function limpiarFormulario() {
+function cambiarCaja(nuevaCaja: number) {
+
+    const nuevoUsuario = {
+    ...usuario,
+    caja: `Caja ${nuevaCaja}`,
+};
+
+    setUsuario(nuevoUsuario);
+
+    localStorage.setItem(
+        "usuarioCaja",
+        JSON.stringify(nuevoUsuario)
+    );
+
+    fetch(`/api/resumen-caja?caja=Caja ${nuevaCaja}`)
+    .then(res => res.json())
+    .then(data => {
+        if (data.ok) {
+            setResumenCaja(data);
+        }
+    });
+}
+  function solicitarCambioCaja(nuevaCaja: number) {
+
+    if (nuevaCaja === usuario.caja) return;
+
+    const hayFormularioAbierto =
+    ciudadano !== null ||
+    actuacionesSeleccionadas.length > 0 ||
+    documento.trim().length > 0;
+
+    if (hayFormularioAbierto) {
+
+        setCajaDestino(nuevaCaja);
+        setMostrarCambioCaja(true);
+        return;
+    }
+
+    cambiarCaja(nuevaCaja);
+}
+function confirmarCambioCaja() {
+
+    if (cajaDestino == null) return;
+
+    limpiarFormulario();
+
+    cambiarCaja(cajaDestino);
+
+    setCajaDestino(null);
+
+    setMostrarCambioCaja(false);
+}
+function cancelarCambioCaja() {
+
+    setCajaDestino(null);
+
+    setMostrarCambioCaja(false);
+}
+  function limpiarFormulario() {
 
   setDocumento("");
 
@@ -500,6 +551,43 @@ async function generarCierreDiario() {
  
   return (
     <>
+    {mostrarCambioCaja && (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100]">
+
+        <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md">
+
+            <h2 className="text-xl font-bold mb-4">
+                Cambiar Caja
+            </h2>
+
+            <p className="text-slate-600 mb-6">
+                Va a cambiar a la <strong>CAJA #{cajaDestino}</strong>.
+                <br /><br />
+                El ciudadano cargado y las actuaciones seleccionadas se eliminarán.
+            </p>
+
+            <div className="flex justify-end gap-3">
+
+                <button
+                    onClick={cancelarCambioCaja}
+                    className="px-5 py-2 rounded-lg border"
+                >
+                    Cancelar
+                </button>
+
+                <button
+                    onClick={confirmarCambioCaja}
+                    className="px-5 py-2 rounded-lg bg-amber-600 text-white"
+                >
+                    Cambiar
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+)}
     {mostrarConfirmacion && (
 
   <div
@@ -633,106 +721,96 @@ async function generarCierreDiario() {
   </div>
 
 )}
-  {usuario && (
-
-  <div
-  className="
-    bg-blue-950
-    text-white
-    rounded-2xl
-    p-4
-    mb-5
-    flex
-    justify-between
-    items-center
-    shadow-md
-  "
+ 
+    <SistemaLayout
+    titulo="Caja"
+    permiso={MODULOS.CAJA}
 >
 
+<div className="space-y-8">
+
+      {usuario && (
+  <div className="bg-amber-50 border-l-4 border-amber-500 rounded-2xl shadow-sm p-5 flex items-center justify-between">
+
     <div>
+      <p className="text-sm text-slate-500">
+        Caja asignada
+      </p>
 
-      <strong>
-        Usuario:
-      </strong>
+      <h2 className="text-3xl font-bold text-amber-700">
+        {usuario.caja}
+      </h2>
 
-      {" "}
+      <p className="text-sm text-slate-600 mt-1">
+        Operador: <strong>{usuario.nombre}</strong>
+      </p>
+      {usuario?.rol === "admin" && (
 
-      {usuario.nombre}
+    <div className="flex justify-center gap-4 mt-6">
 
-      {" | "}
+        <button
+            onClick={() => solicitarCambioCaja(1)}
+            disabled={usuario.caja === "Caja 1"}
+            className={`px-6 py-3 rounded-2xl font-bold transition
+                ${
+                    usuario.caja === 1
+                        ? "bg-blue-700 text-white opacity-60 cursor-not-allowed"
+                        : "bg-slate-200 hover:bg-blue-100"
+                }`}
+        >
+            🟦 Caja 1
+        </button>
 
-      <strong>
-        Rol:
-      </strong>
-
-      {" "}
-
-      {usuario.rol}
-
-      {" | "}
-
-      <strong>
-        Caja Activa:
-      </strong>
-
-      {" "}
-
-      <span className="font-bold text-yellow-300">
-  {usuario.caja}
-</span>
+        <button
+            onClick={() => solicitarCambioCaja(2)}
+            disabled={usuario.caja === "Caja 2"}
+            className={`px-6 py-3 rounded-2xl font-bold transition
+                ${
+                    usuario.caja === "Caja 2"
+                        ? "bg-green-700 text-white opacity-60 cursor-not-allowed"
+                        : "bg-slate-200 hover:bg-green-100"
+                }`}
+        >
+            🟩 Caja 2
+        </button>
 
     </div>
-{usuario?.rol ===
-  "admin" && (
-
-  <button
-    onClick={() =>
-      window.location.href =
-        "/admin"
-    }
-    style={{
-      cursor:
-        "pointer",
-      marginRight:
-        "10px",
-    }}
-  >
-    Panel Admin
-  </button>
 
 )}
-    <button
-      onClick={() => {
+    </div>
 
-        localStorage.removeItem(
-          "usuarioCaja"
-        );
-
-        window.location.href =
-          "/ingreso";
-
-      }}
-      style={{
-        cursor:
-          "pointer",
-      }}
-    >
-      Cerrar Sesión
-    </button>
+    <div className="text-5xl">
+      💰
+    </div>
 
   </div>
-
 )}
-    <main
-      style={{
-        padding: "20px",
-        maxWidth: "1000px",
-        margin: "0 auto",
-      }}
-    >
-      <h1>Módulo de Caja</h1>
-
-      <hr />
+{usuario && (
+  <div
+    className={`
+      fixed
+      bottom-6
+      right-6
+      z-50
+      px-6
+      py-4
+      rounded-2xl
+      shadow-2xl
+      text-white
+      font-extrabold
+      text-xl
+      select-none
+      transition-all
+      ${
+        usuario.caja === "Caja 1"
+          ? "bg-blue-700"
+          : "bg-green-700"
+      }
+    `}
+  >
+    {usuario.caja}
+  </div>
+)}
 
       <h2 className="text-2xl font-bold text-blue-950 mb-4">
   Buscar Ciudadano
@@ -1327,8 +1405,9 @@ async function generarCierreDiario() {
 
 </div>
 </div>
+</div>
 
-    </main>
+</SistemaLayout>
   </>
   );
 }

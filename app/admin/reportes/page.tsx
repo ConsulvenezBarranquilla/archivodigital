@@ -1,12 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import SistemaLayout from "@/components/layout/SistemaLayout";
+import { MODULOS } from "@/lib/modulos";
+import DataTable, {
+  TableColumn,
+} from "@/components/table/DataTable";
+
+import DataTableToolbar from "@/components/table/DataTableToolbar";
+import DataTableActions from "@/components/table/DataTableActions";
 
 export default function ReportesPage() {
-
-  const [usuario, setUsuario] =
-    useState<any>(null);
-
+  
   const [periodo, setPeriodo] =
     useState("dia");
 
@@ -56,6 +61,11 @@ const [hasta, setHasta] =
  
   const [resultado, setResultado] =
     useState<any>(null);
+  
+    const [
+  busquedaReportes,
+  setBusquedaReportes,
+] = useState("");
 
     const [
   actuacionesDisponibles,
@@ -67,79 +77,214 @@ const [
   setUsuariosDisponibles,
 ] = useState<string[]>([]);
 
-  useEffect(() => {
+const columnasReportes: TableColumn<any>[] = [
+  {
+    field: "fecha",
+    title: "Fecha",
+    width: "105px",
+    render: (row) => {
 
-    fetch(
-  "/api/dashboard-reportes"
-)
-  .then((res) => res.json())
-  .then((data) => {
+      const [fecha, hora] =
+        String(row.fecha).split(" ");
 
-    if (data.ok) {
+      return (
+        <div className="flex flex-col leading-tight">
+          <span className="font-medium">
+            {fecha}
+          </span>
 
-      setDashboard(data);
+          <span className="text-xs text-slate-400">
+            {hora}
+          </span>
+        </div>
+      );
 
-    }
+    },
+  },
 
-  });
+  {
+    field: "recibo",
+    title: "Recibo",
+    width: "120px",
+    align: "center",
+  },
 
-  const data =
-    localStorage.getItem(
-      "usuarioCaja"
+  {
+    field: "documento",
+    title: "Documento",
+    width: "140px",
+  },
+
+ {
+  field: "nombre",
+  title: "Ciudadano",
+  width: "220px",
+  render: (row) => {
+
+    const partes = String(row.nombre)
+      .trim()
+      .split(/\s+/);
+
+    const nombres = partes.slice(0, -2).join(" ");
+    const apellidos = partes.slice(-2).join(" ");
+
+    return (
+      <div className="leading-tight">
+        <div className="font-medium">
+          {nombres}
+        </div>
+
+        <div className="font-medium">
+          {apellidos}
+        </div>
+      </div>
     );
 
-  if (!data) {
+  },
+},
 
-    window.location.href =
-      "/";
+  
+  {
+  field: "actuacion",
+  title: "Actuación",
+  width: "450px",
+  render: (row) => (
+    <div className="whitespace-normal leading-tight">
+      {row.actuacion}
+    </div>
+  ),
+},
 
-    return;
+  {
+    field: "usd",
+    title: "USD",
+    width: "90px",
+    align: "right",
+  },
 
-  }
+  {
+    field: "usuario",
+    title: "Usuario",
+    width: "130px",
+  },
 
-  const user =
-    JSON.parse(data);
+  {
+    field: "caja",
+    title: "Caja",
+    width: "90px",
+    align: "center",
+  },
 
-  if (
-    user.rol !== "admin"
-  ) {
+  {
+    field: "estado",
+    title: "Estado",
+    width: "110px",
+    align: "center",
+    render: (row) => (
+      <span
+        className={`px-3 py-1 rounded-full text-xs font-semibold ${
+          row.estado === "ANULADO"
+            ? "bg-red-100 text-red-700"
+            : "bg-green-100 text-green-700"
+        }`}
+      >
+        {row.estado}
+      </span>
+    ),
+  },
 
-    window.location.href =
-      "/caja";
+ {
+  field: "acciones",
+  title: "",
+  width: "60px",
+  align: "center",
+  render: (row) => (
 
-    return;
+    <DataTableActions
 
-  }
+      actions={[
 
-    setUsuario(user);
+        {
+          label: "Ver historial",
+          icon: "👤",
+          onClick: () => {
 
-    fetch(
-  "/api/filtros-reportes"
-)
-  .then(
-    (r) => r.json()
-  )
-  .then(
-    (data) => {
+            localStorage.setItem(
+              "documentoHistorial",
+              row.documento
+            );
 
-      if (
-        data.ok
-      ) {
+            window.location.href =
+              "/admin/historial";
 
-        setActuacionesDisponibles(
-          data.actuaciones
-        );
+          },
+        },
 
-        setUsuariosDisponibles(
-          data.usuarios
-        );
+        {
+          label: "Reimprimir recibo",
+          icon: "🖨",
+          onClick: () =>
+            reimprimirRecibo(row.recibo),
+        },
 
-      }
+        {
+          label: "Anular recibo",
+          icon: "❌",
+          danger: true,
+          disabled:
+            row.estado === "ANULADO",
+          onClick: () =>
+            anularRecibo(row.recibo),
+        },
 
-    }
-  );
+      ]}
 
-  }, []);
+    />
+
+  ),
+},
+];
+const datosReportes =
+  resultado?.registros
+    ?.map((row: any) => ({
+      fecha: row[0],
+      recibo: row[1],
+      documento: row[2],
+      nombre: row[3],
+      actuacion: row[5],
+      usd: row[6],
+      usuario: row[7],
+      caja: row[8],
+      estado: row[9],
+    }))
+    .filter((fila: any) =>
+      JSON.stringify(fila)
+        .toLowerCase()
+        .includes(
+          busquedaReportes.toLowerCase()
+        )
+    ) ?? [];
+
+  useEffect(() => {
+
+    fetch("/api/dashboard-reportes")
+        .then(res => res.json())
+        .then(data => {
+            if (data.ok) {
+                setDashboard(data);
+            }
+        });
+
+    fetch("/api/filtros-reportes")
+        .then(r => r.json())
+        .then(data => {
+            if (data.ok) {
+                setActuacionesDisponibles(data.actuaciones);
+                setUsuariosDisponibles(data.usuarios);
+            }
+        });
+
+}, []);
 
 async function anularRecibo(
   correlativo: string
@@ -237,16 +382,7 @@ async function vistaPrevia() {
   );
 
 }
-if (!usuario) {
 
-     
-  return (
-    <div>
-      Cargando...
-    </div>
-  );
-
-}
 function limpiarFiltros() {
 
   setPeriodo(
@@ -479,99 +615,11 @@ async function reimprimirRecibo(
 }
 return (
 
-  <main className="min-h-screen bg-slate-200">
-
-  <div className="max-w-7xl mx-auto px-4 py-4">
-
-    <div className="bg-white rounded-3xl shadow-2xl p-6 md:p-10">
-
-    <div className="flex justify-center mb-5">
-
-  <img
-    src="/logo.png"
-    alt="Logo"
-    className="w-24"
-  />
-
-</div>
-
-<h1 className="text-3xl md:text-5xl font-bold text-center text-blue-950 mb-3">
-
-  Reportes Administrativos
-
-</h1>
-
-<p className="text-center text-slate-700 text-lg mb-4">
-
-  Consulado General de la República
-  Bolivariana de Venezuela
-  en Barranquilla
-
-</p>
-
-<div className="flex justify-center mb-8">
-
-  <div className="flex w-72 h-1 rounded-full overflow-hidden">
-
-    <div className="w-1/3 bg-yellow-400"></div>
-
-    <div className="w-1/3 bg-blue-700"></div>
-
-    <div className="w-1/3 bg-red-600"></div>
-
-  </div>
-
-</div>
-
-<div className="flex flex-wrap justify-center gap-3 mb-8">
-<a
-  href="/admin"
-  className="bg-green-700 text-white px-4 py-2 rounded-xl hover:bg-green-800"
+  <SistemaLayout
+    titulo="Reportes Administrativos"
+    permiso={MODULOS.REPORTES}
 >
-  🏠 Inicio
-</a>
-<a
-  href="/recepcion"
-  className="bg-blue-950 text-white px-4 py-2 rounded-xl hover:bg-blue-900"
->
-  Recepción
-</a>
-  <a
-    href="/caja"
-    className="bg-blue-950 text-white px-4 py-2 rounded-xl hover:bg-blue-900"
-  >
-    Caja
-  </a>
-
-  <a
-    href="/admin/reportes"
-    className="bg-blue-950 text-white px-4 py-2 rounded-xl hover:bg-blue-900"
-  >
-    Reportes
-  </a>
-
-  <a
-    href="/admin/usuarios"
-    className="bg-blue-950 text-white px-4 py-2 rounded-xl hover:bg-blue-900"
-  >
-    Usuarios
-  </a>
-
-  <a
-  href="/consultas"
-  className="bg-blue-950 text-white px-4 py-2 rounded-xl hover:bg-blue-900"
->
-  Consultas
-</a>
-
-  <a
-    href="/admin/configuracion"
-    className="bg-blue-950 text-white px-4 py-2 rounded-xl hover:bg-blue-900"
-  >
-    Configuración
-  </a>
-
-</div>
+<div className="space-y-8">
 {dashboard && (
 
   <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
@@ -884,7 +932,6 @@ return (
   </div>
 
 </div>
-```
 
   </div>
 
@@ -1365,143 +1412,22 @@ return (
       <div
         style={{
           marginTop: "30px",
-          overflowX: "auto",
-        }}
+                  }}
 
         >
 
-        <h2 className="text-2xl font-bold text-blue-950 mb-4">
-  Registros Encontrados
-</h2>
+        <DataTableToolbar
+    titulo="Registros Encontrados"
+    busqueda={busquedaReportes}
+    onBusquedaChange={setBusquedaReportes}
+    placeholder="Buscar recibo, documento, ciudadano, actuación..."
+/>
 
-        <table className="w-full text-sm">
-
-          <thead>
-
-  <tr className="bg-blue-950 text-white">
-
-    <th className="p-3">
-      Fecha
-    </th>
-
-    <th className="p-3">
-      Recibo
-    </th>
-
-    <th className="p-3">
-      Documento
-    </th>
-
-    <th className="p-3">
-      Nombre
-    </th>
-
-    <th className="p-3">
-      Actuación
-    </th>
-
-    <th className="p-3">
-      USD
-    </th>
-
-    <th className="p-3">
-      Usuario
-    </th>
-
-    <th className="p-3">
-      Caja
-    </th>
-
-    <th className="p-3">
-      Estado
-    </th>
-
-    <th className="p-3">
-      Historial
-    </th>
-
-    <th className="p-3">
-      Acción
-    </th>
-
-  </tr>
-
-</thead>
-
-          <tbody>
-
-            {resultado.registros.map(
-              (
-                row: any,
-                index: number
-              ) => (
-
-                <tr
-  key={`${row[1]}-${row[4]}-${index}`}
-  className="border-b hover:bg-slate-50"
->
-  <td>{row[0]}</td>
-  <td>{row[1]}</td>
-  <td>{row[2]}</td>
-  <td>{row[3]}</td>
-  <td>{row[5]}</td>
-  <td>{row[6]}</td>
-  <td>{row[7]}</td>
-  <td>{row[8]}</td>
-
-  <td>
-    <span
-      className={
-        row[9] === "ANULADO"
-          ? "bg-red-100 text-red-700 px-3 py-1 rounded-full text-xs font-bold"
-          : "bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold"
-      }
-    >
-      {row[9] === "ANULADO" ? "ANULADO" : "GENERADO"}
-    </span>
-  </td>
-
-  <td>
-    <button
-      onClick={() => {
-        localStorage.setItem("documentoHistorial", row[2]);
-        window.location.href = "/admin/historial";
-      }}
-    >
-      👤 Historial
-    </button>
-  </td>
-
-  <td>
-    <button onClick={() => reimprimirRecibo(row[1])}>
-      🖨 Reimprimir
-    </button>
-
-    {row[9] === "ANULADO" ? (
-      <button
-        disabled
-        className="bg-slate-300 text-slate-500 px-3 py-1 rounded cursor-not-allowed"
-      >
-        ❌ Anulado
-      </button>
-    ) : (
-      <button
-        onClick={() => anularRecibo(row[1])}
-        className="bg-red-600 text-white px-3 py-1 rounded"
-      >
-        ❌ Anular
-      </button>
-    )}
-  </td>
-</tr>
-             
-
-              )
-            )}
-
-          </tbody>
-
-        </table>
+<DataTable
+    columns={columnasReportes}
+    data={datosReportes}
+    getRowKey={(row) => row.recibo}
+/>
 
       </div>
       
@@ -1511,10 +1437,9 @@ return (
     </div>
     
 
-)}</div>
+)}
 </div>
-
-</main>
+</SistemaLayout>
 
 );
 

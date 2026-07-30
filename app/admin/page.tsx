@@ -4,61 +4,104 @@ import {
   useEffect,
   useState,
 } from "react";
+import SistemaLayout from "@/components/layout/SistemaLayout";
+import { MODULOS } from "@/lib/modulos";
+import { useCallback, useMemo } from "react";
+
+import DataTable, {
+  TableColumn,
+} from "@/components/table/DataTable";
+
+import DataTableToolbar from "@/components/table/DataTableToolbar";
+
+import {
+  obtenerPendientesSGC,
+} from "@/lib/services/GestionConsular";
+
+import {
+  ActuacionPendiente,
+} from "@/types/GestionConsular";
 
 export default function AdminPage() {
 
-  const [
-    usuario,
-    setUsuario,
-  ] = useState<any>(null);
-
+ 
   const [
     dashboard,
     setDashboard,
   ] = useState<any>(null);
 
-  useEffect(() => {
+  const [
+  mostrarPendientes,
+  setMostrarPendientes,
+] = useState(false);
 
-    const data =
-      localStorage.getItem(
-        "usuarioCaja"
-      );
+const [
+  cargandoPendientes,
+  setCargandoPendientes,
+] = useState(false);
 
-    if (!data) {
+const [
+  pendientes,
+  setPendientes,
+] = useState<ActuacionPendiente[]>([]);
 
-      window.location.href =
-        "/ingreso";
+const [
+  busquedaPendientes,
+  setBusquedaPendientes,
+] = useState("");
 
-      return;
+  const hoy = new Date();
+const [
+  anioSeleccionado,
+  setAnioSeleccionado
+] = useState(
+  hoy.getFullYear().toString()
+);
+const [
+  mesSeleccionado,
+  setMesSeleccionado
+] = useState(
+  String(
+    hoy.getMonth()+1
+  ).padStart(2,"0")
+);
 
-    }
+ useEffect(() => {
+  cargarDashboard();
+}, [
+  anioSeleccionado,
+  mesSeleccionado,
+]);
 
-    const user =
-      JSON.parse(data);
+useEffect(() => {
 
-    if (
-      user.rol !== "admin"
-    ) {
+  if (!dashboard?.mesesDisponibles?.length)
+    return;
 
-      window.location.href =
-        "/caja";
+  const existe =
+    dashboard.mesesDisponibles.some(
+      (m: any) =>
+        m.value === mesSeleccionado
+    );
 
-      return;
+  if (!existe) {
 
-    }
+    setMesSeleccionado(
+      dashboard.mesesDisponibles[0].value
+    );
 
-    setUsuario(user);
+  }
 
-    cargarDashboard();
-
-  }, []);
+}, [
+  dashboard?.mesesDisponibles,
+]);
 
   async function cargarDashboard() {
 
     const response =
-      await fetch(
-        "/api/dashboard-admin"
-      );
+  await fetch(
+`/api/dashboard-admin?anio=${anioSeleccionado}&mes=${mesSeleccionado}`
+);
 
     const data =
       await response.json();
@@ -72,131 +115,153 @@ export default function AdminPage() {
     }
 
   }
+  const cargarPendientes = useCallback(
+  async () => {
 
-  if (!usuario) {
+    try {
 
-    return (
-      <div>
-        Cargando...
-      </div>
-    );
+      setCargandoPendientes(true);
+
+      const respuesta =
+        await obtenerPendientesSGC();
+
+      if (respuesta.ok) {
+
+        setPendientes(
+          respuesta.registros
+        );
+
+      }
+
+    } catch (error) {
+
+      console.error(
+        "Error cargando pendientes:",
+        error
+      );
+
+    } finally {
+
+      setCargandoPendientes(false);
+
+    }
+
+  },
+  []
+);
+useEffect(() => {
+
+  cargarPendientes();
+
+}, [
+  cargarPendientes,
+]);
+ function togglePendientes() {
+
+  setMostrarPendientes(
+    !mostrarPendientes
+  );
+
+}
+const columnasPendientes: TableColumn<ActuacionPendiente>[] = [
+
+  {
+    field: "fecha",
+    title: "Fecha",
+    width: "110px",
+  },
+
+  {
+    field: "recibo",
+    title: "Recibo",
+    width: "90px",
+  },
+
+  {
+    field: "documento",
+    title: "Documento",
+    width: "140px",
+  },
+
+  {
+    field: "nombre",
+    title: "Ciudadano",
+    width: "260px",
+  },
+
+  {
+    field: "codigo",
+    title: "Código",
+    width: "90px",
+  },
+
+  {
+    field: "actuacion",
+    title: "Actuación",
+  },
+
+  {
+    field: "usd",
+    title: "USD",
+    width: "90px",
+    align: "right",
+    render: (row) =>
+      `$${Number(row.usd).toLocaleString("es-CO")}`,
+  },
+
+];
+const pendientesFiltrados = useMemo(() => {
+
+  const texto =
+    busquedaPendientes
+      .trim()
+      .toLowerCase();
+
+  if (!texto) {
+
+    return pendientes;
 
   }
 
+  return pendientes.filter((item) =>
+
+    item.documento
+      ?.toLowerCase()
+      .includes(texto) ||
+
+    item.nombre
+      ?.toLowerCase()
+      .includes(texto) ||
+
+    item.actuacion
+      ?.toLowerCase()
+      .includes(texto) ||
+
+    item.codigo
+      ?.toLowerCase()
+      .includes(texto) ||
+
+    item.recibo
+      ?.toLowerCase()
+      .includes(texto)
+
+  );
+
+}, [
+
+  pendientes,
+
+  busquedaPendientes,
+
+]);
   return (
+    <SistemaLayout
+        titulo="Consulnet Barranquilla"
+        permiso={MODULOS.ADMIN}
+    >
 
-    <main className="min-h-screen bg-slate-200">
-    <div className="max-w-7xl mx-auto px-4 py-4">
-
-      <div className="bg-white rounded-3xl shadow-2xl p-6 md:p-10">
-<div className="flex justify-center mb-5">
-  <img
-    src="/logo.png"
-    alt="Logo"
-    className="w-24"
-  />
-</div>
-<div className="flex justify-end mb-4">
-
-  <button
-    onClick={() => {
-
-      localStorage.removeItem(
-        "usuarioCaja"
-      );
-
-      window.location.href =
-        "/ingreso";
-
-    }}
-    className="
-      bg-red-600
-      text-white
-      px-4
-      py-2
-      rounded-xl
-      hover:bg-red-700
-    "
-  >
-    Cerrar Sesión
-  </button>
-
-</div>
-            
-      <h1 className="text-3xl md:text-5xl font-bold text-center text-blue-950 mb-3">
-  Panel Administrativo
-</h1>
-
-      <p className="text-center text-slate-700 text-lg mb-4">
-  Bienvenido{" "}
-  <strong>
-    {usuario.nombre}
-  </strong>
-  </p>
-  <p className="text-center text-slate-500 mb-6">
-  Consulado General de la República Bolivariana
-  de Venezuela en Barranquilla
-
-</p>
-<div className="flex justify-center mb-8">
-  <div className="flex w-72 h-1 rounded-full overflow-hidden">
-    <div className="w-1/3 bg-yellow-400"></div>
-    <div className="w-1/3 bg-blue-700"></div>
-    <div className="w-1/3 bg-red-600"></div>
-  </div>
-</div>
-
-      <div className="flex flex-wrap justify-center gap-3 mb-8">
-         <a
-    href="/admin"
-    className="bg-blue-950 text-white px-4 py-2 rounded-xl hover:bg-blue-900"
-  >
-    Inicio
-  </a>
-<a
-  href="/recepcion"
-  className="bg-blue-950 text-white px-4 py-2 rounded-xl hover:bg-blue-900"
->
-  Recepción
-</a>
-  <a
-    href="/caja"
-    className="bg-blue-950 text-white px-4 py-2 rounded-xl hover:bg-blue-900"
-  >
-    Caja
-  </a>
-
-  <a
-    href="/admin/reportes"
-    className="bg-blue-950 text-white px-4 py-2 rounded-xl hover:bg-blue-900"
-  >
-    Reportes
-  </a>
-
-  <a
-    href="/admin/usuarios"
-    className="bg-blue-950 text-white px-4 py-2 rounded-xl hover:bg-blue-900"
-  >
-    Usuarios
-  </a>
-
-  <a
-  href="/consultas"
-  className="bg-blue-950 text-white px-4 py-2 rounded-xl hover:bg-blue-900"
->
-  Consultas
-</a>
-
-  <a
-    href="/admin/configuracion"
-    className="bg-blue-950 text-white px-4 py-2 rounded-xl hover:bg-blue-900"
-  >
-    Configuración
-  </a>
-
-</div>
-
-      <hr />
+    <div className="space-y-8">
+    
 
       {dashboard && (
 
@@ -237,24 +302,42 @@ export default function AdminPage() {
 </div>
 
   <div className="bg-slate-50 rounded-2xl shadow-md p-6 border-l-4 border-blue-700">
-    <p className="text-slate-600 text-sm">
-      Recibos Hoy
-    </p>
+  <p className="text-slate-600 text-sm">
+    Recibos Hoy
+  </p>
 
-    <h2 className="text-4xl font-bold text-blue-950 mt-2">
-      {dashboard.recibosHoy}
-    </h2>
-  </div>
+  <h2 className="text-4xl font-bold text-blue-950 mt-2">
+    {dashboard.recibosHoy}
+  </h2>
+
+  <p className="text-sm text-slate-600 mt-3">
+    Planillas GC Hoy:
+    <strong>
+      {" "}
+      {dashboard.planillasHoy}
+    </strong>
+  </p>
+</div>
 
   <div className="bg-slate-50 rounded-2xl shadow-md p-6 border-l-4 border-green-600">
-    <p className="text-slate-600 text-sm">
-      USD Hoy
-    </p>
 
-    <h2 className="text-4xl font-bold text-green-700 mt-2">
-      ${dashboard.usdHoy.toLocaleString("es-CO")}
-    </h2>
-  </div>
+  <p className="text-slate-600 text-sm">
+    USD Hoy
+  </p>
+
+  <h2 className="text-4xl font-bold text-green-700 mt-2">
+    ${dashboard.usdHoy.toLocaleString("es-CO")}
+  </h2>
+
+  <p className="text-sm text-slate-600 mt-3">
+    Renta Cargada en SGC Hoy:
+    <strong>
+      {" "}
+      ${dashboard.rentaSGCHoy.toLocaleString("es-CO")}
+    </strong>
+  </p>
+
+</div>
 
   <div className="bg-slate-50 rounded-2xl shadow-md p-6 border-l-4 border-blue-500">
 
@@ -284,36 +367,60 @@ export default function AdminPage() {
 <div className="bg-slate-50 rounded-2xl shadow-md p-6 border-l-4 border-indigo-600">
 
   <p className="text-slate-600 text-sm">
-    💰 Recaudación Acumulada Mes
+    Renta Acumulada Mes
   </p>
 
   <h2 className="text-3xl font-bold text-indigo-700 mt-2">
-    ${dashboard.usdMes.toLocaleString("es-CO")}
+    ${dashboard.rentaSGCMes.toLocaleString("es-CO")}
   </h2>
+
+  <p className="text-sm text-slate-600 mt-3">
+    Recaudación en Caja:
+    <strong>
+      {" "}
+      ${dashboard.usdMes.toLocaleString("es-CO")}
+    </strong>
+  </p>
 
 </div>
 
 <div className="bg-slate-50 rounded-2xl shadow-md p-6 border-l-4 border-cyan-600">
 
   <p className="text-slate-600 text-sm">
-    📄 Recibos Acumulados Mes
+    Recibos Acumulados Mes
   </p>
 
   <h2 className="text-3xl font-bold text-cyan-700 mt-2">
     {dashboard.recibosMes}
   </h2>
 
+  <p className="text-sm text-slate-600 mt-3">
+    Planillas Acumuladas Mes:
+    <strong>
+      {" "}
+      {dashboard.planillasMes}
+    </strong>
+  </p>
+
 </div>
 
 <div className="bg-slate-50 rounded-2xl shadow-md p-6 border-l-4 border-purple-600">
 
   <p className="text-slate-600 text-sm">
-    📋 Actuaciones Acumuladas Mes
+    Actuaciones Acumuladas Mes
   </p>
 
   <h2 className="text-3xl font-bold text-purple-700 mt-2">
     {dashboard.actuacionesMes}
   </h2>
+
+  <p className="text-sm text-slate-600 mt-3">
+    Actuaciones SGC Mes:
+    <strong>
+      {" "}
+      {dashboard.actuacionesSGCMes}
+    </strong>
+  </p>
 
 </div>
 </div>
@@ -377,16 +484,141 @@ export default function AdminPage() {
 </div>
 
 <br />
-          
-          <div className="bg-slate-50 rounded-2xl shadow-md p-6 mt-8">
+<div className="bg-slate-50 rounded-2xl shadow-md p-6 mt-8">
 
-  <h2 className="text-2xl font-bold text-blue-950 mb-4">
+  <button
+    onClick={togglePendientes}
+    className="
+      w-full
+      flex
+      items-center
+      justify-between
+      text-left
+      text-2xl
+      font-bold
+      text-blue-950
+      hover:text-blue-700
+    "
+  >
+
+    <span>
+
+      {mostrarPendientes ? "▼" : "▶"}{" "}
+
+      Pendientes por cargar en Gestión Consular
+
+    </span>
+
+    <span className="text-lg">
+
+      ({dashboard.pendientesGC ?? pendientes.length})
+
+    </span>
+
+  </button>
+
+  {
+
+     mostrarPendientes && (
+
+    <div className="mt-6 space-y-4">
+
+      <DataTableToolbar
+        busqueda={busquedaPendientes}
+        onBusquedaChange={setBusquedaPendientes}
+        placeholder="Buscar ciudadano, documento, actuación o recibo..."
+      />
+
+      {
+
+        cargandoPendientes ? (
+
+          <div className="bg-white rounded-2xl shadow-md p-8 text-center text-slate-500">
+
+            Cargando pendientes...
+
+          </div>
+
+        ) : pendientesFiltrados.length === 0 ? (
+
+          <div className="bg-white rounded-2xl shadow-md p-8 text-center text-slate-500">
+
+            No existen actuaciones pendientes de Gestión Consular.
+
+          </div>
+
+        ) : (
+
+          <DataTable
+            columns={columnasPendientes}
+            data={pendientesFiltrados}
+            getRowKey={(row, index) =>
+  `${row.recibo}-${row.codigo}-${index}`
+}
+          />
+
+        )
+
+      }
+
+    </div>
+
+  )
+}
+
+</div>
+
+<br />
+        <div className="bg-slate-50 rounded-2xl shadow-md p-6 mt-8">  
+         <div className="flex items-center justify-between mb-4 w-full">
+
+  <h2 className="text-2xl font-bold text-blue-950">
     Actuaciones Más Utilizadas
   </h2>
 
-<div className="bg-white rounded-2xl shadow-md overflow-hidden">
+  <div className="flex items-center gap-6">
 
-  <table className="w-full">
+    <div className="flex items-center gap-2">
+      <span className="text-sm font-medium">
+        Año:
+      </span>
+
+      <select
+        value={anioSeleccionado}
+        onChange={(e) => setAnioSeleccionado(e.target.value)}
+        className="border rounded-lg px-3 py-2"
+      >
+        {dashboard?.aniosDisponibles?.map((anio: string) => (
+          <option key={anio} value={anio}>
+            {anio}
+          </option>
+        ))}
+      </select>
+    </div>
+
+    <div className="flex items-center gap-2">
+      <span className="text-sm font-medium">
+        Mes:
+      </span>
+
+      <select
+        value={mesSeleccionado}
+        onChange={(e) => setMesSeleccionado(e.target.value)}
+        className="border rounded-lg px-3 py-2"
+      >
+        {dashboard?.mesesDisponibles?.map((mes: any) => (
+          <option key={mes.value} value={mes.value}>
+            {mes.label}
+          </option>
+        ))}
+      </select>
+    </div>
+
+  </div>
+  </div> 
+<div className="bg-white rounded-2xl shadow-md overflow-hidden w-full">
+
+  <table className="w-full table-fixed">
 
     <thead className="bg-blue-950 text-white">
 
@@ -446,7 +678,7 @@ export default function AdminPage() {
   <h2 className="text-2xl font-bold text-blue-950 mb-4">
     Últimas Visitas
   </h2>
-
+   
   <div className="bg-white rounded-2xl shadow-md overflow-hidden">
 
     <table className="w-full">
@@ -631,12 +863,10 @@ export default function AdminPage() {
         </>
 
       )}
+   
+  </div>
 
-     </div>
-
-    </div>
-
-  </main>
+</SistemaLayout>
 
   );
 

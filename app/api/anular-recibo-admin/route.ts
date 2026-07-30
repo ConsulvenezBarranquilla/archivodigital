@@ -6,7 +6,7 @@ import {
 import {
   sheets,
   MODULO_CAJA_SHEET_ID,
-  } from "@/lib/googleSheets";
+} from "@/lib/googleSheets";
 
 export async function POST(
   req: NextRequest
@@ -18,11 +18,68 @@ export async function POST(
       correlativo,
     } = await req.json();
 
-    const response =
+    // ===============================
+    // Verificar si el recibo está
+    // vinculado a Gestión Consular
+    // ===============================
+
+    const gestionResponse =
       await sheets.spreadsheets.values.get({
+
         spreadsheetId:
           MODULO_CAJA_SHEET_ID,
-        range: "Caja!A:M",
+
+        range:
+          "GestionConsular!A:G",
+
+      });
+
+    const registrosGestion =
+      gestionResponse.data.values || [];
+
+    const filasGestion =
+      registrosGestion.slice(1);
+
+    const vinculacion =
+      filasGestion.find((row) => {
+
+        return (
+
+          (row[0] || "").toString().trim() === correlativo &&
+          (row[6] || "").toString().trim().toUpperCase() === "VINCULADO"
+
+        );
+
+      });
+
+    if (vinculacion) {
+
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            `No es posible anular el recibo ${correlativo} porque está vinculado a la Planilla de Gestión Consular ${vinculacion[3]}.`,
+        },
+        {
+          status: 409,
+        }
+      );
+
+    }
+
+    // ===============================
+    // Buscar el recibo en Caja
+    // ===============================
+
+    const response =
+      await sheets.spreadsheets.values.get({
+
+        spreadsheetId:
+          MODULO_CAJA_SHEET_ID,
+
+        range:
+          "Caja!A:N",
+
       });
 
     const rows =
@@ -32,16 +89,18 @@ export async function POST(
       rows.findIndex(
         (row, i) =>
           i > 0 &&
-          row[1] ===
-            correlativo
+          row[1] === correlativo
       );
 
     if (index === -1) {
 
       return NextResponse.json({
+
         ok: false,
+
         error:
           "Recibo no encontrado",
+
       });
 
     }
@@ -49,7 +108,12 @@ export async function POST(
     const filaReal =
       index + 1;
 
+    // ===============================
+    // Marcar el recibo como ANULADO
+    // ===============================
+
     await sheets.spreadsheets.values.update({
+
       spreadsheetId:
         MODULO_CAJA_SHEET_ID,
 
@@ -60,24 +124,32 @@ export async function POST(
         "USER_ENTERED",
 
       requestBody: {
+
         values: [
           [
             "ANULADO",
           ],
         ],
+
       },
+
     });
 
     return NextResponse.json({
+
       ok: true,
+
     });
 
   } catch (error: any) {
 
     return NextResponse.json({
+
       ok: false,
+
       error:
         error.message,
+
     });
 
   }

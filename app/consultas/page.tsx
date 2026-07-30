@@ -4,13 +4,15 @@ import {
   useEffect,
   useState,
 } from "react";
+import SistemaLayout from "@/components/layout/SistemaLayout";
+import { MODULOS } from "@/lib/modulos";
+import DataTable, {
+  TableColumn,
+} from "@/components/table/DataTable";
+
+import DataTableToolbar from "@/components/table/DataTableToolbar";
 
 export default function ConsultasPage() {
-
-  const [
-    usuario,
-    setUsuario,
-  ] = useState<any>(null);
 
   const [
     dashboard,
@@ -53,6 +55,11 @@ const [
 ] = useState<any>(null);
 
 const [
+  busquedaRecibos,
+  setBusquedaRecibos,
+] = useState("");
+
+const [
   cargandoReporte,
   setCargandoReporte,
 ] = useState(false);
@@ -93,6 +100,11 @@ const [
 ] = useState<any>(null);
 
 const [
+  busquedaVisitas,
+  setBusquedaVisitas,
+] = useState("");
+
+const [
   cargandoVisitas,
   setCargandoVisitas,
 ] = useState(false);
@@ -117,54 +129,176 @@ const [
   setVisitasTipo,
 ] = useState("Todas");
 
-  useEffect(() => {
+const columnasRecibos: TableColumn<any>[] = [
+  {
+    field: "fecha",
+    title: "Fecha",
+    width: "105px",
+    render: (row) => {
 
-    
-    const data =
-      localStorage.getItem(
-        "usuarioCaja"
+      const [fecha, hora] =
+        String(row.fecha).split(" ");
+
+      return (
+        <div className="flex flex-col leading-tight">
+          <span className="font-medium">
+            {fecha}
+          </span>
+
+          <span className="text-xs text-slate-400">
+            {hora}
+          </span>
+        </div>
+      );
+    },
+  },
+  {
+    field: "recibo",
+    title: "Recibo",
+    width: "130px",
+    align: "center",
+  },
+  {
+    field: "documento",
+    title: "Documento",
+    width: "150px",
+  },
+  {
+    field: "nombre",
+    title: "Ciudadano",
+    width: "280px",
+  },
+  {
+    field: "actuacion",
+    title: "Actuación",
+  },
+  {
+    field: "usd",
+    title: "USD",
+    align: "right",
+    width: "120px",
+  },
+  {
+    field: "estado",
+    title: "Estado",
+    align: "center",
+    width: "120px",
+    render: (row) => (
+      <span
+        className={`px-3 py-1 rounded-full text-xs font-semibold ${
+          row.estado === "ANULADO"
+            ? "bg-red-100 text-red-700"
+            : "bg-green-100 text-green-700"
+        }`}
+      >
+        {row.estado}
+      </span>
+    ),
+  },
+];
+const columnasVisitas: TableColumn<any>[] = [
+  {
+    field: "fecha",
+    title: "Fecha",
+    width: "105px",
+    render: (row) => {
+
+      const [fecha, hora] =
+        String(row.fecha).split(" ");
+
+      return (
+        <div className="flex flex-col leading-tight">
+          <span className="font-medium">
+            {fecha}
+          </span>
+
+          <span className="text-xs text-slate-400">
+            {hora}
+          </span>
+        </div>
+      );
+    },
+  },
+  {
+    field: "documento",
+    title: "Documento",
+    width: "150px",
+  },
+  {
+    field: "ciudadano",
+    title: "Ciudadano",
+    width: "300px",
+  },
+  {
+    field: "tipo",
+    title: "Tipo",
+    width: "170px",
+    align: "center",
+    render: (row) => {
+
+      const colores: Record<string,string> = {
+        "Trámite": "bg-blue-100 text-blue-700",
+        "Información": "bg-green-100 text-green-700",
+        "Acompañante": "bg-amber-100 text-amber-700",
+        "Cita Institucional": "bg-purple-100 text-purple-700",
+      };
+
+      return (
+        <span
+          className={`px-3 py-1 rounded-full text-xs font-semibold ${
+            colores[row.tipo] ??
+            "bg-slate-100 text-slate-700"
+          }`}
+        >
+          {row.tipo}
+        </span>
       );
 
-    if (!data) {
+    },
+  },
+];
+const datosRecibos =
+  reporteRecibos?.registros
+    ?.map((item: any) => ({
+      fecha: item[0],
+      recibo: item[1],
+      documento: item[2],
+      nombre: item[3],
+      actuacion: item[4],
+      usd: item[5],
+      estado: item[6],
+    }))
+    .filter((fila: any) => {
 
-      window.location.href =
-        "/ingreso";
+      const texto =
+        JSON.stringify(fila).toLowerCase();
 
-      return;
+      return texto.includes(
+        busquedaRecibos.toLowerCase()
+      );
 
-    }
+    }) ?? [];
+const datosVisitas =
+  reporteVisitas?.registros
+    ?.map((item: any) => ({
+      fecha: item[0],
+      documento: item[1],
+      ciudadano: item[2],
+      tipo: item[3],
+    }))
+    .filter((fila: any) => {
 
-    const user =
-      JSON.parse(data);
+      const texto =
+        JSON.stringify(fila).toLowerCase();
 
-    const rol =
-      user.rol
-        ?.toString()
-        .trim()
-        .toLowerCase();
+      return texto.includes(
+        busquedaVisitas.toLowerCase()
+      );
 
-    if (
-
-      rol !== "admin" &&
-
-      rol !== "consulta" &&
-
-      rol !== "analista"
-
-    ) {
-
-      window.location.href =
-        "/ingreso";
-
-      return;
-
-    }
-
-    setUsuario(user);
-
+    }) ?? [];
+  useEffect(() => {
     cargarDashboard();
-
-  }, []);
+}, []);
 async function consultarResumen() {
 
   if (!fechaDesde || !fechaHasta) {
@@ -388,161 +522,15 @@ async function consultarReporteVisitas() {
 
   }
 
-  if (!usuario) {
-
-    return (
-      <div>
-        Cargando...
-      </div>
-    );
-
-  }
-
+  
   return (
 
-<main className="min-h-screen bg-slate-200">
-
-<div className="max-w-7xl mx-auto px-4 py-4">
-
-<div className="bg-white rounded-3xl shadow-2xl p-6 md:p-10">
-
-<div className="flex justify-center mb-5">
-
-<img
-src="/logo.png"
-alt="Logo"
-className="w-24"
-/>
-
-</div>
-
-<h1 className="text-4xl font-bold text-center text-blue-950">
-
-Centro de Consultas
-
-</h1>
-
-<p className="text-center text-slate-700 text-lg mt-4">
-
-Bienvenido{" "}
-
-<strong>
-
-{usuario.nombre}
-
-</strong>
-
-</p>
-
-<p className="text-center text-slate-600 mt-2">
-
-Consulado General de la República
-Bolivariana de Venezuela
-en Barranquilla
-
-</p>
-
-<div className="flex justify-center my-8">
-
-<div className="flex w-72 h-1 rounded-full overflow-hidden">
-
-<div className="w-1/3 bg-yellow-400"></div>
-
-<div className="w-1/3 bg-blue-700"></div>
-
-<div className="w-1/3 bg-red-600"></div>
-
-</div>
-
-</div>
-
-<div className="flex flex-wrap justify-center gap-3 mb-8">
-
-{usuario.rol === "admin" && (
-
-<>
-
-<a
-href="/admin"
-className="bg-green-700 text-white px-4 py-2 rounded-xl hover:bg-green-800"
+<SistemaLayout
+    titulo="Centro de Consultas - Caja"
+    permiso={MODULOS.CONSULTAS}
 >
 
-🏠 Inicio
-
-</a>
-
-<a
-href="/recepcion"
-className="bg-blue-950 text-white px-4 py-2 rounded-xl hover:bg-blue-900"
->
-
-Recepción
-
-</a>
-
-<a
-href="/caja"
-className="bg-blue-950 text-white px-4 py-2 rounded-xl hover:bg-blue-900"
->
-
-Caja
-
-</a>
-
-</>
-
-)}
-
-<a
-href="/consultas"
-className="bg-blue-950 text-white px-4 py-2 rounded-xl hover:bg-blue-900"
->
-
-Centro de Consultas
-
-</a>
-
-{usuario.rol === "analista" && (
-
-<a
-href="/gestion-consular"
-className="bg-blue-950 text-white px-4 py-2 rounded-xl hover:bg-blue-900"
->
-
-Sistema Gestión Consular
-
-</a>
-
-)}
-
-</div>
-
-<hr className="mb-8"/>
-
-<div className="flex justify-end mb-6">
-
-<button
-
-onClick={() => {
-
-localStorage.removeItem(
-"usuarioCaja"
-);
-
-window.location.href =
-"/ingreso";
-
-}}
-
-className="bg-red-600 text-white px-4 py-2 rounded-xl hover:bg-red-700"
-
->
-
-Cerrar Sesión
-
-</button>
-
-</div>
+<div className="space-y-8">
 
 {dashboard && (
 
@@ -1330,108 +1318,19 @@ Consultando...
 
 <div className="mt-8">
 
-<h3 className="text-2xl font-bold text-blue-950 mb-4">
 
-Resultados
+<DataTableToolbar
+    titulo="Resultados"
+    busqueda={busquedaRecibos}
+    onBusquedaChange={setBusquedaRecibos}
+    placeholder="Buscar por recibo, documento, ciudadano, actuación..."
+/>
 
-</h3>
-
-<div className="overflow-auto rounded-xl border">
-
-<table className="min-w-full text-sm">
-
-<thead className="bg-blue-900 text-white">
-
-<tr>
-
-<th className="p-3">Fecha</th>
-
-<th className="p-3">Recibo</th>
-
-<th className="p-3">Documento</th>
-
-<th className="p-3">Nombre</th>
-
-<th className="p-3">Actuación</th>
-
-<th className="p-3">USD</th>
-
-<th className="p-3">Estado</th>
-
-</tr>
-
-</thead>
-
-<tbody>
-
-{reporteRecibos.registros.map(
-
-(item:any,index:number)=>(
-
-<tr
-key={index}
-className="border-b hover:bg-slate-50"
->
-
-<td className="p-2">
-
-{item[0]}
-
-</td>
-
-<td className="p-2">
-
-{item[1]}
-
-</td>
-
-<td className="p-2">
-
-{item[2]}
-
-</td>
-
-<td className="p-2">
-
-{item[3]}
-
-</td>
-
-<td className="p-2">
-
-{item[4]}
-
-</td>
-
-<td className="p-2 text-right">
-
-{item[5]}
-
-</td>
-
-<td
-  className={`p-2 font-semibold ${
-    item[6] === "ANULADO"
-      ? "text-red-600"
-      : "text-green-700"
-  }`}
->
-
-{item[6]}
-
-</td>
-
-</tr>
-
-)
-
-)}
-
-</tbody>
-
-</table>
-
-</div>
+<DataTable
+    columns={columnasRecibos}
+    data={datosRecibos}
+    getRowKey={(row) => row.recibo}
+/>
 
 <div className="grid grid-cols-4 gap-4 mt-6">
 
@@ -1674,72 +1573,20 @@ Consultando...
 
 </div>
 
-<div className="mt-8 overflow-auto rounded-xl border">
+<DataTableToolbar
+    titulo="Detalle de Visitas"
+    busqueda={busquedaVisitas}
+    onBusquedaChange={setBusquedaVisitas}
+    placeholder="Buscar por documento, ciudadano o tipo..."
+/>
 
-<table className="min-w-full text-sm">
-
-<thead className="bg-blue-900 text-white">
-
-<tr>
-
-<th className="p-3">Fecha</th>
-
-<th className="p-3">Documento</th>
-
-<th className="p-3">Ciudadano</th>
-
-<th className="p-3">Tipo</th>
-
-</tr>
-
-</thead>
-
-<tbody>
-
-{reporteVisitas.registros.map(
-
-(item:any,index:number)=>(
-
-<tr
-key={index}
-className="border-b hover:bg-slate-50"
->
-
-<td className="p-2">
-
-{item[0]}
-
-</td>
-
-<td className="p-2">
-
-{item[1]}
-
-</td>
-
-<td className="p-2">
-
-{item[2]}
-
-</td>
-
-<td className="p-2">
-
-{item[3]}
-
-</td>
-
-</tr>
-
-)
-
-)}
-
-</tbody>
-
-</table>
-
-</div>
+<DataTable
+    columns={columnasVisitas}
+    data={datosVisitas}
+    getRowKey={(row, index) =>
+        `${row.documento}-${index}`
+    }
+/>
 
 </>
 
@@ -1750,10 +1597,9 @@ className="border-b hover:bg-slate-50"
 </div>
 
 )}
-</div>   {/* bg-white principal */}
+</div>
 
-</div>   {/* max-w-7xl */}
-</main>
+</SistemaLayout>
 
 );
 

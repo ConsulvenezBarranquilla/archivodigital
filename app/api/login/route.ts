@@ -62,7 +62,10 @@ export async function POST(
   ok: true,
   usuario: encontrado[0],
   nombre: encontrado[2],
-  rol: encontrado[3],
+  rol: encontrado[3]
+    ?.toString()
+    .trim()
+    .toLowerCase(),
   caja: encontrado[5],
   debug: encontrado,
 });
