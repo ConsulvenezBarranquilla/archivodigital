@@ -138,6 +138,9 @@ let rentaSGCMes = 0;
 const planillasHoySet = new Set<string>();
 const planillasMesSet = new Set<string>();
 
+const recibosRentaHoy = new Set<string>();
+const recibosRentaMes = new Set<string>();
+
     let visitasHoy = 0;
 
 let visitasMes = 0;
@@ -364,35 +367,51 @@ gestionRows
       );
 
     // Hoy
-    if (
-      fechaSolo === hoy
-    ) {
+if (
+  fechaSolo === hoy
+) {
 
-      actuacionesSGCHoy++;
+  actuacionesSGCHoy++;
 
-      rentaSGCHoy += usd;
+  if (
+    !recibosRentaHoy.has(correlativo)
+  ) {
 
-      planillasHoySet.add(
-        planilla
-      );
+    recibosRentaHoy.add(correlativo);
 
-    }
+    rentaSGCHoy += usd;
+
+  }
+
+  planillasHoySet.add(
+    planilla
+  );
+
+}
 
     // Mes actual
-    if (
-      mes === mesActual &&
-      anio === anioActual
-    ) {
+if (
+  mes === mesActual &&
+  anio === anioActual
+) {
 
-      actuacionesSGCMes++;
+  actuacionesSGCMes++;
 
-      rentaSGCMes += usd;
+  if (
+    !recibosRentaMes.has(correlativo)
+  ) {
 
-      planillasMesSet.add(
-        planilla
-      );
+    recibosRentaMes.add(correlativo);
 
-    }
+    rentaSGCMes += usd;
+
+  }
+
+  planillasMesSet.add(
+    planilla
+  );
+
+}
 
   });
 

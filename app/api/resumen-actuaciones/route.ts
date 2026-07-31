@@ -59,6 +59,18 @@ const visitasResponse =
       "BitacoraVisitas!A:G",
 
 });
+
+const actuacionesResponse =
+  await sheets.spreadsheets.values.get({
+
+    spreadsheetId:
+      MODULO_CAJA_SHEET_ID,
+
+    range:
+      "Actuaciones!A:D",
+
+});
+
 const cajaRows =
   cajaResponse.data.values || [];
 
@@ -67,6 +79,28 @@ const detalleRows =
 
 const visitasRows =
   visitasResponse.data.values || [];
+
+const actuacionesRows =
+  actuacionesResponse.data.values || [];
+
+const ordenActuaciones =
+  new Map<string, number>();
+
+actuacionesRows
+  .slice(1)
+  .forEach((row, index) => {
+
+    const codigo =
+      (row[0] || "")
+        .toString()
+        .trim();
+
+    ordenActuaciones.set(
+      codigo,
+      index
+    );
+
+});
 
   const fechaDesde =
   inicioDelDia(desde);
@@ -251,12 +285,19 @@ visitasRows
     }
 
   });
-
+const actuacionesOrdenadas =
+  Object.entries(actuaciones)
+    .sort(
+      (a, b) =>
+        (ordenActuaciones.get(a[0]) ?? 9999) -
+        (ordenActuaciones.get(b[0]) ?? 9999)
+    );
 return NextResponse.json({
 
   ok: true,
 
-  actuaciones,
+  actuaciones:
+  actuacionesOrdenadas,
 
   totalActuaciones,
 

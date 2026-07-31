@@ -76,45 +76,50 @@ export async function GET(
     // ===============================
 
     const actuacionesProcesadas =
-      new Map<string, string>();
+  new Map<string, number>();
 
-    filasGestion.forEach((row) => {
+filasGestion.forEach((row) => {
 
-      const correlativo =
-        (row[0] || "")
-          .toString()
-          .trim();
+  const correlativo =
+    (row[0] || "")
+      .toString()
+      .trim();
 
-      const codigo =
-        (row[1] || "")
-          .toString()
-          .trim();
+  const codigo =
+    (row[1] || "")
+      .toString()
+      .trim();
 
-      const estado =
-        (row[6] || "")
-          .toString()
-          .trim()
-          .toUpperCase();
+  const estado =
+    (row[6] || "")
+      .toString()
+      .trim()
+      .toUpperCase();
 
-      if (
+  if (
 
-        estado === "VINCULADO" ||
+    estado !== "VINCULADO" &&
 
-        estado === "SIN PLANILLA"
+    estado !== "SIN PLANILLA"
 
-      ) {
+  ) {
 
-        actuacionesProcesadas.set(
+    return;
 
-          `${correlativo}|${codigo}`,
+  }
 
-          estado
+  const llave =
+    `${correlativo}|${codigo}`;
 
-        );
+  actuacionesProcesadas.set(
 
-      }
+    llave,
 
-    });
+    (actuacionesProcesadas.get(llave) || 0) + 1
+
+  );
+
+});
 
     const registros: any[] = [];
         // ===============================
@@ -152,23 +157,24 @@ export async function GET(
           detalle[1] || "";
 
         const llave =
-          `${correlativo}|${codigo}`;
+  `${correlativo}|${codigo}`;
 
-        // Si ya fue vinculado
-        // o marcado SIN PLANILLA,
-        // no debe aparecer
+const restantes =
+  actuacionesProcesadas.get(llave) || 0;
 
-        if (
+if (restantes > 0) {
 
-          actuacionesProcesadas.has(
-            llave
-          )
+  actuacionesProcesadas.set(
 
-        ) {
+    llave,
 
-          return;
+    restantes - 1
 
-        }
+  );
+
+  return;
+
+}
 
         const cedula =
           movimiento[11] ||

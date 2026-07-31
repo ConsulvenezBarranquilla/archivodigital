@@ -698,7 +698,7 @@ async function consultarReporteVisitas() {
 
     <h2 className="text-2xl font-bold text-blue-950">
 
-      📊 Resumen de Actuaciones y Visitas
+      📊 Resumen de Actuaciones facturadas en Caja y Visitas
 
     </h2>
 
@@ -799,7 +799,7 @@ async function consultarReporteVisitas() {
 
 <h2 className="text-3xl font-bold text-blue-950 mb-6">
 
-Resumen de Actuaciones y Visitas
+Resumen de Actuaciones facturadas en Caja y Visitas
 
 </h2>
 
@@ -955,99 +955,64 @@ USD
 
 <tbody>
 
+
 {
+  resumen.actuaciones.map(
+    ([codigo, item]: any) => (
+      <tr key={codigo}>
+        <td className="border p-2 font-semibold">
+          {codigo}
+        </td>
 
-Object.entries(
+        <td className="border p-2">
+          {item.nombre}
+        </td>
 
-resumen.actuaciones
+        <td className="border p-2 text-center">
+          {item.cantidad}
+        </td>
 
-)
-
-.sort(
-
-(a:any,b:any)=>
-
-a[0].localeCompare(
-
-b[0]
-
-)
-
-)
-
-.map(
-
-([codigo,item]:any)=>(
-
-<tr key={codigo}>
-
-<td className="border p-2 font-semibold">
-
-{codigo}
-
-</td>
-
-<td className="border p-2">
-
-{item.nombre}
-
-</td>
-
-<td className="border p-2 text-center">
-
-{item.cantidad}
-
-</td>
-
-<td className="border p-2 text-end">
-
-${item.usd.toLocaleString("es-CO")}
-
-</td>
-
-</tr>
-
-)
-
-)
-
+        <td className="border p-2 text-end">
+          ${item.usd.toLocaleString("es-CO")}
+        </td>
+      </tr>
+    )
+  )
 }
 
 </tbody>
 
+<tfoot>
+
+  <tr className="bg-slate-100 font-bold">
+
+    <td
+      className="border p-2"
+      colSpan={2}
+    >
+      TOTAL
+    </td>
+
+    <td className="border p-2 text-center">
+
+      {resumen.totalActuaciones}
+
+    </td>
+
+    <td className="border p-2 text-end">
+
+      $
+      {Number(
+        resumen.totalUSD
+      ).toLocaleString("es-CO")}
+
+    </td>
+
+  </tr>
+
+</tfoot>
+
 </table>
-
-</div>
-
-<div className="bg-slate-50 rounded-2xl p-5">
-
-<p>
-
-<strong>
-
-Total actuaciones:
-
-</strong>
-
-{" "}
-
-{resumen.totalActuaciones}
-
-</p>
-
-<p className="mt-2">
-
-<strong>
-
-Total USD:
-
-</strong>
-
-{" "}
-
-${resumen.totalUSD.toLocaleString("es-CO")}
-
-</p>
 
 </div>
 
@@ -1329,7 +1294,9 @@ Consultando...
 <DataTable
     columns={columnasRecibos}
     data={datosRecibos}
-    getRowKey={(row) => row.recibo}
+    getRowKey={(row, index) =>
+  `${row.recibo}-${row.codigo}-${index}`
+}
 />
 
 <div className="grid grid-cols-4 gap-4 mt-6">

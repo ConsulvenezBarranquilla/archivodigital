@@ -1207,22 +1207,28 @@ async function obtenerReportePlanillas(
   });
 
   const reporte =
-    Object.values(
-      planillas
-    )
-    .sort((a,b)=>{
+  Object.values(planillas)
+    .sort((a, b) => {
 
       const fa =
-        convertirFecha(
-          a.fecha
-        )?.getTime() || 0;
+        convertirFecha(a.fecha)?.getTime() || 0;
 
       const fb =
-        convertirFecha(
-          b.fecha
-        )?.getTime() || 0;
+        convertirFecha(b.fecha)?.getTime() || 0;
 
-      return fb-fa;
+      // Fecha más antigua primero
+      if (fa !== fb) {
+
+        return fa - fb;
+
+      }
+
+      // Dentro de la misma fecha,
+      // planillas de menor a mayor
+      return (
+        Number(a.planilla) -
+        Number(b.planilla)
+      );
 
     })
     .map((item)=>({

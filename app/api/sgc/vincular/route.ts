@@ -70,7 +70,24 @@ export async function POST(
       });
 
     }
+if (
 
+  !/^\d+$/.test(
+    planilla.trim()
+  )
+
+) {
+
+  return NextResponse.json({
+
+    ok: false,
+
+    error:
+      "El número de planilla debe contener únicamente números.",
+
+  });
+
+}
     if (
 
       !fechaPlanilla
@@ -147,6 +164,18 @@ export async function POST(
     .trim();
 
 if (!numeroActuacion) {
+  if (!/^\d+$/.test(numeroActuacion)) {
+
+  return NextResponse.json({
+
+    ok: false,
+
+    error:
+      `El número de actuación debe contener únicamente números.`,
+
+  });
+
+}
 
   return NextResponse.json({
 

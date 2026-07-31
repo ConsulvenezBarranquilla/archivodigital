@@ -356,12 +356,18 @@ console.log("Input =", Input);
             <td className="p-2">
 
               <Input
-    value={numerosActuacion[index] ?? ""}
-    onChange={(valor) => {
-        const copia = [...numerosActuacion];
-        copia[index] = valor;
-        setNumerosActuacion(copia);
-    }}
+  value={numerosActuacion[index]}
+  inputMode="numeric"
+  onChange={(valor) => {
+
+    const copia = [...numerosActuacion];
+
+    copia[index] =
+      valor.replace(/\D/g, "");
+
+    setNumerosActuacion(copia);
+
+  }}
 />
 
             </td>
@@ -397,16 +403,15 @@ console.log("Input =", Input);
           </label>
 
           <Input
-
-            value={planilla}
-
-            onChange={setPlanilla}
-
-            uppercase
-
-            placeholder="Ej. GC-2026-00125"
-
-          />
+  value={planilla}
+  onChange={(valor) =>
+    setPlanilla(
+      valor.replace(/\D/g, "")
+    )
+  }
+  inputMode="numeric"
+  placeholder="Número de Planilla"
+/>
 
         </div>
 

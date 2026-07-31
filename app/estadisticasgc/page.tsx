@@ -282,6 +282,19 @@ async function cargarDashboard() {
   }
 
 }
+const totalCantidad =
+  resumen?.actuaciones?.reduce(
+    (s: number, item: any) =>
+      s + Number(item.cantidad || 0),
+    0
+  ) || 0;
+
+const totalUsd =
+  resumen?.actuaciones?.reduce(
+    (s: number, item: any) =>
+      s + Number(item.usd || 0),
+    0
+  ) || 0;
 return (
 
 <SistemaLayout
@@ -413,7 +426,7 @@ return (
 
 <h2 className="text-3xl font-bold text-blue-950 mb-6">
 
-Resumen de Actuaciones y Visitas
+Resumen de Actuaciones cargadas en SGC y Visitas
 
 </h2>
 
@@ -603,6 +616,36 @@ USD
 }
 
 </tbody>
+
+<tfoot>
+
+  <tr className="bg-slate-100 font-bold">
+
+    <td
+      className="border p-2"
+      colSpan={2}
+    >
+      TOTAL
+    </td>
+
+    <td className="border p-2 text-center">
+
+      {totalCantidad}
+
+    </td>
+
+    <td className="border p-2 text-end">
+
+      $
+      {totalUsd.toLocaleString(
+        "es-CO"
+      )}
+
+    </td>
+
+  </tr>
+
+</tfoot>
 
 </table>
 
