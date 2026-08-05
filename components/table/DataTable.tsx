@@ -31,7 +31,7 @@ interface DataTableProps<T extends object> {
   data: T[];
 
   keyField?: keyof T;
-
+getRowClassName?: (row: T) => string;
   getRowKey?: (
     row: T,
     index: number
@@ -63,6 +63,8 @@ export default function DataTable<T extends object>({
 
   keyField,
 
+  getRowClassName,
+  
   getRowKey,
 
   selectable = false,
@@ -72,6 +74,7 @@ export default function DataTable<T extends object>({
   onSelectionChange,
 
   isRowSelectable = () => true,
+   hideCheckbox = () => false,
 
 }: DataTableProps<T>) {
 
@@ -589,6 +592,8 @@ text-white
 
             isRowSelectable={isRowSelectable}
 
+getRowClassName={getRowClassName}
+
             getRowKey={
 
               getRowKey
@@ -612,6 +617,8 @@ text-white
               onSelectionChange
 
             }
+
+             hideCheckbox={hideCheckbox}
 
           />
 

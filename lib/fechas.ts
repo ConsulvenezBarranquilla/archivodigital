@@ -244,3 +244,86 @@ export function fechaDesdeInput(
   return `${dia}/${mes}/${anio}`;
 
 }
+// ==========================================
+// DD/MM/YYYY
+// ==========================================
+
+export function formatoFechaLibro(
+  fechaTexto: string
+) {
+
+  const fecha =
+    convertirFecha(fechaTexto);
+
+  if (!fecha) {
+
+    return fechaTexto;
+
+  }
+
+  const dia = String(
+    fecha.getDate()
+  ).padStart(2, "0");
+
+  const mes = String(
+    fecha.getMonth() + 1
+  ).padStart(2, "0");
+
+  const anio =
+    fecha.getFullYear();
+
+  return `${dia}/${mes}/${anio}`;
+
+}
+// ==========================================
+// AGOSTO 2026
+// ==========================================
+
+export function formatoMesLibro(
+  periodo: string
+) {
+
+  if (!periodo) {
+
+    return "";
+
+  }
+
+  const [anio, mes] =
+    periodo.split("-");
+
+  const meses = [
+
+    "ENERO",
+
+    "FEBRERO",
+
+    "MARZO",
+
+    "ABRIL",
+
+    "MAYO",
+
+    "JUNIO",
+
+    "JULIO",
+
+    "AGOSTO",
+
+    "SEPTIEMBRE",
+
+    "OCTUBRE",
+
+    "NOVIEMBRE",
+
+    "DICIEMBRE",
+
+  ];
+
+  return `${
+
+    meses[Number(mes) - 1]
+
+  } ${anio}`;
+
+}

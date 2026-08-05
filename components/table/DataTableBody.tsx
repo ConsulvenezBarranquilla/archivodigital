@@ -17,7 +17,7 @@ interface DataTableBodyProps<T extends object> {
   data: T[];
 
   keyField?: keyof T;
-
+getRowClassName?: (row: T) => string;
   getRowKey?: (
     row: T,
     index: number
@@ -50,6 +50,8 @@ export default function DataTableBody<T extends object>({
   keyField,
 
   getRowKey,
+
+  getRowClassName,
 
   selectable = false,
 
@@ -218,19 +220,15 @@ console.log({
   border-b
   transition-colors
   duration-150
+
   ${habilitado ? "hover:bg-slate-50" : "opacity-50"}
 
-                    ${
-
-                      seleccionado
-
-                        ? "bg-blue-50"
-
-                        : ""
-
-                    }
-
-                  `}
+  ${
+    seleccionado
+      ? "bg-blue-50"
+      : getRowClassName?.(row) ?? ""
+  }
+`}
 
                 >
 

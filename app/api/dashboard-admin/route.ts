@@ -430,10 +430,17 @@ detalleRows
     const correlativo = detalle[0] || "";
 
     const recibo = cajaRows
-      .slice(1)
-      .find(r => r[1] === correlativo);
+  .slice(1)
+  .find(r => r[1] === correlativo);
 
-    if (!recibo) return;
+if (!recibo) return;
+
+// No contabilizar actuaciones de recibos anulados
+const estado = (recibo[10] || "").toString().trim().toUpperCase();
+
+if (estado !== "GENERADO") {
+  return;
+}
 
     const fecha = recibo[0] || "";
 

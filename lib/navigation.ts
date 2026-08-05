@@ -74,7 +74,7 @@ export const navigation: NavigationItem[] = [
       },
       {
         label: "Libro Diario",
-        disabled: true,
+        href: "/libro-diario",
         permiso: MODULOS.GESTION_CONSULAR,
       },
     ],
