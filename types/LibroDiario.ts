@@ -64,6 +64,8 @@ export interface MovimientoLibro {
 
   descripcion: string;
 
+  arancel: number;
+
   haber: number;
 
   debe: number;
