@@ -1,11 +1,11 @@
 "use client";
 
 import {
-
     CategoriaDocumento,
+} from "@/types/ReporteEntregado";
 
+import {
     MENU_DOCUMENTOS,
-
 } from "@/lib/reportesEntregados/documentos";
 
 interface Props {
@@ -94,7 +94,7 @@ const categoriaSeleccionada =
 
                             const seleccionado =
 
-                                item.id === categoria;
+                                item.id === categoriaSeleccionada;
 
                             return (
 
