@@ -99,6 +99,8 @@ export interface DetalleActuacion {
 
   actuacion: string;
 
+  monto: number;
+
 }
 
 export interface DetalleOperacion {

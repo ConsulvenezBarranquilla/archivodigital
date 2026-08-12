@@ -81,6 +81,12 @@ export const HOJA_CORRELATIVOS =
 export const HOJA_CONFIGURACION =
   "Configuracion";
 
+export const HOJA_GESTION_CONSULAR =
+    "GestionConsular";
+
+export const HOJA_REPORTES_ENTREGADOS =
+    "ReportesEntregados";
+
   /*------------------------------------------
  FUNCIONES GENÉRICAS
 ------------------------------------------*/
@@ -134,7 +140,7 @@ export async function agregarFila(
       MODULO_CAJA_SHEET_ID,
 
     range:
-      `${hoja}!A:Z`,
+      `${hoja}!A:AZ`,
 
     valueInputOption:
       "USER_ENTERED",
@@ -230,7 +236,41 @@ export async function obtenerCorrelativos() {
   );
 
 }
+export async function obtenerCaja() {
 
+    return await leerHoja(
+
+        HOJA_CAJA,
+
+        "A:ZZ"
+
+    );
+
+}
+
+export async function obtenerGestionConsular() {
+
+    return await leerHoja(
+
+        HOJA_GESTION_CONSULAR,
+
+        "A:ZZ"
+
+    );
+
+}
+
+export async function obtenerReportesEntregados() {
+
+    return await leerHoja(
+
+        HOJA_REPORTES_ENTREGADOS,
+
+        "A:ZZ"
+
+    );
+
+}
 /*------------------------------------------
  ESCRITURA
 ------------------------------------------*/
@@ -394,5 +434,222 @@ export function obtenerDocumentosRegistro(
       ),
 
   };
+
+}
+/*------------------------------------------
+ REPORTES ENTREGADOS
+------------------------------------------*/
+
+export async function buscarReportePorId(
+  id: string
+) {
+
+  const filas =
+    await obtenerReportesEntregados();
+
+  for (let i = 1; i < filas.length; i++) {
+
+    if ((filas[i][0] ?? "") === id) {
+
+      return {
+
+        fila: i + 1,
+
+        datos: filas[i],
+
+      };
+
+    }
+
+  }
+
+  return null;
+
+}
+function convertirReporteAFila(
+  documento: any,
+  usuario: string,
+  esNuevo: boolean
+): string[] {
+
+  const ahora =
+    new Date().toISOString();
+
+  return [
+
+    // A - M
+    documento.id ?? "",
+    documento.categoria ?? "",
+    documento.tipoDocumento ?? "",
+    documento.recibo ?? "",
+    documento.fechaRecibo ?? "",
+    documento.planillaGC ?? "",
+    documento.solicitante ?? "",
+    documento.documento ?? "",
+    documento.estado ?? "",
+    documento.entregado ? "SI" : "NO",
+    documento.fechaEntrega ?? "",
+    documento.entregadoPor ?? "",
+    documento.observaciones ?? "",
+
+    // N - R
+    documento.titularPasaporte ?? "",
+    documento.numeroPasaporte ?? "",
+    documento.fechaValija ?? "",
+    documento.fechaEmision ?? "",
+    documento.fechaVencimiento ?? "",
+
+    // S - V
+    documento.numeroVisa ?? "",
+    documento.tipoVisa ?? "",
+    documento.nacionalidad ?? "",
+    documento.fechaVencimientoVisa ?? "",
+
+    // W
+    documento.estadoApostilla ?? "",
+
+    // X
+    documento.fechaEmisionDocumento ?? "",
+
+    // Y
+    documento.correlativoDocumento ?? "",
+
+    // Z
+    documento.fechaCarta ?? "",
+
+    // AA
+    documento.correlativoCarta ?? "",
+
+    // AB
+    documento.tipoCertificado ?? "",
+
+    // AC
+    documento.fechaRegistro ?? "",
+
+    // AD
+    documento.numeroCertificado ?? "",
+
+    // AE
+    documento.numeroRegistro ?? "",
+
+    // AF
+    documento.fechaRegistroConsular ?? "",
+
+    // AG
+    documento.fechaConstancia ?? "",
+
+    // AH
+    documento.correlativoConstancia ?? "",
+
+    // AI - AL
+    documento.tipoPoder ?? "",
+    documento.apoderado ?? "",
+    documento.documentoApoderado ?? "",
+    documento.estadoPoder ?? "",
+
+    // AM - AT
+    documento.autoriza ?? "",
+    documento.parentesco ?? "",
+    documento.menor ?? "",
+    documento.pasaporteMenor ?? "",
+    documento.destino ?? "",
+    documento.fechaIda ?? "",
+    documento.fechaRetorno ?? "",
+    documento.acompanante ?? "",
+
+    // AU
+    documento.pasaporteAcompanante ?? "",
+
+    // AV
+    documento.modalidad ?? "",
+
+    // AW
+    esNuevo
+      ? ahora
+      : (documento.fechaCreacion ?? ""),
+
+    // AX
+    esNuevo
+      ? usuario
+      : (documento.usuarioCreacion ?? ""),
+
+    // AY
+    ahora,
+
+    // AZ
+    usuario,
+
+  ];
+
+}
+export async function actualizarFila(
+  hoja: string,
+  fila: number,
+  datos: any[]
+) {
+
+  await sheets.spreadsheets.values.update({
+
+    spreadsheetId: MODULO_CAJA_SHEET_ID,
+
+    range: `${hoja}!A${fila}:AZ${fila}`,
+
+    valueInputOption: "USER_ENTERED",
+
+    requestBody: {
+
+      values: [datos],
+
+    },
+
+  });
+
+}
+export async function guardarReporte(
+  documento: any,
+  usuario: string
+) {
+
+  const existente =
+    await buscarReportePorId(
+      documento.id
+    );
+
+  const fila =
+    convertirReporteAFila(
+
+      documento,
+
+      usuario,
+
+      !existente
+
+    );
+
+  if (existente) {
+
+    await actualizarFila(
+
+      HOJA_REPORTES_ENTREGADOS,
+
+      existente.fila,
+
+      fila
+
+    );
+
+  }
+
+  else {
+
+    await agregarFila(
+
+      HOJA_REPORTES_ENTREGADOS,
+
+      fila
+
+    );
+
+  }
 
 }

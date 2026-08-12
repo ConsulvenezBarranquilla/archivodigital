@@ -327,3 +327,32 @@ export function formatoMesLibro(
   } ${anio}`;
 
 }
+// ==========================================
+// YYYY-MM
+// ==========================================
+
+export function periodoFecha(
+  fechaTexto: string
+) {
+
+  const fecha =
+    convertirFecha(fechaTexto);
+
+  if (!fecha) {
+
+    return "";
+
+  }
+
+  const anio =
+    fecha.getFullYear();
+
+  const mes = String(
+
+    fecha.getMonth() + 1
+
+  ).padStart(2, "0");
+
+  return `${anio}-${mes}`;
+
+}

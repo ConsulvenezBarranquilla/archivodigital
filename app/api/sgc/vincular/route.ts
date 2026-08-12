@@ -140,7 +140,19 @@ if (
 
     const registrosGestion =
       gestionResponse.data.values || [];
+const detalleResponse =
+  await sheets.spreadsheets.values.get({
 
+    spreadsheetId:
+      MODULO_CAJA_SHEET_ID,
+
+    range:
+      "DetalleCaja!A:H",
+
+  });
+
+const detalleCaja =
+  detalleResponse.data.values || [];
     const filasGestion =
       registrosGestion.slice(1);
 
@@ -164,27 +176,28 @@ if (
     .trim();
 
 if (!numeroActuacion) {
-  if (!/^\d+$/.test(numeroActuacion)) {
 
-  return NextResponse.json({
+    return NextResponse.json({
 
-    ok: false,
+        ok: false,
 
-    error:
-      `El número de actuación debe contener únicamente números.`,
+        error:
+            `Debe indicar el número de la actuación para ${codigo}.`,
 
-  });
+    });
 
 }
 
-  return NextResponse.json({
+if (!/^\d+$/.test(numeroActuacion)) {
 
-    ok: false,
+    return NextResponse.json({
 
-    error:
-      `Debe indicar el número de la actuación para ${codigo}.`,
+        ok: false,
 
-  });
+        error:
+            `El número de actuación debe contener únicamente números.`,
+
+    });
 
 }
 
@@ -247,44 +260,105 @@ if (!numeroActuacion) {
       ]);
 
     }
-        // ===============================
-    // Registrar las actuaciones
     // ===============================
+// Registrar actuaciones
+// ===============================
 
-    await sheets.spreadsheets.values.append({
+await sheets.spreadsheets.values.append({
 
-      spreadsheetId:
+    spreadsheetId:
         MODULO_CAJA_SHEET_ID,
 
-      range:
+    range:
         "GestionConsular!A:L",
 
-      valueInputOption:
+    valueInputOption:
         "USER_ENTERED",
 
-      insertDataOption:
+    insertDataOption:
         "INSERT_ROWS",
 
-      requestBody: {
+    requestBody: {
 
         values:
-          nuevasFilas,
+            nuevasFilas,
 
-      },
+    },
 
-    });
+});
 
-    return NextResponse.json({
+// ===============================
+// Actualizar DetalleCaja
+// ===============================
 
-      ok: true,
+const filasDetalle = detalleCaja.map((fila) => [...fila]);
 
-      cantidad:
+for (const actuacion of actuaciones) {
+
+    const correlativo =
+        String(actuacion.recibo ?? "").trim();
+
+    const codigo =
+        String(actuacion.codigo ?? "").trim();
+
+    const numeroActuacion =
+        String(actuacion.numeroActuacion ?? "").trim();
+
+    for (let i = 1; i < filasDetalle.length; i++) {
+
+        const fila = filasDetalle[i];
+
+        if (
+
+            String(fila[0] ?? "").trim() === correlativo &&
+            String(fila[1] ?? "").trim() === codigo &&
+            !String(fila[4] ?? "").trim()
+
+        ) {
+
+            fila[4] = numeroActuacion;   // E
+fila[5] = planilla;          // F
+fila[6] = "VINCULADO";       // G
+fila[7] = fechaPlanilla;     // H
+
+            break;
+
+        }
+
+    }
+
+}
+
+await sheets.spreadsheets.values.update({
+
+    spreadsheetId:
+        MODULO_CAJA_SHEET_ID,
+
+    range:
+        `DetalleCaja!A2:H${filasDetalle.length}`,
+
+    valueInputOption:
+        "USER_ENTERED",
+
+    requestBody: {
+
+        values: filasDetalle.slice(1),
+
+    },
+
+});
+
+return NextResponse.json({
+
+    ok: true,
+
+    cantidad:
         nuevasFilas.length,
 
-      mensaje:
+    mensaje:
         `${nuevasFilas.length} actuación(es) vinculada(s) correctamente.`,
 
-    });
+});
 
   } catch (error: any) {
 

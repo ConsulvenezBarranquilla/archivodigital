@@ -7,7 +7,14 @@ import {
   LibroDiarioResultado,
 } from "@/types/LibroDiario";
 import { convertirNumero } from "@/lib/utils/numeros";
-import { formatoFechaLibro,formatoMesLibro, } from "@/lib/fechas";
+import {
+  convertirFecha,
+  inicioDelDia,
+  finDelDia,
+  periodoFecha,
+  formatoFechaLibro,
+  formatoMesLibro,
+} from "@/lib/fechas";
 
 
 // ==========================================
@@ -50,10 +57,10 @@ return Number(saldo) || 0;
 export function construirHaberes(
 
   periodo: string,
-
-  gestionConsular: any[],
-
+  
   caja: any[],
+
+  detalleCaja: any[],
 
   fechaInicial?: string,
 
@@ -61,9 +68,17 @@ export function construirHaberes(
 
 ): MovimientoLibro[] {
 
-
-  const planillasProcesadas = new Set<string>();
+  
   const movimientos: MovimientoLibro[] = [];
+
+const planillas = new Map<
+    string,
+    {
+        fecha: string;
+        descripcion: string;
+        total: number;
+    }
+>();
 
   const cajaMap = new Map<string, any>();
 
@@ -75,102 +90,179 @@ export function construirHaberes(
     cajaMap.set(correlativo, fila);
 
   });
-  const ultimaVersion = new Map<string, any>();
+      
+ // ==========================================
+// Construir planillas desde DetalleCaja
+// ==========================================
 
-gestionConsular.slice(1).forEach((fila) => {
+detalleCaja
+    .slice(1)
+    .forEach((detalle) => {
 
-  const llave =
-    `${fila[3]}-${fila[11]}`;
+        const correlativo =
+            String(detalle[0] ?? "").trim();
 
-  ultimaVersion.set(llave, fila);
+        const monto =
+            convertirNumero(detalle[3]);
 
-});
+        const numeroActuacion =
+            String(detalle[4] ?? "").trim();
 
-  ultimaVersion.forEach((gc) => {
+        const planilla =
+            String(detalle[5] ?? "").trim();
 
-      const correlativo =
-        (gc[0] || "").toString().trim();
+        const estadoGC =
+            String(detalle[6] ?? "")
+                .trim()
+                .toUpperCase();
 
-const planilla =
-    (gc[3] || "").toString().trim();
+        // Solo actuaciones vigentes
+        if (estadoGC !== "VINCULADO") {
 
-    if (planillasProcesadas.has(planilla)) {
-    return;
-}
+            return;
 
-planillasProcesadas.add(planilla);
+        }
 
-      const estadoGC =
-        (gc[6] || "")
-          .toString()
-          .trim()
-          .toUpperCase();
+        if (monto <= 0) {
 
-      if (estadoGC !== "VINCULADO") {
-        return;
-      }
+            return;
 
-      const recibo =
-        cajaMap.get(correlativo);
+        }
 
-      if (!recibo) {
-        return;
-      }
+        const fechaPlanilla =
+            String(detalle[7] ?? "").trim();
 
-      const estadoRecibo =
-        (recibo[10] || "")
-          .toString()
-          .trim()
-          .toUpperCase();
+        if (!fechaPlanilla) {
 
-      if (estadoRecibo !== "GENERADO") {
-        return;
-      }
+            return;
 
-      const fechaPlanilla =
-    String(gc[4] ?? "").substring(0, 10);
+        }
 
-if (fechaInicial && fechaFinal) {
+        // ------------------------------------------
+        // Filtrar por rango de fechas
+        // ------------------------------------------
 
-    if (
-        fechaPlanilla < fechaInicial ||
-        fechaPlanilla > fechaFinal
-    ) {
-        return;
-    }
+        if (fechaInicial && fechaFinal) {
 
-} else {
+            const fecha =
+                convertirFecha(fechaPlanilla);
 
-    if (!fechaPlanilla.startsWith(periodo)) {
-        return;
-    }
+            if (!fecha) {
 
-}
-// Solo incluir actuaciones con monto mayor a cero
-const monto = convertirNumero(recibo[6]);
+                return;
 
-if (monto <= 0) {
-  return;
-}
-      movimientos.push({
+            }
 
-    id: `${correlativo}-${gc[11] || ""}`,
+            const inicio =
+                inicioDelDia(fechaInicial);
 
-    tipoFila: "MOVIMIENTO",
+            const fin =
+                finDelDia(fechaFinal);
 
-        fecha: fechaPlanilla.substring(0, 10),
+            if (
 
-        referencia:
-          (gc[3] || "").toString(),
+                !inicio ||
 
-        descripcion:
-          (recibo[3] || "").toString(),
+                !fin ||
 
-        arancel:
-  monto,
-        
-          haber:
-          monto,
+                fecha < inicio ||
+
+                fecha > fin
+
+            ) {
+
+                return;
+
+            }
+
+        }
+
+        else {
+
+            if (
+
+                periodoFecha(fechaPlanilla) !== periodo
+
+            ) {
+
+                return;
+
+            }
+
+        }
+
+        const recibo =
+            cajaMap.get(correlativo);
+
+        if (!recibo) {
+
+            return;
+
+        }
+
+        const estadoRecibo =
+            String(recibo[10] ?? "")
+                .trim()
+                .toUpperCase();
+
+        if (estadoRecibo !== "GENERADO") {
+
+            return;
+
+        }
+
+        // ------------------------------------------
+        // Agrupar por planilla
+        // ------------------------------------------
+
+        const existente =
+            planillas.get(planilla);
+
+        if (existente) {
+
+            existente.total += monto;
+
+        }
+
+        else {
+
+            planillas.set(planilla, {
+
+                fecha:
+                    fechaPlanilla.substring(0, 10),
+
+                descripcion:
+                    String(recibo[3] ?? ""),
+
+                total: monto,
+
+            });
+
+        }
+
+    });
+
+// ==========================================
+// Convertir el Map en movimientos
+// ==========================================
+
+planillas.forEach((datos, planilla) => {
+
+    movimientos.push({
+
+        id: planilla,
+
+        tipoFila: "MOVIMIENTO",
+
+        fecha: datos.fecha,
+
+        referencia: planilla,
+
+        descripcion: datos.descripcion,
+
+        arancel: datos.total,
+
+        haber: datos.total,
 
         debe: 0,
 
@@ -180,14 +272,12 @@ if (monto <= 0) {
 
         editable: false,
 
-      });
-
     });
 
-  return movimientos;
+});
 
+return movimientos;
 }
-
 // ==========================================
 // Construye los movimientos DEBE
 // (Retiros, reintegros, etc.)
@@ -581,8 +671,10 @@ export function construirLibroDiario(
   configuracion: any[],
 
   gestionConsular: any[],
-
+    
   caja: any[],
+
+detalleCaja: any[],
 
   movimientos: any[],
 
@@ -631,21 +723,21 @@ export function construirLibroDiario(
 
     const haberes = construirHaberes(
 
-      periodoActual,
+  periodoActual,
 
-      gestionConsular,
+  caja,
 
-      caja,
+  detalleCaja,
 
-      periodoActual === periodo
-        ? fechaInicial
-        : undefined,
+  periodoActual === periodo
+    ? fechaInicial
+    : undefined,
 
-      periodoActual === periodo
-        ? fechaFinal
-        : undefined
+  periodoActual === periodo
+    ? fechaFinal
+    : undefined
 
-    );
+);
 
     const debe = construirDebe(
 

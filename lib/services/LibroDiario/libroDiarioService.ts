@@ -117,12 +117,38 @@ export async function obtenerDetalleOperacion(
       range: "Caja!A:N",
 
     });
+const detalleResponse =
+    await sheets.spreadsheets.values.get({
 
+        spreadsheetId:
+            MODULO_CAJA_SHEET_ID,
+
+        range:
+            "DetalleCaja!A:H",
+
+    });
   const gestion =
     gestionResponse.data.values ?? [];
 
   const caja =
     cajaResponse.data.values ?? [];
+
+const detalleCaja =
+    detalleResponse.data.values ?? [];
+
+const detalleMap = new Map<string, any>();
+
+detalleCaja.slice(1).forEach((fila) => {
+
+    detalleMap.set(
+
+        String(fila[4] ?? "").trim(),
+
+        fila
+
+    );
+
+});
 
   const filasGestion =
     gestion.slice(1).filter(
@@ -190,18 +216,36 @@ if (filasVinculadas.length === 0) {
 
     );
 
-  const actuaciones: DetalleActuacion[] =
-    filasVinculadas.map(
+  const actuaciones: DetalleActuacion[] = [];
 
-      (fila) => ({
+let total = 0;
 
-        codigo: fila[1] || "",
+filasVinculadas.forEach((gc) => {
 
-        actuacion: fila[2] || "",
+    const numeroActuacion =
+        String(gc[11] ?? "").trim();
 
-      })
+    const detalle =
+    detalleMap.get(numeroActuacion);
 
-    );
+    const monto =
+        Number(detalle?.[3] ?? 0);
+
+    total += monto;
+
+    actuaciones.push({
+
+        codigo:
+            gc[1] || "",
+
+        actuacion:
+            gc[2] || "",
+
+        monto,
+
+    });
+
+});
 
   return {
 
@@ -229,8 +273,7 @@ if (filasVinculadas.length === 0) {
     estado:
       filasVinculadas[0][6] || "",
 
-    total:
-      Number(recibo?.[6] || 0),
+    total,
 
     actuaciones,
 

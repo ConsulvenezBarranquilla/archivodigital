@@ -38,6 +38,18 @@ export async function GET(
 
       });
 
+const detalleResponse =
+  await sheets.spreadsheets.values.get({
+
+    spreadsheetId: MODULO_CAJA_SHEET_ID,
+
+    range: "DetalleCaja!A:H",
+
+  });
+
+const detalleCaja =
+  detalleResponse.data.values || [];
+console.log("DETALLE CAJA:", detalleCaja.length);
     const gestionResponse =
       await sheets.spreadsheets.values.get({
 
@@ -52,7 +64,8 @@ export async function GET(
 
     const gestion =
       gestionResponse.data.values || [];
-
+console.log("GESTION:", gestion.length);
+console.log("CAJA:", caja.length);
     const libro =
       construirLibroDiario(
 
@@ -63,6 +76,8 @@ export async function GET(
         gestion,
 
         caja,
+
+        detalleCaja,
 
         movimientos
 

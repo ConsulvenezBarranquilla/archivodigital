@@ -221,7 +221,14 @@ console.log({
   transition-colors
   duration-150
 
-  ${habilitado ? "hover:bg-slate-50" : "opacity-50"}
+  ${
+    habilitado &&
+    (row as any).tipoFila !== "TOTAL_MES"
+      ? "hover:bg-slate-50"
+      : !habilitado
+      ? "opacity-50"
+      : ""
+  }
 
   ${
     seleccionado

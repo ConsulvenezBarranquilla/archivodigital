@@ -135,15 +135,15 @@ export default function LibroDiarioTable({
 
       case "TOTAL_MES":
 
-        return (
+    return (
 
-          <span className="font-bold text-blue-900">
+        <span className="font-bold text-white">
 
             {row.descripcion}
 
-          </span>
+        </span>
 
-        );
+    );
 
       default:
 
@@ -263,15 +263,15 @@ export default function LibroDiarioTable({
     align: "right",
     render: (row) => (
 
-  <span className={
-
-    row.tipoFila === "MOVIMIENTO"
-
+  <span
+  className={
+    row.tipoFila === "TOTAL_MES"
+      ? "font-bold text-white"
+      : row.tipoFila === "MOVIMIENTO"
       ? "font-semibold"
-
       : "font-bold text-blue-900"
-
-  }>
+  }
+>
 
     {row.saldo.toLocaleString("es-CO", {
 
