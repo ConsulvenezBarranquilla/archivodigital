@@ -420,7 +420,7 @@ console.log("Input =", Input);
           </label>
 
           <Input
-  value={fechaPlanilla ?? ""}
+  value={planilla}
   onChange={(valor) =>
     setPlanilla(
       valor.replace(/\D/g, "")

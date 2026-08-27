@@ -1277,13 +1277,10 @@ documento.modalidad =
 // ==========================================
 
 function obtenerPasaportes(
-
     data: ReportesData
-
 ): ReporteEntregado[] {
 
-    const resultado:
-        ReporteEntregado[] = [];
+    const resultado: ReporteEntregado[] = [];
 
     const cajaMap =
         new Map<string, any>();
@@ -1302,6 +1299,18 @@ function obtenerPasaportes(
             );
 
         });
+
+    // --------------------------------------
+    // Contador de titulares NNA por recibo
+    //
+    // Permite asignar:
+    //
+    // P-NNA #1 → titular #1
+    // P-NNA #2 → titular #2
+    // --------------------------------------
+
+    const contadorNNA =
+        new Map<string, number>();
 
     // --------------------------------------
     // Recorrer Gestión Consular
@@ -1328,9 +1337,7 @@ function obtenerPasaportes(
                 estadoGC !==
                 "VINCULADO"
             ) {
-
                 return;
-
             }
 
             const recibo =
@@ -1339,9 +1346,7 @@ function obtenerPasaportes(
                 );
 
             if (!recibo) {
-
                 return;
-
             }
 
             const estadoCaja =
@@ -1352,9 +1357,7 @@ function obtenerPasaportes(
                 estadoCaja !==
                 "GENERADO"
             ) {
-
                 return;
-
             }
 
             const codigoActuacion =
@@ -1365,9 +1368,7 @@ function obtenerPasaportes(
                 codigoActuacion !== "P" &&
                 codigoActuacion !== "P-NNA"
             ) {
-
                 return;
-
             }
 
             const id =
@@ -1392,13 +1393,56 @@ function obtenerPasaportes(
             const solicitante =
                 texto(recibo[3]);
 
-            const titularPasaporte =
+            // --------------------------------------
+            // TITULAR DEL PASAPORTE
+            // --------------------------------------
 
-                esNNA
-                    ? texto(
+            let titularPasaporte = solicitante;
+
+            if (esNNA) {
+
+                // ----------------------------------
+                // Obtener lista de titulares NNA
+                // desde Caja!O
+                // ----------------------------------
+
+                const titularesNNA =
+                    convertirListaTexto(
                         recibo[14]
-                    )
-                    : solicitante;
+                    );
+
+                // ----------------------------------
+                // Posición de este NNA dentro
+                // del recibo
+                // ----------------------------------
+
+                const posicionActual =
+                    contadorNNA.get(
+                        correlativo
+                    ) ?? 0;
+
+                // ----------------------------------
+                // Asignar un titular a cada
+                // actuación P-NNA
+                // ----------------------------------
+
+                titularPasaporte =
+                    texto(
+                        titularesNNA[
+                            posicionActual
+                        ]
+                    );
+
+                // ----------------------------------
+                // Incrementar contador solamente
+                // para actuaciones P-NNA
+                // ----------------------------------
+
+                contadorNNA.set(
+                    correlativo,
+                    posicionActual + 1
+                );
+            }
 
             const documento:
                 ReporteEntregado = {
@@ -1447,6 +1491,12 @@ function obtenerPasaportes(
                     reporte
                 );
 
+            // --------------------------------------
+            // El titular automático de Gestión/Caja
+            // prevalece sobre cualquier valor
+            // anterior guardado en ReportesEntregados
+            // --------------------------------------
+
             documentoFinal.titularPasaporte =
                 titularPasaporte;
 
@@ -1462,7 +1512,6 @@ function obtenerPasaportes(
         });
 
     return resultado;
-
 }
 
 // ==========================================
@@ -1699,6 +1748,22 @@ function obtenerApostillas(
     const cajaMap =
         new Map<string, any>();
 
+    // ======================================
+    // CONTADOR DE TITULARES NNA POR RECIBO
+    // ======================================
+    //
+    // Permite asignar:
+    //
+    // APOSTILLA NNA #1 → titular #1
+    // APOSTILLA NNA #2 → titular #2
+    //
+    // Caja!P contiene los titulares separados
+    // por ;
+    // ======================================
+
+    const contadorNNA =
+        new Map<string, number>();
+
     data.caja
         .slice(1)
         .forEach((fila) => {
@@ -1786,15 +1851,58 @@ function obtenerApostillas(
                 );
 
             const solicitante =
-                texto(recibo[3]);
+    texto(recibo[3]);
 
-            const titularApostilla =
+// ======================================
+// TITULAR DE LA APOSTILLA
+// ======================================
 
-                esNNA
-                    ? texto(
-                        recibo[15]
-                    )
-                    : solicitante;
+let titularApostilla =
+    solicitante;
+
+if (esNNA) {
+
+    // ----------------------------------
+    // Obtener lista de titulares NNA
+    // desde Caja!P
+    // ----------------------------------
+
+    const titularesNNA =
+        convertirListaTexto(
+            recibo[15]
+        );
+
+    // ----------------------------------
+    // Posición de esta Apostilla NNA
+    // dentro del recibo
+    // ----------------------------------
+
+    const posicionActual =
+        contadorNNA.get(
+            correlativo
+        ) ?? 0;
+
+    // ----------------------------------
+    // Asignar un titular diferente
+    // a cada Apostilla NNA
+    // ----------------------------------
+
+    titularApostilla =
+        texto(
+            titularesNNA[
+                posicionActual
+            ]
+        );
+
+    // ----------------------------------
+    // Incrementar contador
+    // ----------------------------------
+
+    contadorNNA.set(
+        correlativo,
+        posicionActual + 1
+    );
+}
 
             const documento:
                 ReporteEntregado = {
