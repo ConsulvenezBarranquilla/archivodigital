@@ -294,7 +294,15 @@ export default function LibroDiarioTable({
 
           data={movimientos}
 
-          getRowKey={(row)=>row.id}
+          getRowKey={(row, index) => {
+
+  if (row.id) {
+    return row.id;
+  }
+
+  return `${row.tipoFila}-${row.fecha}-${row.referencia}-${index}`;
+
+}}
 
           getRowClassName={(row) => {
 

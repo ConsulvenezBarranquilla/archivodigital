@@ -1,9 +1,7 @@
 "use client";
 
 import {
-
   MovimientoLibro,
-
 } from "@/types/LibroDiario";
 
 import DetallePlanilla from "./DetallePlanilla";
@@ -17,6 +15,8 @@ interface Props {
 
   onClose: () => void;
 
+  onActualizado?: () => void | Promise<void>;
+
 }
 
 export default function ModalDetalleOperacion({
@@ -27,6 +27,8 @@ export default function ModalDetalleOperacion({
 
   onClose,
 
+  onActualizado,
+
 }: Props) {
 
   if (!open || !movimiento) {
@@ -35,7 +37,13 @@ export default function ModalDetalleOperacion({
 
   }
 
-  if (movimiento.origen === "PLANILLA") {
+  // ======================================================
+  // OPERACIONES DE GESTIÓN CONSULAR / PLANILLA
+  // ======================================================
+
+  if (
+    movimiento.origen === "PLANILLA"
+  ) {
 
     return (
 
@@ -51,6 +59,10 @@ export default function ModalDetalleOperacion({
 
   }
 
+  // ======================================================
+  // MOVIMIENTO MANUAL
+  // ======================================================
+
   return (
 
     <DetalleMovimiento
@@ -58,6 +70,8 @@ export default function ModalDetalleOperacion({
       movimiento={movimiento}
 
       onClose={onClose}
+
+      onActualizado={onActualizado}
 
     />
 

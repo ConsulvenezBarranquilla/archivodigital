@@ -4,7 +4,6 @@ import {
 } from "next/server";
 
 import {
-
   sheets,
 
   MODULO_CAJA_SHEET_ID,
@@ -13,6 +12,77 @@ import {
 
 } from "@/lib/googleSheets";
 
+// ======================================================
+// Obtener año de una fecha
+// ======================================================
+
+function obtenerAnio(
+
+  valor: unknown
+
+): number | null {
+
+  if (
+
+    valor === null ||
+
+    valor === undefined ||
+
+    String(valor).trim() === ""
+
+  ) {
+
+    return null;
+
+  }
+
+  const texto =
+    String(valor).trim();
+
+  // --------------------------------------------------
+  // Intentar interpretar como fecha
+  // --------------------------------------------------
+
+  const fecha =
+    new Date(texto);
+
+  if (
+
+    !Number.isNaN(
+      fecha.getTime()
+    )
+
+  ) {
+
+    return fecha.getFullYear();
+
+  }
+
+  // --------------------------------------------------
+  // Buscar año explícito
+  // --------------------------------------------------
+
+  const coincidencia =
+    texto.match(
+      /(?:^|[^\d])(20\d{2})(?:[^\d]|$)/
+    );
+
+  if (coincidencia) {
+
+    return Number(
+      coincidencia[1]
+    );
+
+  }
+
+  return null;
+
+}
+
+// ======================================================
+// GET
+// ======================================================
+
 export async function GET(
 
   req: NextRequest
@@ -20,6 +90,53 @@ export async function GET(
 ) {
 
   try {
+
+    // ==================================================
+    // Año seleccionado
+    // ==================================================
+
+    const parametroAnio =
+      req.nextUrl.searchParams.get(
+        "anio"
+      );
+
+    const anioSeleccionado =
+      parametroAnio
+        ? Number(parametroAnio)
+        : new Date().getFullYear();
+
+    if (
+
+      !Number.isInteger(
+        anioSeleccionado
+      )
+
+    ) {
+
+      return NextResponse.json(
+
+        {
+
+          ok: false,
+
+          error:
+            "El año indicado no es válido.",
+
+        },
+
+        {
+
+          status: 400,
+
+        }
+
+      );
+
+    }
+
+    // ==================================================
+    // Filtros existentes
+    // ==================================================
 
     const fechaDesde =
       req.nextUrl.searchParams.get(
@@ -67,6 +184,10 @@ export async function GET(
       )?.trim()
        .toUpperCase() || "";
 
+    // ==================================================
+    // Leer Caja
+    // ==================================================
+
     const cajaResponse =
       await sheets.spreadsheets.values.get({
 
@@ -74,9 +195,13 @@ export async function GET(
           MODULO_CAJA_SHEET_ID,
 
         range:
-          "Caja!A:N",
+          "Caja!A:S",
 
       });
+
+    // ==================================================
+    // Leer Gestión Consular
+    // ==================================================
 
     const gestionResponse =
       await sheets.spreadsheets.values.get({
@@ -102,34 +227,44 @@ export async function GET(
       gestion.slice(1);
 
     const registros: any[] = [];
-        // ===============================
-    // Construir listado de actuaciones
-    // vinculadas
-    // ===============================
-    // ===============================
+
+    // ==================================================
     // Índice rápido de recibos
-    // ===============================
+    // ==================================================
 
     const cajaMap =
       new Map<string, any>();
 
-    filasCaja.forEach((caja) => {
+    filasCaja.forEach((filaCaja) => {
 
       const correlativo =
-        (caja[1] || "")
+        (filaCaja[1] || "")
           .toString()
           .trim();
 
-      cajaMap.set(
+      if (correlativo) {
 
-        correlativo,
+        cajaMap.set(
 
-        caja
+          correlativo,
 
-      );
+          filaCaja
+
+        );
+
+      }
 
     });
+
+    // ==================================================
+    // Construir listado de actuaciones vinculadas
+    // ==================================================
+
     filasGestion.forEach((gc) => {
+
+      // ==================================================
+      // Datos Gestión Consular
+      // ==================================================
 
       const correlativo =
         (gc[0] || "")
@@ -163,11 +298,18 @@ export async function GET(
           .toString()
           .trim()
           .toUpperCase();
-          // No mostrar actuaciones históricas desvinculadas.
-// Permanecen en Google Sheets para auditoría.
-if (estadoGC === "DESVINCULADO") {
-  return;
-}
+
+      // ==================================================
+      // No mostrar actuaciones históricas desvinculadas
+      // ==================================================
+
+      if (
+        estadoGC === "DESVINCULADO"
+      ) {
+
+        return;
+
+      }
 
       const fechaRegistro =
         gc[7] || "";
@@ -182,11 +324,15 @@ if (estadoGC === "DESVINCULADO") {
         gc[10] || "";
 
       const numeroActuacion =
-  (gc[11] || "")
-    .toString()
-    .trim();
+        (gc[11] || "")
+          .toString()
+          .trim();
 
-            const recibo =
+      // ==================================================
+      // Buscar recibo en Caja
+      // ==================================================
+
+      const recibo =
         cajaMap.get(
           correlativo
         );
@@ -196,6 +342,66 @@ if (estadoGC === "DESVINCULADO") {
         return;
 
       }
+
+      // ==================================================
+      // FILTRO POR AÑO
+      //
+      // Caja!A = fecha del recibo
+      // ==================================================
+
+      const anioRecibo =
+        obtenerAnio(
+          recibo[0]
+        );
+
+      if (
+        anioRecibo !==
+        anioSeleccionado
+      ) {
+
+        return;
+
+      }
+
+      // ==================================================
+      // Titulares especiales
+      // ==================================================
+
+      const titularesEspeciales =
+
+        (recibo[14] || "")
+          .toString()
+          .split(";")
+          .map(
+            (t: string) =>
+              t.trim()
+          )
+          .filter(
+            (t: string) =>
+              t.length > 0
+          );
+
+      // ==================================================
+      // Pasaportes / Visa
+      // ==================================================
+
+      const pasaportesVisa =
+
+        (recibo[15] || "")
+          .toString()
+          .split(";")
+          .map(
+            (t: string) =>
+              t.trim()
+          )
+          .filter(
+            (t: string) =>
+              t.length > 0
+          );
+
+      // ==================================================
+      // Datos del ciudadano
+      // ==================================================
 
       const cedula =
         recibo[11] || "";
@@ -217,6 +423,58 @@ if (estadoGC === "DESVINCULADO") {
 
         );
 
+      // ==================================================
+      // Nombre / documento por defecto
+      // ==================================================
+
+      let nombreMostrar =
+        recibo[3] || "";
+
+      let documentoMostrar =
+        documento;
+
+      // ==================================================
+      // VISAS
+      // ==================================================
+
+      if (
+
+        actuacionGC
+          .toUpperCase()
+          .includes("VISA")
+
+      ) {
+
+        const titularVisa =
+          (recibo[16] || "")
+            .toString()
+            .trim();
+
+        const pasaporteVisa =
+          (recibo[17] || "")
+            .toString()
+            .trim();
+
+        if (titularVisa) {
+
+          nombreMostrar =
+            titularVisa;
+
+        }
+
+        if (pasaporteVisa) {
+
+          documentoMostrar =
+            pasaporteVisa;
+
+        }
+
+      }
+
+      // ==================================================
+      // Agregar registro
+      // ==================================================
+
       registros.push({
 
         fechaRecibo:
@@ -225,14 +483,18 @@ if (estadoGC === "DESVINCULADO") {
         recibo:
           correlativo,
 
-        documento,
+        documento:
+          documentoMostrar,
 
         cedula,
 
         pasaporte,
 
         nombre:
-          recibo[3] || "",
+          nombreMostrar,
+
+        titular:
+          nombreMostrar,
 
         codigo:
           codigoGC,
@@ -263,8 +525,77 @@ if (estadoGC === "DESVINCULADO") {
       });
 
     });
-        const resultado =
+
+    // ==================================================
+    // Aplicar filtros adicionales
+    // ==================================================
+
+    const resultado =
       registros.filter((r) => {
+
+        // ----------------------------------------------
+        // Fecha desde
+        // ----------------------------------------------
+
+        if (fechaDesde) {
+
+          const fechaRegistro =
+            new Date(
+              r.fechaRecibo
+            );
+
+          const desde =
+            new Date(
+              `${fechaDesde}T00:00:00`
+            );
+
+          if (
+            Number.isNaN(
+              fechaRegistro.getTime()
+            ) ||
+
+            fechaRegistro < desde
+          ) {
+
+            return false;
+
+          }
+
+        }
+
+        // ----------------------------------------------
+        // Fecha hasta
+        // ----------------------------------------------
+
+        if (fechaHasta) {
+
+          const fechaRegistro =
+            new Date(
+              r.fechaRecibo
+            );
+
+          const hasta =
+            new Date(
+              `${fechaHasta}T23:59:59`
+            );
+
+          if (
+            Number.isNaN(
+              fechaRegistro.getTime()
+            ) ||
+
+            fechaRegistro > hasta
+          ) {
+
+            return false;
+
+          }
+
+        }
+
+        // ----------------------------------------------
+        // Planilla
+        // ----------------------------------------------
 
         if (
 
@@ -274,7 +605,15 @@ if (estadoGC === "DESVINCULADO") {
             .toUpperCase()
             .includes(planilla)
 
-        ) return false;
+        ) {
+
+          return false;
+
+        }
+
+        // ----------------------------------------------
+        // Documento
+        // ----------------------------------------------
 
         if (
 
@@ -284,7 +623,15 @@ if (estadoGC === "DESVINCULADO") {
             .toUpperCase()
             .includes(documento)
 
-        ) return false;
+        ) {
+
+          return false;
+
+        }
+
+        // ----------------------------------------------
+        // Nombre
+        // ----------------------------------------------
 
         if (
 
@@ -294,7 +641,15 @@ if (estadoGC === "DESVINCULADO") {
             .toUpperCase()
             .includes(nombre)
 
-        ) return false;
+        ) {
+
+          return false;
+
+        }
+
+        // ----------------------------------------------
+        // Recibo
+        // ----------------------------------------------
 
         if (
 
@@ -304,7 +659,15 @@ if (estadoGC === "DESVINCULADO") {
             .toUpperCase()
             .includes(recibo)
 
-        ) return false;
+        ) {
+
+          return false;
+
+        }
+
+        // ----------------------------------------------
+        // Código
+        // ----------------------------------------------
 
         if (
 
@@ -314,7 +677,15 @@ if (estadoGC === "DESVINCULADO") {
             .toUpperCase()
             .includes(codigo)
 
-        ) return false;
+        ) {
+
+          return false;
+
+        }
+
+        // ----------------------------------------------
+        // Estado
+        // ----------------------------------------------
 
         if (
 
@@ -322,39 +693,92 @@ if (estadoGC === "DESVINCULADO") {
 
           r.estado !== estado
 
-        ) return false;
+        ) {
+
+          return false;
+
+        }
 
         return true;
 
       });
 
+    // ==================================================
+    // Ordenar
+    // ==================================================
+
     resultado.sort((a, b) => {
 
-  // Las actuaciones SIN PLANILLA siempre al final
-  if (!a.planilla && b.planilla) return 1;
-  if (a.planilla && !b.planilla) return -1;
+      // Las actuaciones SIN PLANILLA
+      // siempre al final
 
-  const planilla = a.planilla.localeCompare(
-    b.planilla,
-    undefined,
-    { numeric: true }
-  );
+      if (
+        !a.planilla &&
+        b.planilla
+      ) {
 
-  if (planilla !== 0) {
-    return planilla;
-  }
+        return 1;
 
-  return a.numeroActuacion.localeCompare(
-    b.numeroActuacion,
-    undefined,
-    { numeric: true }
-  );
+      }
 
-});
+      if (
+        a.planilla &&
+        !b.planilla
+      ) {
+
+        return -1;
+
+      }
+
+      // Ordenar por planilla
+
+      const planilla =
+        a.planilla.localeCompare(
+
+          b.planilla,
+
+          undefined,
+
+          {
+            numeric: true,
+          }
+
+        );
+
+      if (
+        planilla !== 0
+      ) {
+
+        return planilla;
+
+      }
+
+      // Ordenar por número de actuación
+
+      return a.numeroActuacion.localeCompare(
+
+        b.numeroActuacion,
+
+        undefined,
+
+        {
+          numeric: true,
+        }
+
+      );
+
+    });
+
+    // ==================================================
+    // Respuesta
+    // ==================================================
 
     return NextResponse.json({
 
       ok: true,
+
+      anio:
+        anioSeleccionado,
 
       total:
         resultado.length,
@@ -364,7 +788,17 @@ if (estadoGC === "DESVINCULADO") {
 
     });
 
-  } catch (error: any) {
+  }
+
+  catch (error: any) {
+
+    console.error(
+
+      "Error obteniendo vinculadas SGC:",
+
+      error
+
+    );
 
     return NextResponse.json(
 
@@ -373,7 +807,9 @@ if (estadoGC === "DESVINCULADO") {
         ok: false,
 
         error:
-          error.message,
+          error?.message ||
+
+          "No fue posible obtener las actuaciones vinculadas.",
 
       },
 

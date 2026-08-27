@@ -45,89 +45,75 @@ CampoDocumento[]
 
     PASAPORTES: [
 
-        {
+    {
+        key: "titularPasaporte",
 
-            key: "titularPasaporte",
+        label: "Titular",
 
-            label: "Titular",
+        type: "text",
 
-            type: "text",
+        requerido: true,
 
-            requerido: true,
+        editableEn: "editar",
+    },
 
-            editableEn: "editar",
+    {
+        key: "observaciones",
 
-        },
+        label: "Observaciones",
 
-        {
+        type: "textarea",
 
-            key: "observaciones",
+        editableEn: "editar",
+    },
 
-            label: "Observaciones",
+    {
+        key: "numeroPasaporte",
 
-            type: "textarea",
+        label: "Número de Pasaporte",
 
-            editableEn: "editar",
+        type: "text",
 
-        },
+        requerido: true,
 
-        {
+        editableEn: "editar",
+    },
 
-            key: "numeroPasaporte",
+    {
+    key: "fechaValija",
+    label: "Fecha Valija",
+    type: "date",
+    requerido: true,
+    editableEn: "editar",
+},
 
-            label: "Número de Pasaporte",
+    {
+        key: "fechaEmision",
 
-            type: "text",
+        label: "Fecha Emisión",
 
-            requerido: true,
+        type: "date",
 
-            editableEn: "valija",
+        requerido: true,
 
-        },
+        editableEn: "editar",
+    },
 
-        {
+    {
+        key: "fechaVencimiento",
 
-            key: "fechaValija",
+        label: "Fecha Vencimiento",
 
-            label: "Fecha Valija",
+        type: "date",
 
-            type: "date",
+        requerido: true,
 
-            editableEn: "valija",
+        editableEn: "editar",
+    },
 
-        },
+],
 
-        {
-
-            key: "fechaEmision",
-
-            label: "Fecha Emisión",
-
-            type: "date",
-
-            requerido: true,
-
-            editableEn: "valija",
-
-        },
-
-        {
-
-            key: "fechaVencimiento",
-
-            label: "Fecha Vencimiento",
-
-            type: "date",
-
-            requerido: true,
-
-            editableEn: "valija",
-
-        },
-
-    ],
-
-    VISA: [
+       VISA: [
 
         {
 
@@ -157,7 +143,7 @@ CampoDocumento[]
 
             key: "numeroVisa",
 
-            label: "Número Visa",
+            label: "N° Etiqueta",
 
             type: "text",
 
@@ -213,334 +199,272 @@ CampoDocumento[]
 
     FE_VIDA: [
 
-        {
+    {
+        key: "correlativoDocumento",
 
-            key: "correlativo",
+        label: "Correlativo",
 
-            label: "Correlativo",
+        type: "text",
 
-            type: "text",
+        requerido: true,
 
-            requerido: true,
+        editableEn: "editar",
 
-            editableEn: "editar",
+    },
 
-        },
+    {
+        key: "fechaEmisionDocumento",
 
-        {
+        label: "Fecha Emisión",
 
-            key: "fechaEmision",
+        type: "date",
 
-            label: "Fecha Emisión",
+        requerido: true,
 
-            type: "date",
+        editableEn: "editar",
 
-            requerido: true,
+    },
 
-            editableEn: "editar",
-
-        },
-
-    ],
+],
 
     CARTA_SOLTERIA: [
 
-        {
+    {
+        key: "correlativoCarta",
 
-            key: "correlativo",
+        label: "Correlativo",
 
-            label: "Correlativo",
+        type: "text",
 
-            type: "text",
+        requerido: true,
 
-            requerido: true,
+        editableEn: "editar",
 
-            editableEn: "editar",
+    },
 
-        },
+    {
+        key: "fechaCarta",
 
-        {
+        label: "Fecha Emisión",
 
-            key: "fechaEmision",
+        type: "date",
 
-            label: "Fecha Emisión",
+        requerido: true,
 
-            type: "date",
+        editableEn: "editar",
 
-            requerido: true,
+    },
 
-            editableEn: "editar",
-
-        },
-
-    ],
+],
 
     CERTIFICADO_USO: [
 
-        {
+    {
+        key: "tipoCertificado",
 
-            key: "tipoCertificado",
+        label: "Tipo Certificado",
 
-            label: "Tipo Certificado",
+        type: "text",
 
-            type: "text",
+        requerido: true,
 
-            requerido: true,
+    },
 
-        },
+    {
+        key: "fechaRegistro",
 
-        {
+        label: "Fecha Certificado",
 
-            key: "numeroCertificado",
+        type: "date",
 
-            label: "Número Certificado",
+        requerido: true,
 
-            type: "text",
+    },
 
-            requerido: true,
+    {
+        key: "numeroCertificado",
 
-        },
+        label: "N° Certificado",
 
-        {
+        type: "text",
 
-            key: "fechaRegistro",
+        requerido: true,
 
-            label: "Fecha Registro",
+    },
 
-            type: "date",
-
-            requerido: true,
-
-        },
-
-    ],
+],
 
     CONSTANCIA_REGISTRO: [
 
-        {
+    {
+        key: "fechaRegistroConsular",
 
-            key: "numeroRegistro",
+        label: "Fecha Registro Consular",
 
-            label: "Número Registro",
+        type: "date",
 
-            type: "text",
+        requerido: true,
 
-            requerido: true,
+        editableEn: "editar",
 
-        },
+    },
 
-        {
+    {
+        key: "numeroRegistro",
 
-            key: "fechaRegistro",
+        label: "N° Registro",
 
-            label: "Fecha Registro",
+        type: "text",
 
-            type: "date",
+        requerido: true,
 
-            requerido: true,
+        editableEn: "editar",
 
-        },
+    },
 
-    ],
+],
 
     CONSTANCIA_CONSULAR: [
 
-        {
+    {
+        key: "fechaConstancia",
 
-            key: "correlativo",
+        label: "Fecha Constancia",
 
-            label: "Correlativo",
+        type: "date",
 
-            type: "text",
+        requerido: true,
 
-            requerido: true,
+        editableEn: "editar",
 
-        },
+    },
 
-        {
+    {
+        key: "correlativoConstancia",
 
-            key: "fechaConstancia",
+        label: "Correlativo Constancia",
 
-            label: "Fecha Constancia",
+        type: "text",
 
-            type: "date",
+        requerido: true,
 
-            requerido: true,
+        editableEn: "editar",
 
-        },
+    },
 
-    ],
+],
 
     PODER: [
 
-        {
+    {
+        key: "observaciones",
+        label: "Observaciones",
+        type: "textarea",
+        editableEn: "editar",
+    },
 
-            key: "tipoPoder",
-
-            label: "Tipo Poder",
-
-            type: "text",
-
-            requerido: true,
-
-        },
-
-        {
-
-            key: "apoderado",
-
-            label: "Apoderado",
-
-            type: "text",
-
-            requerido: true,
-
-        },
-
-        {
-
-            key: "documentoApoderado",
-
-            label: "Documento Apoderado",
-
-            type: "text",
-
-            requerido: true,
-
-        },
-
-        {
-
-            key: "estadoPoder",
-
-            label: "Estado",
-
-            type: "text",
-
-            requerido: true,
-
-        },
-
-        {
-
-            key: "observaciones",
-
-            label: "Observaciones",
-
-            type: "textarea",
-
-        },
-
-    ],
+],
 
     AUTORIZACION_VIAJE: [
 
-        {
+    {
+        key: "origen",
 
-            key: "autoriza",
+        label: "Origen",
 
-            label: "Autoriza",
+        type: "text",
 
-            type: "text",
+        requerido: true,
+    },
 
-            requerido: true,
+    {
+        key: "parentesco",
 
-        },
+        label: "Parentesco",
 
-        {
+        type: "select",
 
-            key: "parentesco",
+        opciones: [
+            "Madre",
+            "Padre",
+            "Ambos Padres",
+            "Representante Legal",
+        ],
 
-            label: "Parentesco",
+        requerido: true,
+    },
 
-            type: "text",
+    {
+        key: "menor",
 
-            requerido: true,
+        label: "Menor",
 
-        },
+        type: "text",
 
-        {
+        requerido: true,
+    },
 
-            key: "menor",
+    {
+        key: "pasaporteMenor",
 
-            label: "Menor",
+        label: "Pasaporte Menor",
 
-            type: "text",
+        type: "text",
+    },
 
-            requerido: true,
+    {
+        key: "destino",
 
-        },
+        label: "Destino",
 
-        {
+        type: "text",
+    },
 
-            key: "pasaporteMenor",
+    {
+        key: "fechaIda",
 
-            label: "Pasaporte Menor",
+        label: "Fecha Ida",
 
-            type: "text",
+        type: "date",
+    },
 
-        },
+    {
+        key: "fechaRetorno",
 
-        {
+        label: "Fecha Retorno",
 
-            key: "destino",
+        type: "date",
+    },
 
-            label: "Destino",
+    {
+        key: "acompanante",
 
-            type: "text",
+        label: "Acompañante",
 
-        },
+        type: "text",
+    },
 
-        {
+    {
+        key: "pasaporteAcompanante",
 
-            key: "fechaIda",
+        label: "Pasaporte Acompañante",
 
-            label: "Fecha Ida",
+        type: "text",
+    },
 
-            type: "date",
+    {
+        key: "modalidad",
 
-        },
+        label: "Modalidad",
 
-        {
+        type: "select",
 
-            key: "fechaRetorno",
+        opciones: [
+            "Terrestre",
+            "Aereo",
+            "Fluvial",
+        ],
+    },
 
-            label: "Fecha Retorno",
-
-            type: "date",
-
-        },
-
-        {
-
-            key: "acompanante",
-
-            label: "Acompañante",
-
-            type: "text",
-
-        },
-
-        {
-
-            key: "pasaporteAcompanante",
-
-            label: "Pasaporte Acompañante",
-
-            type: "text",
-
-        },
-
-        {
-
-            key: "modalidad",
-
-            label: "Modalidad",
-
-            type: "text",
-
-        },
-
-    ],
-
-};
+],
+}

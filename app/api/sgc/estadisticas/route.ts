@@ -11,6 +11,71 @@ import {
 
 } from "@/lib/googleSheets";
 
+// ======================================================
+// Obtener año de una fecha
+// ======================================================
+
+function obtenerAnio(
+
+  valor: unknown
+
+): number | null {
+
+  if (
+    valor === null ||
+    valor === undefined ||
+    String(valor).trim() === ""
+  ) {
+
+    return null;
+
+  }
+
+  const texto =
+    String(valor).trim();
+
+  // ------------------------------------------
+  // Fecha ISO / fecha reconocible
+  // ------------------------------------------
+
+  const fecha =
+    new Date(texto);
+
+  if (
+    !Number.isNaN(
+      fecha.getTime()
+    )
+  ) {
+
+    return fecha.getFullYear();
+
+  }
+
+  // ------------------------------------------
+  // Intentar extraer año directamente
+  // ------------------------------------------
+
+  const coincidencia =
+    texto.match(
+      /(?:^|[^\d])(20\d{2})(?:[^\d]|$)/
+    );
+
+  if (coincidencia) {
+
+    return Number(
+      coincidencia[1]
+    );
+
+  }
+
+  return null;
+
+}
+
+// ======================================================
+// GET
+// ======================================================
+
 export async function GET(
 
   req: NextRequest
@@ -18,6 +83,51 @@ export async function GET(
 ) {
 
   try {
+
+    // ==================================================
+    // Año seleccionado
+    // ==================================================
+
+    const parametroAnio =
+      req.nextUrl.searchParams.get(
+        "anio"
+      );
+
+    const anioSeleccionado =
+      parametroAnio
+        ? Number(parametroAnio)
+        : new Date().getFullYear();
+
+    if (
+      !Number.isInteger(
+        anioSeleccionado
+      )
+    ) {
+
+      return NextResponse.json(
+
+        {
+
+          ok: false,
+
+          error:
+            "El año indicado no es válido.",
+
+        },
+
+        {
+
+          status: 400,
+
+        }
+
+      );
+
+    }
+
+    // ==================================================
+    // Lectura de hojas
+    // ==================================================
 
     const cajaResponse =
       await sheets.spreadsheets.values.get({
@@ -69,9 +179,10 @@ export async function GET(
 
     const filasGestion =
       gestion.slice(1);
-          // ===============================
-    // Recibos generados
-    // ===============================
+
+    // ==================================================
+    // Recibos generados del año seleccionado
+    // ==================================================
 
     const recibosGenerados =
       new Set<string>();
@@ -84,27 +195,56 @@ export async function GET(
           .trim()
           .toUpperCase();
 
-      if (estado === "GENERADO") {
+      if (
+        estado !== "GENERADO"
+      ) {
+
+        return;
+
+      }
+
+      // Caja!A = Marca temporal
+
+      const anioFila =
+        obtenerAnio(
+          row[0]
+        );
+
+      if (
+        anioFila !==
+        anioSeleccionado
+      ) {
+
+        return;
+
+      }
+
+      // Caja!B = Recibo
+
+      const recibo =
+        (row[1] || "")
+          .toString()
+          .trim();
+
+      if (recibo) {
 
         recibosGenerados.add(
-
-          (row[1] || "")
-            .toString()
-            .trim()
-
+          recibo
         );
 
       }
 
     });
 
-    // ===============================
+    // ==================================================
     // Total de actuaciones
-    // ===============================
+    // ==================================================
 
     let totalActuaciones = 0;
 
     filasDetalle.forEach((row) => {
+
+      // DetalleCaja!A = Correlativo / recibo
 
       const correlativo =
         (row[0] || "")
@@ -112,39 +252,64 @@ export async function GET(
           .trim();
 
       if (
-
-        recibosGenerados.has(
+        !recibosGenerados.has(
           correlativo
         )
-
       ) {
 
-        totalActuaciones++;
+        return;
 
       }
 
+      totalActuaciones++;
+
     });
 
-    // ===============================
-    // Actuaciones Vinculadas
-    // ===============================
+    // ==================================================
+    // Actuaciones vinculadas
+    // ==================================================
 
     let vinculadas = 0;
 
-    // ===============================
+    // ==================================================
     // Actuaciones SIN PLANILLA
-    // ===============================
+    // ==================================================
 
     let sinPlanilla = 0;
 
-    // ===============================
+    // ==================================================
     // Número de planillas distintas
-    // ===============================
+    // ==================================================
 
     const planillas =
       new Set<string>();
 
     filasGestion.forEach((row) => {
+
+      // GestionConsular!A = correlativo
+
+      const correlativo =
+        (row[0] || "")
+          .toString()
+          .trim();
+
+      // ----------------------------------------------
+      // Solo registros cuyo recibo pertenece
+      // al año seleccionado
+      // ----------------------------------------------
+
+      if (
+        !recibosGenerados.has(
+          correlativo
+        )
+      ) {
+
+        return;
+
+      }
+
+      // GestionConsular!G = Estado
+      // Índice 6
 
       const estado =
         (row[6] || "")
@@ -152,13 +317,18 @@ export async function GET(
           .trim()
           .toUpperCase();
 
+      // ----------------------------------------------
+      // Vinculado
+      // ----------------------------------------------
+
       if (
-
         estado === "VINCULADO"
-
       ) {
 
         vinculadas++;
+
+        // GestionConsular!D = Planilla
+        // Índice 3
 
         const planilla =
           (row[3] || "")
@@ -175,10 +345,12 @@ export async function GET(
 
       }
 
+      // ----------------------------------------------
+      // Sin planilla
+      // ----------------------------------------------
+
       if (
-
         estado === "SIN PLANILLA"
-
       ) {
 
         sinPlanilla++;
@@ -187,20 +359,34 @@ export async function GET(
 
     });
 
-    // ===============================
+    // ==================================================
     // Pendientes
-    // ===============================
+    // ==================================================
 
     const pendientes =
 
-      totalActuaciones -
+      Math.max(
 
-      vinculadas -
+        0,
 
-      sinPlanilla;
-          return NextResponse.json({
+        totalActuaciones -
+
+        vinculadas -
+
+        sinPlanilla
+
+      );
+
+    // ==================================================
+    // Respuesta
+    // ==================================================
+
+    return NextResponse.json({
 
       ok: true,
+
+      anio:
+        anioSeleccionado,
 
       totalActuaciones,
 
@@ -218,7 +404,17 @@ export async function GET(
 
     });
 
-  } catch (error: any) {
+  }
+
+  catch (error: any) {
+
+    console.error(
+
+      "Error estadísticas SGC:",
+
+      error
+
+    );
 
     return NextResponse.json(
 
@@ -227,7 +423,9 @@ export async function GET(
         ok: false,
 
         error:
-          error.message,
+          error?.message ||
+
+          "No fue posible obtener las estadísticas SGC.",
 
       },
 

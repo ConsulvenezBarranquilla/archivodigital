@@ -77,16 +77,76 @@ async function request<T>(
 }
 
 // ======================================================
+// Años disponibles
+// ======================================================
+
+export interface AniosSGCResponse {
+
+  ok: boolean;
+
+  anios: number[];
+
+  error?: string;
+
+}
+
+export async function obtenerAniosSGC():
+
+Promise<AniosSGCResponse> {
+
+  return request<AniosSGCResponse>(
+
+    "/anios"
+
+  );
+
+}
+
+// ======================================================
 // Dashboard
 // ======================================================
 
-export async function obtenerEstadisticasSGC():
+export async function obtenerEstadisticasSGC(
+
+  anio?: number | string
+
+):
 
 Promise<EstadisticasResponse> {
 
+  const params =
+    new URLSearchParams();
+
+  if (
+
+    anio !== undefined &&
+
+    anio !== null &&
+
+    String(anio).trim() !== ""
+
+  ) {
+
+    params.set(
+
+      "anio",
+
+      String(anio)
+
+    );
+
+  }
+
+  const query =
+    params.toString();
+
   return request<EstadisticasResponse>(
 
-    "/estadisticas"
+    query
+
+      ? `/estadisticas?${query}`
+
+      : "/estadisticas"
 
   );
 
@@ -96,13 +156,47 @@ Promise<EstadisticasResponse> {
 // Pendientes
 // ======================================================
 
-export async function obtenerPendientesSGC():
+export async function obtenerPendientesSGC(
+
+  anio?: number | string
+
+):
 
 Promise<PendientesResponse> {
 
+  const params =
+    new URLSearchParams();
+
+  if (
+
+    anio !== undefined &&
+
+    anio !== null &&
+
+    String(anio).trim() !== ""
+
+  ) {
+
+    params.set(
+
+      "anio",
+
+      String(anio)
+
+    );
+
+  }
+
+  const query =
+    params.toString();
+
   return request<PendientesResponse>(
 
-    "/pendientes"
+    query
+
+      ? `/pendientes?${query}`
+
+      : "/pendientes"
 
   );
 
@@ -112,13 +206,47 @@ Promise<PendientesResponse> {
 // Vinculadas
 // ======================================================
 
-export async function obtenerVinculadasSGC():
+export async function obtenerVinculadasSGC(
+
+  anio?: number | string
+
+):
 
 Promise<VinculadasResponse> {
 
+  const params =
+    new URLSearchParams();
+
+  if (
+
+    anio !== undefined &&
+
+    anio !== null &&
+
+    String(anio).trim() !== ""
+
+  ) {
+
+    params.set(
+
+      "anio",
+
+      String(anio)
+
+    );
+
+  }
+
+  const query =
+    params.toString();
+
   return request<VinculadasResponse>(
 
-    "/vinculadas"
+    query
+
+      ? `/vinculadas?${query}`
+
+      : "/vinculadas"
 
   );
 
@@ -142,7 +270,11 @@ export async function vincularPlanillaSGC(
 
       method: "POST",
 
-      body: JSON.stringify(datos),
+      body: JSON.stringify(
+
+        datos
+
+      ),
 
     }
 
@@ -168,7 +300,11 @@ export async function registrarSinPlanillaSGC(
 
       method: "POST",
 
-      body: JSON.stringify(datos),
+      body: JSON.stringify(
+
+        datos
+
+      ),
 
     }
 
@@ -194,13 +330,18 @@ export async function desvincularPlanillaSGC(
 
       method: "POST",
 
-      body: JSON.stringify(datos),
+      body: JSON.stringify(
+
+        datos
+
+      ),
 
     }
 
   );
 
 }
+
 // ======================================================
 // Actualizar ciudadano
 // ======================================================
@@ -219,13 +360,18 @@ export async function actualizarCiudadanoSGC(
 
       method: "POST",
 
-      body: JSON.stringify(datos),
+      body: JSON.stringify(
+
+        datos
+
+      ),
 
     }
 
   );
 
 }
+
 // ======================================================
 // Buscar ciudadano
 // ======================================================

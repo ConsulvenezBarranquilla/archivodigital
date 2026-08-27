@@ -2,93 +2,42 @@ import {
   NextRequest,
   NextResponse,
 } from "next/server";
+
 import {
   fechaHoraActual,
 } from "@/lib/fechas";
+
 import {
-
   sheets,
-
   MODULO_CAJA_SHEET_ID,
-
 } from "@/lib/googleSheets";
 
 export async function POST(
-
   req: NextRequest
-
 ) {
 
   try {
 
     const {
-
-      recibo,
-
-      codigo,
-
       numeroActuacion,
-
       usuario,
-
       observaciones,
-      
     } = await req.json();
 
-    if (
-
-      !recibo?.trim()
-
-    ) {
+    if (!numeroActuacion?.trim()) {
 
       return NextResponse.json({
 
         ok: false,
 
         error:
-          "Recibo requerido.",
+          "Número de actuación requerido.",
 
       });
 
     }
 
-    if (
-
-      !codigo?.trim()
-
-    ) {
-
-      return NextResponse.json({
-
-        ok: false,
-
-        error:
-          "Código de actuación requerido.",
-
-      });
-
-    }
-if (
-
-  !numeroActuacion?.trim()
-
-) {
-
-  return NextResponse.json({
-
-    ok: false,
-
-    error:
-      "Número de actuación requerido.",
-
-  });
-
-}
-    if (
-
-      !usuario?.trim()
-
-    ) {
+    if (!usuario?.trim()) {
 
       return NextResponse.json({
 
@@ -101,7 +50,7 @@ if (
 
     }
 
-    const response =
+    const gestionResponse =
       await sheets.spreadsheets.values.get({
 
         spreadsheetId:
@@ -112,70 +61,63 @@ if (
 
       });
 
+    const detalleResponse =
+      await sheets.spreadsheets.values.get({
+
+        spreadsheetId:
+          MODULO_CAJA_SHEET_ID,
+
+        range:
+          "DetalleCaja!A:H",
+
+      });
+
     const rows =
-      response.data.values || [];
+      gestionResponse.data.values || [];
 
-    const ahora = fechaHoraActual();
+    const detalle =
+      detalleResponse.data.values || [];
 
-            // ===============================
-    // Buscar la actuación
-    // ===============================
+    const ahora =
+      fechaHoraActual();
 
     let fila = -1;
 
     for (
-
       let i = 1;
-
       i < rows.length;
-
       i++
-
     ) {
 
-      const correlativo =
-        (rows[i][0] || "")
-          .toString()
+      const numero =
+        String(rows[i][11] ?? "")
           .trim();
 
-      const numeroFila =
-  (rows[i][11] || "")
-    .toString()
-    .trim();
+      const estado =
+        String(rows[i][6] ?? "")
+          .trim()
+          .toUpperCase();
 
-const estado =
-  (rows[i][6] || "")
-    .toString()
-    .trim()
-    .toUpperCase();
+      if (
 
-if (
+        numero === numeroActuacion &&
 
-  numeroFila === numeroActuacion &&
+        (
+          estado === "VINCULADO" ||
+          estado === "SIN PLANILLA"
+        )
 
-  (
+      ) {
 
-    estado === "VINCULADO" ||
+        fila = i + 1;
 
-    estado === "SIN PLANILLA"
+        break;
 
-  )
-
-) {
-
-  fila = i + 1;
-
-  break;
-
-}
+      }
 
     }
 
-    if (
-
-      fila === -1
-
-    ) {
+    if (fila === -1) {
 
       return NextResponse.json({
 
@@ -187,17 +129,25 @@ if (
       });
 
     }
-const estadoAnterior =
-  (rows[fila - 1][6] || "")
-    .toString()
-    .trim()
-    .toUpperCase();
+
+    const correlativo =
+      String(rows[fila - 1][0] ?? "")
+        .trim();
+
+    const codigo =
+      String(rows[fila - 1][1] ?? "")
+        .trim();
+
+    const estadoAnterior =
+      String(rows[fila - 1][6] ?? "")
+        .trim();
+
     const observacionAnterior =
-      rows[fila - 1][10] || "";
+      String(rows[fila - 1][10] ?? "");
 
     const nuevaObservacion =
 
-      `${observacionAnterior}
+`${observacionAnterior}
 
 -----------------------
 
@@ -208,9 +158,10 @@ ${ahora}
 Usuario: ${usuario}
 
 ${observaciones || ""}`.trim();
-    // ===============================
-    // Actualizar la actuación
-    // ===============================
+
+    // ==========================
+    // Gestion Consular
+    // ==========================
 
     await sheets.spreadsheets.values.update({
 
@@ -243,6 +194,61 @@ ${observaciones || ""}`.trim();
 
     });
 
+    // ==========================
+    // Detalle Caja
+    // ==========================
+
+    const filasDetalle =
+      detalle.map(f => [...f]);
+
+    for (
+      let i = 1;
+      i < filasDetalle.length;
+      i++
+    ) {
+
+      const filaDetalle =
+        filasDetalle[i];
+
+      if (
+
+        String(filaDetalle[0] ?? "").trim() === correlativo &&
+
+        String(filaDetalle[1] ?? "").trim() === codigo &&
+
+        String(filaDetalle[4] ?? "").trim() === numeroActuacion
+
+      ) {
+
+        filaDetalle[6] =
+          "DESVINCULADO";
+
+        break;
+
+      }
+
+    }
+
+    await sheets.spreadsheets.values.update({
+
+      spreadsheetId:
+        MODULO_CAJA_SHEET_ID,
+
+      range:
+        `DetalleCaja!A2:H${filasDetalle.length}`,
+
+      valueInputOption:
+        "USER_ENTERED",
+
+      requestBody: {
+
+        values:
+          filasDetalle.slice(1),
+
+      },
+
+    });
+
     return NextResponse.json({
 
       ok: true,
@@ -252,7 +258,9 @@ ${observaciones || ""}`.trim();
 
     });
 
-  } catch (error: any) {
+  }
+
+  catch (error: any) {
 
     return NextResponse.json(
 

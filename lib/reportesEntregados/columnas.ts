@@ -234,7 +234,7 @@ TableColumn<ReporteEntregado>[] {
 
             field: "numeroVisa",
 
-            title: "N° Visa",
+            title: "N° Etiqueta",
 
             width: "150px",
 
@@ -343,36 +343,30 @@ TableColumn<ReporteEntregado>[] {
         ...columnasComunes(),
 
         {
+    field: "fechaEmisionDocumento",
 
-            field: "fechaEmision",
+    title: "Fecha Emisión",
 
-            title: "Fecha Emisión",
+    width: "150px",
 
-            width: "150px",
+    align: "center",
 
-            align: "center",
+    render: (row: any) =>
+        row.fechaEmisionDocumento || "",
+},
 
-            render: (row: any) =>
+{
+    field: "correlativoDocumento",
 
-                row.fechaEmision || "",
+    title: "Correlativo",
 
-        },
+    width: "150px",
 
-        {
+    align: "center",
 
-            field: "correlativo",
-
-            title: "Correlativo",
-
-            width: "150px",
-
-            align: "center",
-
-            render: (row: any) =>
-
-                row.correlativo || "",
-
-        },
+    render: (row: any) =>
+        row.correlativoDocumento || "",
+},
 
     ];
 
@@ -392,7 +386,7 @@ TableColumn<ReporteEntregado>[] {
 
         {
 
-            field: "fechaEmision",
+            field: "fechaCarta",
 
             title: "Fecha Emisión",
 
@@ -402,13 +396,13 @@ TableColumn<ReporteEntregado>[] {
 
             render: (row: any) =>
 
-                row.fechaEmision || "",
+                row.fechaCarta || "",
 
         },
 
         {
 
-            field: "correlativo",
+            field: "correlativoCarta",
 
             title: "Correlativo",
 
@@ -418,7 +412,7 @@ TableColumn<ReporteEntregado>[] {
 
             render: (row: any) =>
 
-                row.correlativo || "",
+                row.correlativoCarta || "",
 
         },
 
@@ -457,7 +451,7 @@ TableColumn<ReporteEntregado>[] {
 
             field: "fechaRegistro",
 
-            title: "Fecha Registro",
+            title: "Fecha Certificado",
 
             width: "150px",
 
@@ -513,7 +507,7 @@ TableColumn<ReporteEntregado>[] {
 
             render: (row: any) =>
 
-                row.fechaRegistro || "",
+                row.fechaRegistroConsular || "",
 
         },
 
@@ -550,35 +544,21 @@ TableColumn<ReporteEntregado>[] {
         ...columnasComunes(),
 
         {
-
             field: "fechaConstancia",
-
             title: "Fecha Constancia",
-
             width: "170px",
-
             align: "center",
-
             render: (row: any) =>
-
                 row.fechaConstancia || "",
-
         },
 
         {
-
-            field: "correlativo",
-
-            title: "Correlativo",
-
-            width: "150px",
-
+            field: "correlativoConstancia",
+            title: "N° Constancia",
+            width: "170px",
             align: "center",
-
             render: (row: any) =>
-
-                row.correlativo || "",
-
+                row.correlativoConstancia || "",
         },
 
     ];
@@ -588,78 +568,120 @@ TableColumn<ReporteEntregado>[] {
 // PODERES
 // ==========================================
 
-function columnasPoderes():
-
-TableColumn<ReporteEntregado>[] {
-
+function columnasPoderes(): TableColumn<ReporteEntregado>[] {
     return [
-
-        ...columnasComunes(),
-
         {
-
-            field: "tipoPoder",
-
-            title: "Tipo",
-
-            width: "140px",
-
+            field: "recibo",
+            title: "Recibo",
+            width: "100px",
             align: "center",
-
-            render: (row: any) =>
-
-                row.tipoPoder || "",
-
         },
 
         {
-
-            field: "apoderado",
-
-            title: "Apoderado",
-
-            width: "260px",
-
-            render: (row: any) =>
-
-                row.apoderado || "",
-
-        },
-
-        {
-
-            field: "documentoApoderado",
-
-            title: "Documento",
-
-            width: "170px",
-
+            field: "fechaRecibo",
+            title: "Fecha",
+            width: "100px",
             align: "center",
-
-            render: (row: any) =>
-
-                row.documentoApoderado || "",
-
         },
 
         {
+            field: "planillaGC",
+            title: "Planilla GC",
+            width: "100px",
+            align: "center",
+        },
 
+        {
+    field: "solicitantesPoder",
+    key: "poderSolicitantes",
+    title: "Solicitante",
+    width: "220px",
+    whiteSpace: "pre-line",
+    render: (row: any) => {
+        if (!Array.isArray(row.solicitantesPoder)) {
+            return "";
+        }
+
+        return row.solicitantesPoder
+            .map(
+                (persona: any) =>
+                    persona?.nombre || ""
+            )
+            .join("\n");
+    },
+},
+
+       {
+    field: "solicitantesPoder",
+    key: "poderSolicitantesDocumento",
+    title: "C.I / PAS Solicitante",
+    width: "100px",
+    align: "center",
+    whiteSpace: "pre-line",
+    render: (row: any) => {
+        if (!Array.isArray(row.solicitantesPoder)) {
+            return "";
+        }
+
+        return row.solicitantesPoder
+            .map(
+                (persona: any) =>
+                    persona?.documento || ""
+            )
+            .join("\n");
+    },
+},
+
+        {
+    field: "apoderadosPoder",
+    key: "poderApoderados",
+    title: "Apoderado",
+    width: "240px",
+    whiteSpace: "pre-line",
+    render: (row: any) => {
+        if (!Array.isArray(row.apoderadosPoder)) {
+            return "";
+        }
+
+        return row.apoderadosPoder
+            .map(
+                (persona: any) =>
+                    persona?.nombre || ""
+            )
+            .join("\n");
+    },
+},
+
+        {
+    field: "apoderadosPoder",
+    key: "poderApoderadosDocumento",
+    title: "C.I / PAS Apoderado",
+    width: "100px",
+    align: "center",
+    whiteSpace: "pre-line",
+    render: (row: any) => {
+        if (!Array.isArray(row.apoderadosPoder)) {
+            return "";
+        }
+
+        return row.apoderadosPoder
+            .map(
+                (persona: any) =>
+                    persona?.documento || ""
+            )
+            .join("\n");
+    },
+},
+
+        {
             field: "estadoPoder",
-
             title: "Estado",
-
             width: "140px",
-
             align: "center",
-
             render: (row: any) =>
-
                 row.estadoPoder || "",
-
         },
-
     ];
-
 }
 
 // ==========================================
@@ -672,36 +694,93 @@ TableColumn<ReporteEntregado>[] {
 
     return [
 
-        ...columnasComunes(),
+    {
+        field: "recibo",
+        title: "Recibo",
+        width: "100px",
+        align: "center",
+    },
 
-        {
+    {
+        field: "fechaRecibo",
+        title: "Fecha",
+        width: "100px",
+        align: "center",
+    },
 
-            field: "autoriza",
+    {
+        field: "planillaGC",
+        title: "Planilla GC",
+        width: "100px",
+        align: "center",
+    },
 
-            title: "Autoriza",
+    {
+        field: "solicitantesAutorizacion",
+        key: "autorizacionSolicitantes",
+        title: "Solicitante",
+        width: "220px",
+        whiteSpace: "pre-line",
+        render: (row: any) => {
 
-            width: "240px",
+            if (
+                !Array.isArray(
+                    row.solicitantesAutorizacion
+                )
+            ) {
+                return "";
+            }
 
-            render: (row: any) =>
-
-                row.autoriza || "",
-
+            return row.solicitantesAutorizacion
+                .map(
+                    (persona: any) =>
+                        persona?.nombre || ""
+                )
+                .join("\n");
         },
+    },
+
+    {
+        field: "solicitantesAutorizacion",
+        key: "autorizacionSolicitantesDocumento",
+        title: "C.I / PAS Solicitante",
+        width: "100px",
+        align: "center",
+        whiteSpace: "pre-line",
+        render: (row: any) => {
+
+            if (
+                !Array.isArray(
+                    row.solicitantesAutorizacion
+                )
+            ) {
+                return "";
+            }
+
+            return row.solicitantesAutorizacion
+                .map(
+                    (persona: any) =>
+                        persona?.documento || ""
+                )
+                .join("\n");
+        },
+    },
+
+    {
+        field: "origen",
+        title: "Origen",
+        width: "240px",
+        render: (row: any) =>
+            row.origen || "",
+    },
 
         {
-
             field: "parentesco",
-
             title: "Parentesco",
-
-            width: "140px",
-
+            width: "160px",
             align: "center",
-
             render: (row: any) =>
-
                 row.parentesco || "",
-
         },
 
         {

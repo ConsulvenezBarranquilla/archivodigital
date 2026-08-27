@@ -202,6 +202,16 @@ const [periodo, setPeriodo] = useState(() => {
 
     }}
 
+    onActualizado={async () => {
+
+        setMostrarDetalle(false);
+
+        setMovimientoDetalle(null);
+
+        await cargarLibro();
+
+    }}
+
 />
 <ModalReporteExcel
     open={mostrarReporteExcel}

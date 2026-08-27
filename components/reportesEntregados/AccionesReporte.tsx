@@ -1,6 +1,8 @@
 "use client";
 
-import { ReporteEntregado } from "@/types/ReporteEntregado";
+import {
+    ReporteEntregado,
+} from "@/types/ReporteEntregado";
 
 interface Props {
 
@@ -9,21 +11,11 @@ interface Props {
     documento: ReporteEntregado;
 
     onEditar: (
-
         documento: ReporteEntregado
-
     ) => void;
 
     onRegistrarValija?: (
-
         documento: ReporteEntregado
-
-    ) => void;
-
-    onEntregar?: (
-
-        documento: ReporteEntregado
-
     ) => void;
 
 }
@@ -38,42 +30,42 @@ export default function AccionesReporte({
 
     onRegistrarValija,
 
-    onEntregar,
-
 }: Props) {
+
+    const estado =
+        documento.estadoProcesamiento ??
+        "EN_PROCESO";
 
     return (
 
-        <div className="flex justify-center gap-2">
+        <div className="
+            flex
+            items-center
+            justify-center
+            gap-2
+        ">
 
-            {/* Editar */}
+            {/* ======================================
+                EDITAR
+                Disponible siempre
+            ====================================== */}
 
             <button
 
                 type="button"
 
                 onClick={() =>
-
                     onEditar(documento)
-
                 }
 
                 className="
-
-                    px-2
-
-                    py-1
-
                     rounded-lg
-
                     bg-slate-600
-
-                    hover:bg-slate-700
-
-                    text-white
-
+                    px-2
+                    py-1
                     text-xs
-
+                    text-white
+                    hover:bg-slate-700
                 "
 
                 title="Editar"
@@ -84,97 +76,148 @@ export default function AccionesReporte({
 
             </button>
 
-            {/* Registrar Valija */}
+            {/* ======================================
+                REGISTRAR VALIJA
+            ====================================== */}
 
-            {
+            {categoria === "PASAPORTES" && (
 
-                categoria === "PASAPORTES" && (
+                <button
 
-                    <button
+                    type="button"
 
-                        type="button"
+                    onClick={() =>
+                        onRegistrarValija?.(
+                            documento
+                        )
+                    }
 
-                        onClick={() =>
+                    className="
+                        rounded-lg
+                        bg-blue-600
+                        px-2
+                        py-1
+                        text-xs
+                        text-white
+                        hover:bg-blue-700
+                    "
 
-                            onRegistrarValija?.(
+                    title="Registrar Valija"
 
-                                documento
+                >
 
-                            )
+                    📦
 
-                        }
+                </button>
 
-                        className="
+            )}
 
-                            px-2
+            {/* ======================================
+                EN PROCESO
+            ====================================== */}
 
-                            py-1
+            {estado === "EN_PROCESO" && (
 
-                            rounded-lg
-
-                            bg-blue-600
-
-                            hover:bg-blue-700
-
-                            text-white
-
-                            text-xs
-
-                        "
-
-                        title="Registrar Valija"
-
-                    >
-
-                        📦
-
-                    </button>
-
-                )
-
-            }
-
-            {/* Entregar */}
-
-            <button
-
-                type="button"
-
-                onClick={() =>
-
-                    onEntregar?.(
-
-                        documento
-
-                    )
-
-                }
-
-                className="
-
-                    px-3
-
-                    py-1
-
+                <span className="
+                    inline-flex
+                    items-center
                     rounded-lg
-
-                    bg-emerald-600
-
-                    hover:bg-emerald-700
-
-                    text-white
-
+                    border
+                    border-gray-300
+                    bg-gray-100
+                    px-3
+                    py-1
                     text-xs
+                    font-semibold
+                    text-gray-500
+                ">
 
-                "
+                    En Proceso
 
-                title="Entregar"
+                </span>
 
-            >
+            )}
 
-                Entregar
+            {/* ======================================
+                PROCESADO
+            ====================================== */}
 
-            </button>
+            {estado === "PROCESADO" && (
+    documento.categoria === "VISA" &&
+    String(
+        documento.estado ?? ""
+    )
+        .trim()
+        .toUpperCase() === "RECHAZADA"
+        ? (
+            // ======================================
+            // VISA RECHAZADA
+            // ======================================
+
+            <span className="
+                inline-flex
+                items-center
+                rounded-lg
+                border
+                border-red-200
+                bg-red-100
+                px-3
+                py-1
+                text-xs
+                font-semibold
+                text-red-700
+            ">
+                ✕ Negada
+            </span>
+        )
+        : (
+            // ======================================
+            // PROCESADO NORMAL
+            // ======================================
+
+            <span className="
+                inline-flex
+                items-center
+                rounded-lg
+                border
+                border-green-200
+                bg-green-100
+                px-3
+                py-1
+                text-xs
+                font-semibold
+                text-green-700
+            ">
+                ✓ Procesado
+            </span>
+        )
+)}
+
+            {/* ======================================
+                ENTREGADO
+            ====================================== */}
+
+            {estado === "ENTREGADO" && (
+
+                <span className="
+                    inline-flex
+                    items-center
+                    rounded-lg
+                    border
+                    border-blue-200
+                    bg-blue-100
+                    px-3
+                    py-1
+                    text-xs
+                    font-semibold
+                    text-blue-700
+                ">
+
+                    ✓ Entregado
+
+                </span>
+
+            )}
 
         </div>
 

@@ -22,7 +22,15 @@ export interface ReportesEntregadosResponse {
 
     categoria: CategoriaDocumento;
 
+    anio?: number | null;
+
     total: number;
+
+    pendientes?: number;
+
+    procesados?: number;
+
+    entregados?: number;
 
     documentos: ReporteEntregado[];
 
@@ -81,22 +89,47 @@ async function request<T>(
 }
 
 // ======================================================
-// Obtener documentos por categoría
+// Obtener documentos por categoría y año
 // ======================================================
 
 export async function obtenerReportesEntregados(
 
-    categoria: CategoriaDocumento
+    categoria: CategoriaDocumento,
+
+    anio?: number
 
 ): Promise<ReportesEntregadosResponse> {
 
+    const parametros =
+
+        new URLSearchParams();
+
+    parametros.set(
+
+        "categoria",
+
+        categoria
+
+    );
+
+    if (
+        anio !== undefined &&
+        Number.isInteger(anio)
+    ) {
+
+        parametros.set(
+
+            "anio",
+
+            String(anio)
+
+        );
+
+    }
+
     return request(
 
-        `?categoria=${encodeURIComponent(
-
-            categoria
-
-        )}`
+        `?${parametros.toString()}`
 
     );
 
@@ -163,10 +196,6 @@ export async function marcarEntregado(
 }
 
 // ======================================================
-// Actualizar documento
-// ======================================================
-
-// ======================================================
 // Guardar documento
 // ======================================================
 
@@ -206,32 +235,48 @@ export async function actualizarDocumento(
 
 export async function exportarExcel(
 
-    categoria: CategoriaDocumento
+    categoria: CategoriaDocumento,
+
+    anio?: number | string
 
 ): Promise<Blob> {
 
-    const response = await fetch(
+    const params =
+        new URLSearchParams();
 
-        `${BASE_URL}/excel?categoria=${encodeURIComponent(
-
-            categoria
-
-        )}`,
-
-        {
-
-            cache: "no-store",
-
-        }
-
+    params.set(
+        "categoria",
+        categoria
     );
+
+    if (
+        anio !== undefined &&
+        anio !== null &&
+        String(anio).trim() !== ""
+    ) {
+
+        params.set(
+            "anio",
+            String(anio)
+        );
+
+    }
+
+    const response =
+        await fetch(
+
+            `${BASE_URL}/excel?${params.toString()}`,
+
+            {
+                cache: "no-store",
+            }
+
+        );
 
     if (!response.ok) {
 
         throw new Error(
-
             "No fue posible generar el archivo Excel."
-
         );
 
     }

@@ -32,7 +32,9 @@ export interface ActuacionPendiente {
 
   documento: string;
 
-  nombre: string;
+  nombre: string;      // Nombre mostrado en la tabla
+
+  titular: string;     // Titular real del documento
 
   codigo: string;
 

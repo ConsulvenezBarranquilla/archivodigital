@@ -1,5 +1,6 @@
 // ==========================================
-// API Reportes Entregados
+// API Años disponibles
+// Reportes Entregados
 // Consulnet Barranquilla
 // ==========================================
 
@@ -15,7 +16,7 @@ import {
 } from "@/lib/googleSheets";
 
 import {
-    obtenerDocumentos,
+    obtenerAniosDisponibles,
 } from "@/lib/reportesEntregados/reportesService";
 
 import {
@@ -60,7 +61,6 @@ function categoriaValida(
 
 // ==========================================
 // GET
-// Obtener documentos por categoría y año
 // ==========================================
 
 export async function GET(
@@ -113,61 +113,7 @@ export async function GET(
         }
 
         // ======================================
-        // AÑO
-        // ======================================
-
-        const anioParametro =
-
-            request.nextUrl.searchParams.get(
-                "anio"
-            );
-
-        let anio: number | undefined;
-
-        if (
-            anioParametro !== null &&
-            anioParametro.trim() !== ""
-        ) {
-
-            const anioNumerico =
-                Number(anioParametro);
-
-            if (
-                !Number.isInteger(
-                    anioNumerico
-                ) ||
-                anioNumerico < 2000 ||
-                anioNumerico > 2100
-            ) {
-
-                return NextResponse.json(
-
-                    {
-
-                        ok: false,
-
-                        error:
-                            "El año seleccionado no es válido.",
-
-                    },
-
-                    {
-
-                        status: 400,
-
-                    }
-
-                );
-
-            }
-
-            anio =
-                anioNumerico;
-
-        }
-
-        // ======================================
-        // LECTURA DE LAS HOJAS
+        // LEER DATOS
         // ======================================
 
         const [
@@ -189,7 +135,7 @@ export async function GET(
         ]);
 
         // ======================================
-        // DATOS PARA EL SERVICIO
+        // CONSTRUIR DATA
         // ======================================
 
         const data = {
@@ -203,60 +149,18 @@ export async function GET(
         };
 
         // ======================================
-        // CONSTRUIR DOCUMENTOS
-        //
-        // El año se filtra dentro del servicio,
-        // antes de devolver los documentos.
+        // OBTENER AÑOS
         // ======================================
 
-        const documentos =
+        const anios =
 
-            obtenerDocumentos(
+            obtenerAniosDisponibles(
 
                 categoria,
 
-                data,
-
-                anio
+                data
 
             );
-
-        // ======================================
-        // ESTADÍSTICAS
-        // ======================================
-
-        const pendientes =
-
-            documentos.filter(
-
-                documento =>
-
-                    documento.estadoProcesamiento ===
-                    "EN_PROCESO"
-
-            ).length;
-
-        const procesados =
-
-            documentos.filter(
-
-                documento =>
-
-                    documento.estadoProcesamiento ===
-                    "PROCESADO"
-
-            ).length;
-
-        const entregados =
-
-            documentos.filter(
-
-                documento =>
-
-                    documento.estadoProcesamiento ===
-                    "ENTREGADO"
-
-            ).length;
 
         // ======================================
         // RESPUESTA
@@ -268,19 +172,7 @@ export async function GET(
 
             categoria,
 
-            anio:
-                anio ?? null,
-
-            total:
-                documentos.length,
-
-            pendientes,
-
-            procesados,
-
-            entregados,
-
-            documentos,
+            anios,
 
         });
 
@@ -290,7 +182,7 @@ export async function GET(
 
         console.error(
 
-            "Error Reportes Entregados:",
+            "Error obteniendo años disponibles:",
 
             error
 
@@ -305,7 +197,7 @@ export async function GET(
                 error:
                     error?.message ??
 
-                    "No fue posible obtener los Reportes Entregados.",
+                    "No fue posible obtener los años disponibles.",
 
             },
 

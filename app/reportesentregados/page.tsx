@@ -1,45 +1,32 @@
 "use client";
 
 import {
-
     useEffect,
-
     useMemo,
-
     useState,
-
 } from "react";
 
 import SistemaLayout from "@/components/layout/SistemaLayout";
-
 import { MODULOS } from "@/lib/modulos";
 
 import ReportesSidebar from "@/components/reportesEntregados/ReportesSidebar";
-
 import ReportesTable from "@/components/reportesEntregados/ReportesTable";
 
 import DataTableToolbar from "@/components/table/DataTableToolbar";
 
 import ModalRegistrarValija from "@/components/reportesEntregados/ModalRegistrarValija";
-
+import ModalNuevaConstancia from "@/components/reportesEntregados/ModalNuevaConstancia";
 import ModalEntregarDocumento from "@/components/reportesEntregados/ModalEntregarDocumento";
-
 import DataTableContainer from "@/components/table/DataTableContainer";
-
 import DrawerEditar from "@/components/reportesEntregados/DrawerEditar";
 
 import {
-
     CategoriaDocumento,
-
     ReporteEntregado,
-
 } from "@/types/ReporteEntregado";
 
 import {
-
     obtenerConfiguracionCategoria,
-
 } from "@/lib/reportesEntregados/documentos";
 
 import {
@@ -47,149 +34,202 @@ import {
 } from "@/lib/services/ReportesEntregados";
 
 import {
-
     obtenerReportesEntregados,
-
     registrarValija,
-
     marcarEntregado,
-
     exportarExcel,
-
 } from "@/lib/services/ReportesEntregados";
 
 export default function ReportesEntregadosPage() {
 
-    const [
+    // ==========================================
+    // CATEGORÍA
+    // ==========================================
 
+    const [
         categoria,
-
         setCategoria,
-
     ] = useState<CategoriaDocumento>(
-
         "PASAPORTES"
-
     );
-const [
 
-    documentoEditar,
+    // ==========================================
+    // AÑO ACTUAL
+    // ==========================================
 
-    setDocumentoEditar,
+    const anioActual =
+        new Date().getFullYear();
 
-] = useState<ReporteEntregado | null>(null);
-
-const [
-
-    drawerEditar,
-
-    setDrawerEditar,
-
-] = useState(false);
     const [
+        anio,
+        setAnio,
+    ] = useState<number>(
+        anioActual
+    );
 
+    // ==========================================
+    // AÑOS DISPONIBLES
+    // ==========================================
+
+    const [
+        aniosDisponibles,
+        setAniosDisponibles,
+    ] = useState<number[]>([]);
+
+    const [
+        cargandoAnios,
+        setCargandoAnios,
+    ] = useState(true);
+
+    // ==========================================
+    // DOCUMENTO A EDITAR
+    // ==========================================
+
+    const [
+        documentoEditar,
+        setDocumentoEditar,
+    ] = useState<ReporteEntregado | null>(
+        null
+    );
+
+    const [
+        drawerEditar,
+        setDrawerEditar,
+    ] = useState(false);
+
+    // ==========================================
+    // BÚSQUEDA
+    // ==========================================
+
+    const [
         busqueda,
-
         setBusqueda,
-
     ] = useState("");
 
+    // ==========================================
+    // DOCUMENTOS
+    // ==========================================
+
     const [
-
         documentos,
-
         setDocumentos,
-
     ] = useState<ReporteEntregado[]>([]);
 
     const [
-
         cargando,
-
         setCargando,
-
     ] = useState(true);
 
-    const [
+    // ==========================================
+    // MODAL VALIJA
+    // ==========================================
 
+    const [
         modalValija,
-
         setModalValija,
-
     ] = useState(false);
 
-    const [
+// ==========================================
+// MODAL NUEVA CONSTANCIA CONSULAR
+// ==========================================
 
+const [
+    modalNuevaConstancia,
+    setModalNuevaConstancia,
+] = useState(false);
+
+    // ==========================================
+    // MODAL ENTREGA
+    // ==========================================
+
+    const [
         modalEntrega,
-
         setModalEntrega,
-
     ] = useState(false);
 
     const [
-
         documentoSeleccionado,
-
         setDocumentoSeleccionado,
-
     ] = useState<ReporteEntregado | null>(
-
         null
-
     );
 
+    // ==========================================
+    // USUARIO
+    // ==========================================
+
     const [
-
         usuario,
-
         setUsuario,
-
     ] = useState("");
 
-    const configuracion = useMemo(
+    // ==========================================
+    // CONFIGURACIÓN CATEGORÍA
+    // ==========================================
 
-        () =>
+    const configuracion =
+        useMemo(
 
-            obtenerConfiguracionCategoria(
+            () =>
+                obtenerConfiguracionCategoria(
+                    categoria
+                ),
 
-                categoria
+            [
+                categoria,
+            ]
 
-            ),
+        );
 
-        [
-
-            categoria,
-
-        ]
-
-    );
+    // ==========================================
+    // CARGAR USUARIO
+    // ==========================================
 
     useEffect(() => {
 
         cargarUsuario();
 
-    },
+    }, []);
 
-    []);
+    // ==========================================
+    // CARGAR AÑOS DISPONIBLES
+    // ==========================================
 
     useEffect(() => {
 
-        cargarDocumentos();
+        cargarAnios();
 
-    },
-
-    [
+    }, [
 
         categoria,
 
     ]);
 
+    // ==========================================
+    // CARGAR DOCUMENTOS
+    // ==========================================
+
+    useEffect(() => {
+
+        cargarDocumentos();
+
+    }, [
+
+        categoria,
+
+        anio,
+
+    ]);
+
+    // ==========================================
+    // USUARIO
+    // ==========================================
+
     function cargarUsuario() {
 
         if (
-
-            typeof window === "undefined"
-
+            typeof window ===
+            "undefined"
         ) {
 
             return;
@@ -197,18 +237,11 @@ const [
         }
 
         const datos =
-
             localStorage.getItem(
-
                 "usuarioCaja"
-
             );
 
-        if (
-
-            !datos
-
-        ) {
+        if (!datos) {
 
             return;
 
@@ -217,19 +250,13 @@ const [
         try {
 
             const json =
-
                 JSON.parse(
-
                     datos
-
                 );
 
             setUsuario(
-
                 json.usuario ??
-
                 ""
-
             );
 
         }
@@ -237,105 +264,332 @@ const [
         catch {
 
             setUsuario(
-
                 datos
-
             );
 
         }
 
     }
-function abrirEditar(
 
-    documento: ReporteEntregado
+    // ==========================================
+    // CARGAR AÑOS
+    // ==========================================
 
-) {
+    async function cargarAnios() {
 
-    setDocumentoEditar(
+        try {
 
-        documento
+            setCargandoAnios(
+                true
+            );
 
-    );
+            const respuesta =
+                await fetch(
 
-    setDrawerEditar(true);
+                    `/api/reportes-entregados/anios?categoria=${encodeURIComponent(
+                        categoria
+                    )}`
 
-}
+                );
+
+            const data =
+                await respuesta.json();
+
+            if (
+                data.ok &&
+                Array.isArray(
+                    data.anios
+                )
+            ) {
+
+                const anios =
+                    data.anios
+                        .map(
+                            (valor: unknown) =>
+                                Number(valor)
+                        )
+                        .filter(
+                            (valor: number) =>
+                                Number.isInteger(
+                                    valor
+                                )
+                        )
+                        .sort(
+                            (
+                                a: number,
+                                b: number
+                            ) =>
+                                b - a
+                        );
+
+                setAniosDisponibles(
+                    anios
+                );
+
+                // ==================================
+                // Mantener el año seleccionado
+                // si todavía existe.
+                // ==================================
+
+                if (
+                    anios.includes(
+                        anio
+                    )
+                ) {
+
+                    return;
+
+                }
+
+                // ==================================
+                // Si no existe el año actual,
+                // seleccionar el más reciente.
+                // ==================================
+
+                if (
+                    anios.length > 0
+                ) {
+
+                    setAnio(
+                        anios[0]
+                    );
+
+                }
+
+                else {
+
+                    // Si todavía no hay registros,
+                    // usamos el año actual.
+
+                    setAnio(
+                        anioActual
+                    );
+
+                }
+
+            }
+
+            else {
+
+                setAniosDisponibles(
+                    []
+                );
+
+                setAnio(
+                    anioActual
+                );
+
+            }
+
+        }
+
+        catch (error) {
+
+            console.error(
+                "Error cargando años:",
+                error
+            );
+
+            setAniosDisponibles(
+                []
+            );
+
+            setAnio(
+                anioActual
+            );
+
+        }
+
+        finally {
+
+            setCargandoAnios(
+                false
+            );
+
+        }
+
+    }
+
+    // ==========================================
+    // CARGAR DOCUMENTOS
+    // ==========================================
+
     async function cargarDocumentos() {
 
         try {
 
             setCargando(
-
                 true
-
             );
 
             const respuesta =
-
                 await obtenerReportesEntregados(
 
-                    categoria
+                    categoria,
+
+                    anio
 
                 );
 
             if (
-
                 respuesta.ok
-
             ) {
- 
+
                 setDocumentos(
-
                     respuesta.documentos
-
                 );
 
             }
 
             else {
 
-                setDocumentos([]);
+                setDocumentos(
+                    []
+                );
 
             }
 
         }
 
-        catch (
-
-            error
-
-        ) {
+        catch (error) {
 
             console.error(
-
                 error
-
             );
 
-            setDocumentos([]);
+            setDocumentos(
+                []
+            );
 
         }
 
         finally {
 
             setCargando(
-
                 false
-
             );
 
         }
 
     }
-        // ==========================================
-    // Registrar recepción de valija
+
+    // ==========================================
+    // EDITAR DOCUMENTO
+    // ==========================================
+
+    function abrirEditar(
+
+        documento: ReporteEntregado
+
+    ) {
+
+        setDocumentoEditar(
+            documento
+        );
+
+        setDrawerEditar(
+            true
+        );
+
+    }
+
+    // ==========================================
+    // GUARDAR DOCUMENTO
+    // ==========================================
+
+    async function guardarDocumento(
+
+        documento: ReporteEntregado
+
+    ) {
+
+        try {
+
+            await actualizarDocumento(
+
+                documento,
+
+                usuario
+
+            );
+
+            setDrawerEditar(
+                false
+            );
+
+            setDocumentoEditar(
+                null
+            );
+
+            await cargarDocumentos();
+
+        }
+
+        catch (error) {
+
+            console.error(
+                error
+            );
+
+            alert(
+                "No fue posible guardar el documento."
+            );
+
+        }
+
+    }
+// ==========================================
+// GUARDAR NUEVA CONSTANCIA CONSULAR
+// ==========================================
+
+async function guardarNuevaConstancia(
+
+    documento: ReporteEntregado
+
+) {
+
+    try {
+
+        await actualizarDocumento(
+
+            documento,
+
+            usuario
+
+        );
+
+        setModalNuevaConstancia(
+            false
+        );
+
+        await cargarDocumentos();
+
+    }
+
+    catch (error) {
+
+        console.error(
+            "Error guardando constancia consular:",
+            error
+        );
+
+        alert(
+            "No fue posible guardar la constancia consular."
+        );
+
+    }
+
+}
+    // ==========================================
+    // REGISTRAR RECEPCIÓN DE VALIJA
     // ==========================================
 
     async function guardarValija(
 
         fechaValija: string,
 
-        documentosSeleccionados: ReporteEntregado[]
+        documentosSeleccionados:
+            ReporteEntregado[]
 
     ) {
 
@@ -348,15 +602,12 @@ function abrirEditar(
                 fechaValija,
 
                 documentos:
-
                     documentosSeleccionados,
 
             });
 
             setModalValija(
-
                 false
-
             );
 
             await cargarDocumentos();
@@ -366,15 +617,11 @@ function abrirEditar(
         catch (error) {
 
             console.error(
-
                 error
-
             );
 
             alert(
-
                 "No fue posible registrar la valija."
-
             );
 
         }
@@ -382,7 +629,7 @@ function abrirEditar(
     }
 
     // ==========================================
-    // Registrar entrega
+    // REGISTRAR ENTREGA
     // ==========================================
 
     async function guardarEntrega(
@@ -410,15 +657,11 @@ function abrirEditar(
             });
 
             setModalEntrega(
-
                 false
-
             );
 
             setDocumentoSeleccionado(
-
                 null
-
             );
 
             await cargarDocumentos();
@@ -428,57 +671,19 @@ function abrirEditar(
         catch (error) {
 
             console.error(
-
                 error
-
             );
 
             alert(
-
                 "No fue posible registrar la entrega."
-
             );
 
         }
 
     }
-async function guardarDocumento(
-    documento: ReporteEntregado
-) {
 
-    try {
-
-        await actualizarDocumento(
-
-            documento,
-
-            usuario
-
-        );
-
-        setDrawerEditar(false);
-
-        setDocumentoEditar(null);
-
-        await cargarDocumentos();
-
-    }
-
-    catch (error) {
-
-        console.error(error);
-
-        alert(
-
-            "No fue posible guardar el documento."
-
-        );
-
-    }
-
-}
     // ==========================================
-    // Exportar Excel
+    // EXPORTAR EXCEL
     // ==========================================
 
     async function descargarExcel() {
@@ -486,43 +691,31 @@ async function guardarDocumento(
         try {
 
             const archivo =
-
-                await exportarExcel(
-
-                    categoria
-
-                );
+    await exportarExcel(
+        categoria,
+        anio
+    );
 
             const url =
-
                 window.URL.createObjectURL(
-
                     archivo
-
                 );
 
             const enlace =
-
                 document.createElement(
-
                     "a"
-
                 );
 
             enlace.href =
-
                 url;
 
             enlace.download =
-
-                `${categoria}.xlsx`;
+                `${categoria}_${anio}.xlsx`;
 
             enlace.click();
 
             window.URL.revokeObjectURL(
-
                 url
-
             );
 
         }
@@ -530,15 +723,11 @@ async function guardarDocumento(
         catch (error) {
 
             console.error(
-
                 error
-
             );
 
             alert(
-
                 "No fue posible generar el archivo Excel."
-
             );
 
         }
@@ -546,7 +735,7 @@ async function guardarDocumento(
     }
 
     // ==========================================
-    // Abrir modal de entrega
+    // ABRIR ENTREGA
     // ==========================================
 
     function abrirEntrega(
@@ -556,178 +745,296 @@ async function guardarDocumento(
     ) {
 
         setDocumentoSeleccionado(
-
             documento
-
         );
 
         setModalEntrega(
-
             true
-
         );
 
     }
 
     // ==========================================
-    // Cerrar modales
+    // CERRAR MODALES
     // ==========================================
 
     function cerrarModales() {
 
-        setModalValija(
+    setModalValija(
+        false
+    );
 
-            false
+    setModalNuevaConstancia(
+        false
+    );
 
-        );
+    setModalEntrega(
+        false
+    );
 
-        setModalEntrega(
+    setDocumentoSeleccionado(
+        null
+    );
 
-            false
+}
 
-        );
+    // ==========================================
+    // RENDER
+    // ==========================================
 
-        setDocumentoSeleccionado(
-
-            null
-
-        );
-
-    }
-        return (
+    return (
 
         <SistemaLayout
 
             titulo="Consulnet Barranquilla"
 
-            permiso={MODULOS.GESTION_CONSULAR}
+            permiso={
+                MODULOS.GESTION_CONSULAR
+            }
 
         >
 
-            <div className="flex gap-6 min-w-0">
+            <div className="
+                flex
+                min-w-0
+                gap-6
+            ">
 
                 {/* =======================================
-                    Menú lateral
+                    MENÚ LATERAL
                 ======================================== */}
 
                 <ReportesSidebar
 
-                    categoria={categoria}
+                    categoria={
+                        categoria
+                    }
 
-                    onChange={setCategoria}
+                    onChange={
+                        setCategoria
+                    }
 
                 />
 
                 {/* =======================================
-                    Contenido
+                    CONTENIDO
                 ======================================== */}
 
-                <div className="flex-1 min-w-0">
+                <div className="
+                    min-w-0
+                    flex-1
+                ">
 
-                    <div
+                    <div className="
+                        mb-6
+                        rounded-2xl
+                        bg-white
+                        p-6
+                        shadow-md
+                    ">
 
-                        className="
+                        {/* ==================================
+                            CABECERA
+                        ================================== */}
 
-                            bg-white
+                        <div className="
+                            mb-5
+                            flex
+                            flex-col
+                            gap-4
+                            lg:flex-row
+                            lg:items-center
+                            lg:justify-between
+                        ">
 
-                            rounded-2xl
+                            <div>
 
-                            shadow-md
-
-                            p-6
-
-                            mb-6
-
-                        "
-
-                    >
-
-                        <div className="mb-5">
-
-                            <h2
-
-                                className="
-
+                                <h2 className="
                                     text-2xl
-
                                     font-bold
-
                                     text-blue-950
+                                ">
 
-                                "
+                                    {
+                                        configuracion?.nombre ??
+                                        ""
+                                    }
 
-                            >
+                                </h2>
 
-                                {
-
-                                    configuracion?.nombre ??
-
-                                    ""
-
-                                }
-
-                            </h2>
-
-                            <p
-
-                                className="
-
-                                    text-slate-500
-
+                                <p className="
                                     mt-1
+                                    text-slate-500
+                                ">
 
-                                "
+                                    Gestión y control
+                                    documental
 
-                            >
+                                </p>
 
-                                Gestión y control documental
+                            </div>
 
-                            </p>
+                            {/* ==================================
+                                SELECTOR DE AÑO
+                            ================================== */}
+
+                            <div className="
+                                flex
+                                items-center
+                                gap-3
+                            ">
+
+                                <label className="
+                                    text-sm
+                                    font-semibold
+                                    text-slate-700
+                                ">
+
+                                    Año:
+
+                                </label>
+
+                                <select
+
+                                    value={
+                                        anio
+                                    }
+
+                                    disabled={
+                                        cargandoAnios
+                                    }
+
+                                    onChange={(event) => {
+
+                                        setAnio(
+                                            Number(
+                                                event.target.value
+                                            )
+                                        );
+
+                                    }}
+
+                                    className="
+                                        min-w-[130px]
+                                        rounded-xl
+                                        border
+                                        border-slate-300
+                                        bg-white
+                                        px-4
+                                        py-2
+                                        text-sm
+                                        font-semibold
+                                        text-slate-700
+                                        outline-none
+                                        transition
+                                        focus:border-blue-600
+                                        focus:ring-2
+                                        focus:ring-blue-100
+                                        disabled:bg-slate-100
+                                    "
+
+                                >
+
+                                    {/* ==================================
+                                        Año actual siempre disponible
+                                    ================================== */}
+
+                                    {!aniosDisponibles.includes(
+                                        anioActual
+                                    ) && (
+
+                                        <option
+                                            value={
+                                                anioActual
+                                            }
+                                        >
+
+                                            {anioActual}
+
+                                        </option>
+
+                                    )}
+
+                                    {
+
+                                        aniosDisponibles.map(
+
+                                            (
+                                                anioDisponible
+                                            ) => (
+
+                                                <option
+
+                                                    key={
+                                                        anioDisponible
+                                                    }
+
+                                                    value={
+                                                        anioDisponible
+                                                    }
+
+                                                >
+
+                                                    {
+                                                        anioDisponible
+                                                    }
+
+                                                </option>
+
+                                            )
+
+                                        )
+
+                                    }
+
+                                </select>
+
+                            </div>
 
                         </div>
 
+                        {/* ==================================
+                            BARRA DE HERRAMIENTAS
+                        ================================== */}
+
                         <DataTableToolbar
 
-                            busqueda={busqueda}
-
-                            onBusquedaChange={
-
-                                setBusqueda
-
+                            busqueda={
+                                busqueda
                             }
 
-                            placeholder="Buscar por nombre, documento, planilla o recibo..."
+                            onBusquedaChange={
+                                setBusqueda
+                            }
+
+                            placeholder="
+                                Buscar por nombre,
+                                documento, planilla o recibo...
+                            "
 
                         >
 
-                            {
+                            {/* ==================================
+                                EXPORTAR EXCEL
+                            ================================== */}
 
+                            {
                                 configuracion?.permiteExcel && (
 
                                     <button
 
                                         onClick={
-
                                             descargarExcel
-
                                         }
 
                                         className="
-
-                                            bg-orange-600
-
-                                            hover:bg-orange-700
-
-                                            text-white
-
                                             rounded-xl
-
+                                            bg-orange-600
                                             px-5
-
                                             py-2
-
                                             font-semibold
-
+                                            text-white
+                                            hover:bg-orange-700
                                         "
 
                                     >
@@ -737,41 +1044,31 @@ async function guardarDocumento(
                                     </button>
 
                                 )
-
                             }
 
-                            {
+                            {/* ==================================
+                                REGISTRAR VALIJA
+                            ================================== */}
 
+                            {
                                 configuracion?.permiteValija && (
 
                                     <button
 
                                         onClick={() =>
-
                                             setModalValija(
-
                                                 true
-
                                             )
-
                                         }
 
                                         className="
-
-                                            bg-blue-700
-
-                                            hover:bg-blue-800
-
-                                            text-white
-
                                             rounded-xl
-
+                                            bg-blue-700
                                             px-5
-
                                             py-2
-
                                             font-semibold
-
+                                            text-white
+                                            hover:bg-blue-800
                                         "
 
                                     >
@@ -781,56 +1078,100 @@ async function guardarDocumento(
                                     </button>
 
                                 )
-
                             }
+{
+    categoria === "CONSTANCIA_CONSULAR" && (
 
+        <button
+
+            type="button"
+
+            onClick={() =>
+                setModalNuevaConstancia(
+                    true
+                )
+            }
+
+            className="
+                rounded-xl
+                bg-blue-700
+                px-5
+                py-2
+                font-semibold
+                text-white
+                hover:bg-blue-800
+            "
+
+        >
+
+            + Nueva Constancia Consular
+
+        </button>
+
+    )
+}
                         </DataTableToolbar>
 
                     </div>
 
+                    {/* ==================================
+                        TABLA
+                    ================================== */}
+
                     {
 
-                        cargando ? (
+                        cargando ?
 
-                            <div
+                            (
 
-                                className="
-
-                                    bg-white
-
+                                <div className="
                                     rounded-2xl
-
-                                    shadow-md
-
+                                    bg-white
                                     p-10
-
                                     text-center
-
                                     text-slate-500
+                                    shadow-md
+                                ">
 
-                                "
+                                    Cargando documentos...
 
-                            >
+                                </div>
 
-                                Cargando documentos...
+                            )
 
-                            </div>
+                            :
 
-                        ) : (
+                            (
 
-                            <DataTableContainer>
+                                <DataTableContainer>
 
-   <ReportesTable
-    categoria={categoria}
-    busqueda={busqueda}
-    documentos={documentos}
-    onEditar={abrirEditar}
-    onEntregar={abrirEntrega}
-/>
+                                    <ReportesTable
 
-</DataTableContainer>
+                                        categoria={
+                                            categoria
+                                        }
 
-                        )
+                                        busqueda={
+                                            busqueda
+                                        }
+
+                                        documentos={
+                                            documentos
+                                        }
+
+                                        onEditar={
+                                            abrirEditar
+                                        }
+
+                                        onEntregar={
+                                            abrirEntrega
+                                        }
+
+                                    />
+
+                                </DataTableContainer>
+
+                            )
 
                     }
 
@@ -838,12 +1179,14 @@ async function guardarDocumento(
 
             </div>
 
+            {/* ==========================================
+                MODAL VALIJA
+            ========================================== */}
+
             <ModalRegistrarValija
 
                 open={
-
                     modalValija
-
                 }
 
                 documentos={
@@ -859,49 +1202,99 @@ async function guardarDocumento(
                 }
 
                 onClose={
-
                     cerrarModales
-
                 }
 
                 onGuardar={
-
                     guardarValija
-
                 }
 
             />
 
+            {/* ==========================================
+                MODAL ENTREGA
+            ========================================== */}
+
             <ModalEntregarDocumento
 
-    open={modalEntrega}
+                open={
+                    modalEntrega
+                }
 
-    documento={documentoSeleccionado}
+                documento={
+                    documentoSeleccionado
+                }
 
-    usuario={usuario}
+                usuario={
+                    usuario
+                }
 
-    onClose={cerrarModales}
+                onClose={
+                    cerrarModales
+                }
 
-    onGuardar={guardarEntrega}
+                onGuardar={
+                    guardarEntrega
+                }
+
+            />
+{/* ==========================================
+    MODAL NUEVA CONSTANCIA CONSULAR
+========================================== */}
+
+<ModalNuevaConstancia
+
+    open={
+        modalNuevaConstancia
+    }
+
+    usuario={
+        usuario
+    }
+
+    onClose={() =>
+        setModalNuevaConstancia(
+            false
+        )
+    }
+
+    onGuardar={
+        guardarNuevaConstancia
+    }
 
 />
-<DrawerEditar
+            {/* ==========================================
+                DRAWER EDITAR
+            ========================================== */}
 
-    open={drawerEditar}
+            <DrawerEditar
 
-    documento={documentoEditar}
+                open={
+                    drawerEditar
+                }
 
-    onClose={() => {
+                documento={
+                    documentoEditar
+                }
 
-        setDrawerEditar(false);
+                onClose={() => {
 
-        setDocumentoEditar(null);
+                    setDrawerEditar(
+                        false
+                    );
 
-    }}
+                    setDocumentoEditar(
+                        null
+                    );
 
-    onGuardar={guardarDocumento}
+                }}
 
-/>
+                onGuardar={
+                    guardarDocumento
+                }
+
+            />
+
         </SistemaLayout>
 
     );

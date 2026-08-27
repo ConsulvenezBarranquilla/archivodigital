@@ -40,6 +40,28 @@ export type TipoDocumento =
     | "AUTORIZACION_VIAJE";
 
 // ==========================================
+// Estado de procesamiento
+// ==========================================
+//
+// EN_PROCESO
+//    El documento todavía necesita información.
+//
+// PROCESADO
+//    El documento está completo y listo para
+//    pasar posteriormente al módulo de entrega.
+//
+// ENTREGADO
+//    El documento ya fue entregado al ciudadano.
+//
+// ==========================================
+
+export type EstadoProcesamiento =
+    | "EN_PROCESO"
+    | "PROCESADO"
+    | "ENTREGADO"
+    | "RECHAZADA";
+
+// ==========================================
 // Registro principal
 // ==========================================
 
@@ -70,6 +92,16 @@ export interface ReporteEntregado {
     documento: string;
 
     estado: string;
+
+    // --------------------------------------
+    // Estado interno del procesamiento
+    // --------------------------------------
+
+    estadoProcesamiento: EstadoProcesamiento;
+
+    // --------------------------------------
+    // Entrega
+    // --------------------------------------
 
     entregado: boolean;
 
@@ -105,17 +137,46 @@ export interface ReporteEntregado {
 
     vigencia?: string;
 
+    // --------------------------------------
+    // Titular de Visa distinto del solicitante
+    // --------------------------------------
+
+    titularVisa?: string;
+
+    pasaporteTitularVisa?: string;
+
     // ======================================
     // APOSTILLAS
     // ======================================
 
     estadoApostilla?: string;
 
+    // --------------------------------------
+    // Titular de Apostilla
+    // --------------------------------------
+    //
+    // Para Apostilla NNA corresponde al
+    // ciudadano registrado en Caja.
+    //
+    // --------------------------------------
+
+    titularApostilla?: string;
+
     // ======================================
     // FE DE VIDA
     // ======================================
 
-    correlativo?: string;
+    fechaEmisionDocumento?: string;
+
+correlativoDocumento?: string;
+
+// ======================================
+// CARTA DE SOLTERÍA
+// ======================================
+
+fechaCarta?: string;
+
+correlativoCarta?: string;
 
     // ======================================
     // CERTIFICADOS DE USO
@@ -132,49 +193,73 @@ export interface ReporteEntregado {
     // ======================================
 
     numeroRegistro?: string;
+    fechaRegistroConsular?: string;
 
     // ======================================
     // CONSTANCIA CONSULAR
     // ======================================
 
     fechaConstancia?: string;
+    correlativoConstancia?: string;
 
     // ======================================
-    // PODERES
+// PODERES
+// ======================================
+
+tipoPoder?: "PODR-E" | "PODR-G";
+
+solicitantesPoder?: {
+    nombre: string;
+    documento: string;
+}[];
+
+apoderadosPoder?: {
+    nombre: string;
+    documento: string;
+}[];
+
+estadoPoder?: "VIGENTE" | "REVOCADO";
+
+    // ======================================
+// AUTORIZACIÓN DE VIAJE
+// ======================================
+
+origen?: string;
+
+solicitantesAutorizacion?: {
+    nombre: string;
+    documento: string;
+}[];
+
+parentesco?: string;
+
+menor?: string;
+
+pasaporteMenor?: string;
+
+destino?: string;
+
+fechaIda?: string;
+
+fechaRetorno?: string;
+
+acompanante?: string;
+
+pasaporteAcompanante?: string;
+
+modalidad?: string;
+
+    // ======================================
+    // AUDITORÍA
     // ======================================
 
-    tipoPoder?: string;
+    fechaCreacion?: string;
 
-    apoderado?: string;
+    usuarioCreacion?: string;
 
-    documentoApoderado?: string;
+    fechaActualizacion?: string;
 
-    estadoPoder?: string;
-
-    // ======================================
-    // AUTORIZACIÓN DE VIAJE
-    // ======================================
-
-    autoriza?: string;
-
-    parentesco?: string;
-
-    menor?: string;
-
-    pasaporteMenor?: string;
-
-    destino?: string;
-
-    fechaIda?: string;
-
-    fechaRetorno?: string;
-
-    acompanante?: string;
-
-    pasaporteAcompanante?: string;
-
-    modalidad?: string;
-
+    usuarioActualizacion?: string;
 }
 
 // ==========================================
@@ -189,8 +274,9 @@ export interface ReportesEntregadosResultado {
 
     pendientes: number;
 
+    procesados: number;
+
     entregados: number;
 
     documentos: ReporteEntregado[];
-
 }

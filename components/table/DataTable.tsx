@@ -10,17 +10,21 @@ import DataTableBody from "./DataTableBody";
 
 export interface TableColumn<T extends object> {
 
-  field: keyof T;
+    field: keyof T;
 
-  title: string;
+    title: string;
 
-  width?: string;
+    width?: string;
 
-  align?: "left" | "center" | "right";
+    align?: "left" | "center" | "right";
 
-  render?: (
-    row: T
-  ) => React.ReactNode;
+    key?: string;
+
+    whiteSpace?: "nowrap" | "normal" | "pre-line";
+
+    render?: (
+        row: T
+    ) => React.ReactNode;
 
 }
 
@@ -351,7 +355,14 @@ onSelectionChange(
     };
 
   }, []);
-
+console.table(
+  columns.map((c) => ({
+    key: c.key,
+    field: c.field,
+    width: c.width,
+    whiteSpace: c.whiteSpace,
+  }))
+);
   return (
 
     <>
@@ -507,15 +518,7 @@ text-white
 
                     <th
 
-                      key={
-
-                        String(
-
-                          column.field
-
-                        )
-
-                      }
+                      key={column.key ?? String(column.field)}
 
                       style={{
 
@@ -526,41 +529,30 @@ text-white
                       }}
 
                       className={`
-
-                        px-4
-
-                        py-3
-
-                        border-b
-
-                        whitespace-nowrap
-
-                        text-sm
-
-                        font-medium
-
-                        bg-blue-950
-text-white
-
-                        ${
-
-                          column.align ===
-
-                          "center"
-
-                            ? "text-center"
-
-                            : column.align ===
-
-                              "right"
-
-                            ? "text-right"
-
-                            : "text-left"
-
-                        }
-
-                      `}
+    px-4
+    py-3
+    border-b
+    ${
+        column.whiteSpace === "normal"
+            ? "whitespace-normal"
+            : column.whiteSpace === "pre-line"
+            ? "whitespace-pre-line"
+            : "whitespace-nowrap"
+    }
+    text-sm
+    font-medium
+    bg-blue-950
+    text-white
+    ${
+        column.align ===
+        "center"
+            ? "text-center"
+            : column.align ===
+              "right"
+            ? "text-right"
+            : "text-left"
+    }
+`}
 
                     >
 

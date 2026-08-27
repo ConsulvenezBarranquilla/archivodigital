@@ -8,6 +8,7 @@ import {
 
 import SistemaLayout from "@/components/layout/SistemaLayout";
 import { MODULOS } from "@/lib/modulos";
+import PopupTitulares from "@/components/caja/PopupTitulares";
 
 export default function CajaPage() {
   const [usuario, setUsuario] = useState<any>(null);
@@ -58,6 +59,23 @@ const [
   setMostrarConfirmacion,
 ] = useState(false);
 
+const [
+  mostrarPopupTitulares,
+  setMostrarPopupTitulares,
+] = useState(false);
+
+const [
+  titularesEspeciales,
+  setTitularesEspeciales,
+] = useState<
+  {
+    tipo: "PASAPORTE" | "APOSTILLA" | "VISA";
+    titular: string;
+    pasaporte?: string;
+    mismaPersona?: boolean;
+  }[]
+>([]);
+
 const [mostrarCambioCaja, setMostrarCambioCaja] =
     useState(false);
 
@@ -78,6 +96,47 @@ const totalUSD =
       total + Number(item.monto),
     0
   );
+
+const tienePasaporteNNA =
+  actuacionesSeleccionadas.some(
+    a => a.codigo === "P-NNA"
+  );
+
+const tieneApostillaNNA =
+  actuacionesSeleccionadas.some(
+    a => a.codigo === "A-NNA"
+  );
+
+const tieneVisa =
+  actuacionesSeleccionadas.some(
+    (a) =>
+      a.actuacion
+        ?.toUpperCase()
+        .includes("VISA")
+  );
+
+const cantidadPasaportesAdulto =
+  actuacionesSeleccionadas.filter(
+    a => a.codigo === "P"
+  ).length;
+
+const cantidadPasaportesNNA =
+  actuacionesSeleccionadas.filter(
+    a => a.codigo === "P-NNA"
+  ).length;
+
+const cantidadApostillas =
+  actuacionesSeleccionadas.filter(
+    a => a.codigo === "A-NNA"
+  ).length;
+
+const cantidadVisas =
+  actuacionesSeleccionadas.filter(
+    a =>
+      a.actuacion
+        ?.toUpperCase()
+        .includes("VISA")
+  ).length;
 
   const actuacionesFiltradas =
     actuaciones.filter((item) =>
@@ -157,7 +216,7 @@ setMensaje("");
   setBusquedaActuacion("");
 
   setMostrarActuaciones(false);
-
+setTitularesEspeciales([]);
     if (!documento.trim()) {
       setMensaje(
         "Ingrese un documento"
@@ -262,21 +321,46 @@ function cancelarCambioCaja() {
 
   setMostrarActuaciones(false);
 
+  setTitularesEspeciales([]);
+
 }
 function agregarActuacion(item: any) {
 
   setMensajeRecibo("");
 
-  
+  // ======================================================
+  // MÁXIMO 5 ACTUACIONES POR RECIBO
+  // ======================================================
+
+  if (
+    actuacionesSeleccionadas.length >= 5
+  ) {
+
+    setMensajeRecibo(
+      "Un recibo puede contener un máximo de 5 actuaciones. Para registrar más actuaciones debe generar otro recibo."
+    );
+
+    setMostrarActuaciones(false);
+
+    return;
+  }
+
+  // ======================================================
+  // AGREGAR ACTUACIÓN
+  // ======================================================
+
   setActuacionesSeleccionadas([
-  ...actuacionesSeleccionadas,
-  {
-    ...item,
-    id:
-      Date.now() +
-      Math.random(),
-  },
-]);
+    ...actuacionesSeleccionadas,
+
+    {
+      ...item,
+
+      id:
+        Date.now() +
+        Math.random(),
+    },
+
+  ]);
 
   setBusquedaActuacion("");
 
@@ -322,6 +406,7 @@ async function generarRecibo() {
               actuacionesSeleccionadas,
             totalUSD,
             usuario,
+            titularesEspeciales,
           }),
         }
       );
@@ -406,6 +491,8 @@ setMensaje("");
     setBusquedaActuacion("");
 
 setMostrarActuaciones(false);
+
+setTitularesEspeciales([]);
 
 setActuacionesSeleccionadas([]);
 fetch(
@@ -588,6 +675,35 @@ async function generarCierreDiario() {
 
     </div>
 )}
+<PopupTitulares
+    abierto={mostrarPopupTitulares}
+
+    ciudadano={ciudadano}
+
+    cantidadPasaportesAdulto={cantidadPasaportesAdulto}
+
+    cantidadPasaportesNNA={cantidadPasaportesNNA}
+
+    cantidadApostillas={cantidadApostillas}
+
+    cantidadVisas={cantidadVisas}
+
+    datosIniciales={titularesEspeciales}
+
+    onCancelar={() =>
+        setMostrarPopupTitulares(false)
+    }
+
+    onAceptar={(datos) => {
+
+        setTitularesEspeciales(datos);
+
+        setMostrarPopupTitulares(false);
+
+        setMostrarConfirmacion(true);
+
+    }}
+/>
     {mostrarConfirmacion && (
 
   <div
@@ -990,25 +1106,37 @@ async function generarCierreDiario() {
 >
 
   <input
-    type="text"
-    placeholder="Seleccione actuación..."
-    value={busquedaActuacion}
-    onFocus={() =>
-      setMostrarActuaciones(true)
-    }
-    onChange={(e) => {
-      setMensajeRecibo("");
-      setBusquedaActuacion(
-        e.target.value
-      );
-
+  type="text"
+  placeholder={
+    actuacionesSeleccionadas.length >= 5
+      ? "Máximo de 5 actuaciones alcanzado"
+      : "Seleccione actuación..."
+  }
+  value={busquedaActuacion}
+  disabled={
+    actuacionesSeleccionadas.length >= 5
+  }
+  onFocus={() => {
+    if (
+      actuacionesSeleccionadas.length < 5
+    ) {
       setMostrarActuaciones(true);
-    }}
-    style={{
-      width: "100%",
-      padding: "10px",
-    }}
-  />
+    }
+  }}
+  onChange={(e) => {
+    setMensajeRecibo("");
+
+    setBusquedaActuacion(
+      e.target.value
+    );
+
+    setMostrarActuaciones(true);
+  }}
+  style={{
+    width: "100%",
+    padding: "10px",
+  }}
+/>
 
   {mostrarActuaciones && (
 
@@ -1183,9 +1311,29 @@ async function generarCierreDiario() {
 
 
     <button
-  onClick={() =>
-  setMostrarConfirmacion(true)
+  onClick={() => {
+
+    if (
+
+    cantidadPasaportesAdulto > 0 ||
+
+    tienePasaporteNNA ||
+
+    tieneApostillaNNA ||
+
+    tieneVisa
+
+) {
+
+    setMostrarPopupTitulares(true);
+
+    return;
+
 }
+
+    setMostrarConfirmacion(true);
+
+}}
   className="
     bg-green-700
     hover:bg-green-800

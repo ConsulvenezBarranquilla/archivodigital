@@ -1426,7 +1426,7 @@ return (
 <DataTable
     columns={columnasReportes}
     data={datosReportes}
-    getRowKey={(row) => row.recibo}
+    getRowKey={(row, index) => `${row.recibo}-${index}`}
 />
 
       </div>

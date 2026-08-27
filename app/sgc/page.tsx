@@ -1,6 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useState,
+} from "react";
 
 import Dashboard from "@/components/sgc/Dashboard";
 import Pendientes from "@/components/sgc/Pendientes";
@@ -12,72 +16,84 @@ import Tabs from "@/components/ui/Tabs";
 
 import SistemaLayout from "@/components/layout/SistemaLayout";
 import { MODULOS } from "@/lib/modulos";
+
 import {
-
   obtenerEstadisticasSGC,
-
   obtenerPendientesSGC,
-
   obtenerVinculadasSGC,
-
+  obtenerAniosSGC,
   vincularPlanillaSGC,
-
   registrarSinPlanillaSGC,
-
   desvincularPlanillaSGC,
-
   obtenerDetalleCiudadanoSGC,
-
 } from "@/lib/services/GestionConsular";
 
 import {
-
   ActuacionPendiente,
-
   ActuacionVinculada,
-
   EstadisticasSGC,
-
   VincularPlanillaForm,
-
   VincularPlanillaRequest,
-
   SinPlanillaForm,
-
   SinPlanillaRequest,
-
   DesvincularPlanillaForm,
-
   DesvincularPlanillaRequest,
-
   CiudadanoSGC,
-
 } from "@/types/GestionConsular";
 
 export default function SistemaGestionConsular() {
 
+  // ======================================================
+  // CARGANDO
+  // ======================================================
+
   const [
-
     cargando,
-
     setCargando,
-
   ] = useState(true);
 
-  const [
+  // ======================================================
+  // AÑO
+  // ======================================================
 
+  const anioActual =
+    new Date().getFullYear();
+
+  const [
+    anio,
+    setAnio,
+  ] = useState<number>(
+    anioActual
+  );
+
+  const [
+    aniosDisponibles,
+    setAniosDisponibles,
+  ] = useState<number[]>([]);
+
+  const [
+    cargandoAnios,
+    setCargandoAnios,
+  ] = useState(true);
+
+  // ======================================================
+  // TAB
+  // ======================================================
+
+  const [
     tab,
-
     setTab,
+  ] = useState(
+    "pendientes"
+  );
 
-  ] = useState("pendientes");
+  // ======================================================
+  // ESTADÍSTICAS
+  // ======================================================
 
   const [
-
     estadisticas,
-
     setEstadisticas,
-
   ] = useState<EstadisticasSGC>({
 
     ok: true,
@@ -96,128 +112,142 @@ export default function SistemaGestionConsular() {
 
   });
 
-  const [
+  // ======================================================
+  // PENDIENTES
+  // ======================================================
 
+  const [
     pendientes,
-
     setPendientes,
+  ] = useState<
+    ActuacionPendiente[]
+  >([]);
 
-  ] = useState<ActuacionPendiente[]>([]);
+  // ======================================================
+  // VINCULADAS
+  // ======================================================
 
   const [
-
     vinculadas,
-
     setVinculadas,
+  ] = useState<
+    ActuacionVinculada[]
+  >([]);
 
-  ] = useState<ActuacionVinculada[]>([]);
+  // ======================================================
+  // CIUDADANO
+  // ======================================================
 
   const [
+    ciudadano,
+    setCiudadano,
+  ] = useState<
+    CiudadanoSGC | null
+  >(null);
 
-  ciudadano,
+  const [
+    modalCiudadano,
+    setModalCiudadano,
+  ] = useState(false);
 
-  setCiudadano,
-
-] = useState<CiudadanoSGC | null>(null);
-
-const [
-
-  modalCiudadano,
-
-  setModalCiudadano,
-
-] = useState(false);
+  // ======================================================
+  // USUARIO ACTUAL
+  // ======================================================
 
   function obtenerUsuarioActual(): string {
 
-  if (typeof window === "undefined") {
+    if (
+      typeof window ===
+      "undefined"
+    ) {
 
-    return "";
+      return "";
+
+    }
+
+    const datos =
+      localStorage.getItem(
+        "usuarioCaja"
+      );
+
+    if (!datos) {
+
+      return "";
+
+    }
+
+    try {
+
+      const usuario =
+        JSON.parse(
+          datos
+        );
+
+      return (
+        usuario.usuario ||
+        ""
+      );
+
+    }
+
+    catch {
+
+      return datos;
+
+    }
 
   }
 
-  const datos =
-    localStorage.getItem(
-      "usuarioCaja"
-    );
+  // ======================================================
+  // CARGAR AÑOS
+  // ======================================================
 
-  if (!datos) {
+  useEffect(() => {
 
-    return "";
-
-  }
-
-  try {
-
-    const usuario =
-      JSON.parse(datos);
-
-    return (
-      usuario.usuario || ""
-    );
-
-  }
-
-  catch {
-
-    return datos;
-
-  }
-
-}
-  const cargarTodo = useCallback(
-
-    async () => {
+    async function cargarAnios() {
 
       try {
 
-        setCargando(true);
+        setCargandoAnios(
+          true
+        );
 
-        const [
+        const respuesta =
+          await obtenerAniosSGC();
 
-          dashboard,
+        if (
+          respuesta.ok &&
+          respuesta.anios.length > 0
+        ) {
 
-          pendientesResp,
-
-          vinculadasResp,
-
-        ] = await Promise.all([
-
-          obtenerEstadisticasSGC(),
-
-          obtenerPendientesSGC(),
-
-          obtenerVinculadasSGC(),
-
-        ]);
-
-        if (dashboard.ok) {
-
-          setEstadisticas(
-
-            dashboard
-
+          setAniosDisponibles(
+            respuesta.anios
           );
 
-        }
+          // ------------------------------------------
+          // Si existe el año actual, utilizarlo.
+          // De lo contrario utilizar el más reciente.
+          // ------------------------------------------
 
-        if (pendientesResp.ok) {
+          if (
+            respuesta.anios.includes(
+              anioActual
+            )
+          ) {
 
-          setPendientes(
+            setAnio(
+              anioActual
+            );
 
-            pendientesResp.registros
+          }
 
-          );
+          else {
 
-        }
+            setAnio(
+              respuesta.anios[0]
+            );
 
-        if (vinculadasResp.ok) {
-
-          setVinculadas(
-
-            vinculadasResp.registros
-
-          );
+          }
 
         }
 
@@ -227,27 +257,167 @@ const [
 
         console.error(
 
-          "Error cargando SGC:",
+          "Error cargando años SGC:",
 
           error
 
+        );
+
+        // ------------------------------------------
+        // Si falla la consulta, mantenemos
+        // el año actual.
+        // ------------------------------------------
+
+        setAniosDisponibles([
+          anioActual,
+        ]);
+
+        setAnio(
+          anioActual
         );
 
       }
 
       finally {
 
-        setCargando(false);
+        setCargandoAnios(
+          false
+        );
 
       }
 
-    },
+    }
 
-    []
+    cargarAnios();
 
-  );
+  }, [
+    anioActual,
+  ]);
+
+  // ======================================================
+  // CARGAR TODO
+  // ======================================================
+
+  const cargarTodo =
+    useCallback(
+
+      async () => {
+
+        try {
+
+          setCargando(
+            true
+          );
+
+          const [
+
+            dashboard,
+
+            pendientesResp,
+
+            vinculadasResp,
+
+          ] = await Promise.all([
+
+            obtenerEstadisticasSGC(
+              anio
+            ),
+
+            obtenerPendientesSGC(
+              anio
+            ),
+
+            obtenerVinculadasSGC(
+              anio
+            ),
+
+          ]);
+
+          // --------------------------------------------
+          // Dashboard
+          // --------------------------------------------
+
+          if (
+            dashboard.ok
+          ) {
+
+            setEstadisticas(
+              dashboard
+            );
+
+          }
+
+          // --------------------------------------------
+          // Pendientes
+          // --------------------------------------------
+
+          if (
+            pendientesResp.ok
+          ) {
+
+            setPendientes(
+              pendientesResp.registros
+            );
+
+          }
+
+          // --------------------------------------------
+          // Vinculadas
+          // --------------------------------------------
+
+          if (
+            vinculadasResp.ok
+          ) {
+
+            setVinculadas(
+              vinculadasResp.registros
+            );
+
+          }
+
+        }
+
+        catch (error) {
+
+          console.error(
+
+            "Error cargando SGC:",
+
+            error
+
+          );
+
+        }
+
+        finally {
+
+          setCargando(
+            false
+          );
+
+        }
+
+      },
+
+      [
+        anio,
+      ]
+
+    );
+
+  // ======================================================
+  // RECARGAR AL CAMBIAR AÑO
+  // ======================================================
 
   useEffect(() => {
+
+    if (
+      cargandoAnios
+    ) {
+
+      return;
+
+    }
 
     cargarTodo();
 
@@ -255,151 +425,44 @@ const [
 
     cargarTodo,
 
+    cargandoAnios,
+
   ]);
- 
+
+  // ======================================================
+  // GUARDAR PLANILLA
+  // ======================================================
 
   async function guardarPlanilla(
 
-  datos: VincularPlanillaForm
+    datos: VincularPlanillaForm
 
-) {
+  ) {
 
-  const request: VincularPlanillaRequest = {
+    const request:
+      VincularPlanillaRequest = {
 
-    ...datos,
+      ...datos,
 
-    usuario: obtenerUsuarioActual(),
+      usuario:
+        obtenerUsuarioActual(),
 
-  };
-
-  const respuesta =
-
-    await vincularPlanillaSGC(
-
-      request
-
-    );
-
-  if (!respuesta.ok) {
-
-    alert(
-
-      respuesta.error ||
-
-      respuesta.mensaje
-
-    );
-
-    return;
-
-  }
-
-  await cargarTodo();
-
-}
-async function registrarSinPlanilla(
-
-  datos: SinPlanillaForm
-
-) {
-
-  const request: SinPlanillaRequest = {
-
-    ...datos,
-
-    usuario: obtenerUsuarioActual(),
-
-  };
-
-  const respuesta =
-
-    await registrarSinPlanillaSGC(
-
-      request
-
-    );
-
-  if (!respuesta.ok) {
-
-    alert(
-
-      respuesta.error ||
-
-      respuesta.mensaje
-
-    );
-
-    return;
-
-  }
-
-  await cargarTodo();
-
-}
-
-  async function desvincular(
-
-  datos: DesvincularPlanillaForm
-
-) {
-
-  const request: DesvincularPlanillaRequest = {
-
-    ...datos,
-
-    usuario: obtenerUsuarioActual(),
-
-  };
-
-  const respuesta =
-
-    await desvincularPlanillaSGC(
-
-      request
-
-    );
-
-  if (!respuesta.ok) {
-
-    alert(
-
-      respuesta.error ||
-
-      respuesta.mensaje
-
-    );
-
-    return;
-
-  }
-
-  await cargarTodo();
-
-}
-
-  async function abrirCiudadano(
-
-  documento: string
-
-) {
-
-  try {
+    };
 
     const respuesta =
-
-      await obtenerDetalleCiudadanoSGC(
-
-        documento
-
+      await vincularPlanillaSGC(
+        request
       );
 
-    if (!respuesta.ok) {
+    if (
+      !respuesta.ok
+    ) {
 
       alert(
 
         respuesta.error ||
 
-        "No fue posible obtener la información del ciudadano."
+        respuesta.mensaje
 
       );
 
@@ -407,155 +470,420 @@ async function registrarSinPlanilla(
 
     }
 
-    setCiudadano(
-
-      respuesta
-
-    );
-
-    setModalCiudadano(
-
-      true
-
-    );
+    await cargarTodo();
 
   }
 
-  catch (error) {
+  // ======================================================
+  // SIN PLANILLA
+  // ======================================================
 
-    console.error(error);
+  async function registrarSinPlanilla(
 
-    alert(
+    datos: SinPlanillaForm
 
-      "Error consultando el ciudadano."
+  ) {
 
-    );
+    const request:
+      SinPlanillaRequest = {
+
+      ...datos,
+
+      usuario:
+        obtenerUsuarioActual(),
+
+    };
+
+    const respuesta =
+      await registrarSinPlanillaSGC(
+        request
+      );
+
+    if (
+      !respuesta.ok
+    ) {
+
+      alert(
+
+        respuesta.error ||
+
+        respuesta.mensaje
+
+      );
+
+      return;
+
+    }
+
+    await cargarTodo();
 
   }
 
-}
+  // ======================================================
+  // DESVINCULAR
+  // ======================================================
+
+  async function desvincular(
+
+    datos: DesvincularPlanillaForm
+
+  ) {
+
+    const request:
+      DesvincularPlanillaRequest = {
+
+      ...datos,
+
+      usuario:
+        obtenerUsuarioActual(),
+
+    };
+
+    const respuesta =
+      await desvincularPlanillaSGC(
+        request
+      );
+
+    if (
+      !respuesta.ok
+    ) {
+
+      alert(
+
+        respuesta.error ||
+
+        respuesta.mensaje
+
+      );
+
+      return;
+
+    }
+
+    await cargarTodo();
+
+  }
+
+  // ======================================================
+  // ABRIR CIUDADANO
+  // ======================================================
+
+  async function abrirCiudadano(
+
+    documento: string
+
+  ) {
+
+    try {
+
+      const respuesta =
+        await obtenerDetalleCiudadanoSGC(
+          documento
+        );
+
+      if (
+        !respuesta.ok
+      ) {
+
+        alert(
+
+          respuesta.error ||
+
+          "No fue posible obtener la información del ciudadano."
+
+        );
+
+        return;
+
+      }
+
+      setCiudadano(
+        respuesta
+      );
+
+      setModalCiudadano(
+        true
+      );
+
+    }
+
+    catch (error) {
+
+      console.error(
+        error
+      );
+
+      alert(
+        "Error consultando el ciudadano."
+      );
+
+    }
+
+  }
+
+  // ======================================================
+  // TABS
+  // ======================================================
 
   const tabs = [
 
     {
 
-      id: "pendientes",
+      id:
+        "pendientes",
 
-      label: `Pendientes (${estadisticas.pendientes})`,
+      label:
+        `Pendientes (${estadisticas.pendientes})`,
 
     },
 
     {
 
-      id: "vinculadas",
+      id:
+        "vinculadas",
 
-      label: `Vinculadas (${estadisticas.vinculadas})`,
+      label:
+        `Vinculadas (${estadisticas.vinculadas})`,
 
     },
 
   ];
 
+  // ======================================================
+  // RENDER
+  // ======================================================
+
   return (
 
-<SistemaLayout
+    <SistemaLayout
 
-    titulo="Vincular Planillas Gestión Consular"
-    permiso={MODULOS.GESTION_CONSULAR}
-    
->
+      titulo=
+        "Vincular Planillas Gestión Consular"
+
+      permiso=
+        {MODULOS.GESTION_CONSULAR}
+
+    >
+
+      {/* ==================================================
+          SELECTOR DE AÑO
+      ================================================== */}
+
+      <div
+        className="
+          flex
+          items-end
+          justify-between
+          mb-5
+        "
+      >
+
+        <div>
+
+          <label
+            className="
+              block
+              text-sm
+              font-medium
+              text-slate-700
+              mb-1
+            "
+          >
+
+            Año
+
+          </label>
+
+          <select
+
+            value={
+              anio
+            }
+
+            onChange={
+              e =>
+                setAnio(
+                  Number(
+                    e.target.value
+                  )
+                )
+            }
+
+            disabled={
+              cargandoAnios
+            }
+
+            className="
+              rounded-lg
+              border
+              border-slate-300
+              bg-white
+              px-4
+              py-2
+              text-sm
+              font-medium
+              text-slate-700
+              shadow-sm
+              focus:border-blue-600
+              focus:outline-none
+              focus:ring-1
+              focus:ring-blue-600
+            "
+          >
+
+            {
+              aniosDisponibles.map(
+                año => (
+
+                  <option
+                    key={año}
+                    value={año}
+                  >
+
+                    {año}
+
+                  </option>
+
+                )
+              )
+            }
+
+          </select>
+
+        </div>
+
+      </div>
+
+      {/* ==================================================
+          DASHBOARD
+      ================================================== */}
 
       <Dashboard
 
         estadisticas={
-
           estadisticas
-
         }
 
       />
 
+      {/* ==================================================
+          TABS
+      ================================================== */}
+
       <Tabs
 
-    tabs={tabs}
+        tabs={
+          tabs
+        }
 
-    value={tab}
+        value={
+          tab
+        }
 
-    onChange={setTab}
+        onChange={
+          setTab
+        }
 
-/>
+      />
+
+      {/* ==================================================
+          PENDIENTES
+      ================================================== */}
 
       {
-
         tab ===
-
         "pendientes" && (
 
-         <Pendientes
-  registros={pendientes}
-  cargando={cargando}
-  onGuardar={guardarPlanilla}
-  onRegistrarSinPlanilla={registrarSinPlanilla}
-  onAbrirCiudadano={abrirCiudadano}
-/>
-
-        )
-
-      }
-
-      {
-
-        tab ===
-
-        "vinculadas" && (
-
-          <Vinculadas
+          <Pendientes
 
             registros={
-
-              vinculadas
-
+              pendientes
             }
 
             cargando={
-
               cargando
+            }
 
+            onGuardar={
+              guardarPlanilla
+            }
+
+            onRegistrarSinPlanilla={
+              registrarSinPlanilla
             }
 
             onAbrirCiudadano={
-
               abrirCiudadano
-
-            }
-
-            onDesvincular={
-
-              desvincular
-
             }
 
           />
 
         )
-
       }
-<ModalDetalleCiudadano
 
-  open={modalCiudadano}
+      {/* ==================================================
+          VINCULADAS
+      ================================================== */}
 
-  ciudadano={ciudadano}
+      {
+        tab ===
+        "vinculadas" && (
 
-  onActualizar={cargarTodo}
+          <Vinculadas
 
-  onClose={() => {
+            registros={
+              vinculadas
+            }
 
-    setModalCiudadano(false);
+            cargando={
+              cargando
+            }
 
-    setCiudadano(null);
+            onAbrirCiudadano={
+              abrirCiudadano
+            }
 
-  }}
+            onDesvincular={
+              desvincular
+            }
 
-/>
+          />
+
+        )
+      }
+
+      {/* ==================================================
+          MODAL CIUDADANO
+      ================================================== */}
+
+      <ModalDetalleCiudadano
+
+        open={
+          modalCiudadano
+        }
+
+        ciudadano={
+          ciudadano
+        }
+
+        onActualizar={
+          cargarTodo
+        }
+
+        onClose={() => {
+
+          setModalCiudadano(
+            false
+          );
+
+          setCiudadano(
+            null
+          );
+
+        }}
+
+      />
+
     </SistemaLayout>
 
   );

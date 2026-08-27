@@ -277,88 +277,65 @@ console.log({
       
 
                   {
+  columns.map(
+    (
+      column
+    ) => {
 
-                    columns.map(
+      console.log("COLUMNA:", {
+        key: column.key,
+        field: column.field,
+        whiteSpace: column.whiteSpace,
+        valor: column.render
+          ? column.render(row)
+          : row[column.field],
+      });
 
-                      (
+      return (
+        <td
+          key={
+            column.key ??
+            String(column.field)
+          }
 
-                        column
+          className={`
+            px-4
+            py-3
+            text-sm
+            ${
+              column.whiteSpace === "normal"
+                ? "whitespace-normal"
+                : column.whiteSpace === "pre-line"
+                ? "whitespace-pre-line"
+                : "whitespace-nowrap"
+            }
+            ${
+              column.align ===
+              "center"
+                ? "text-center"
+                : column.align ===
+                  "right"
+                ? "text-right"
+                : "text-left"
+            }
+          `}
+        >
 
-                      ) => (
+          {
+            column.render
+              ? column.render(row)
+              : String(
+                  row[
+                    column.field
+                  ] ?? ""
+                )
+          }
 
-                        <td
-
-                          key={
-
-                            String(
-
-                              column.field
-
-                            )
-
-                          }
-
-                          className={`
-
-                            px-4
-
-                            py-3
-
-                            text-sm
-
-                            whitespace-nowrap
-
-                            ${
-
-                              column.align ===
-
-                              "center"
-
-                                ? "text-center"
-
-                                : column.align ===
-
-                                  "right"
-
-                                ? "text-right"
-
-                                : "text-left"
-
-                            }
-
-                          `}
-
-                        >
-
-                          {
-
-                            column.render
-
-                              ? column.render(
-
-                                  row
-
-                                )
-
-                              : String(
-
-                                  row[
-
-                                    column.field
-
-                                  ] ?? ""
-
-                                )
-
-                          }
-
-                        </td>
-
-                      )
-
-                    )
-
-                  }
+        </td>
+      );
+    }
+  )
+}
 
                 </tr>
 

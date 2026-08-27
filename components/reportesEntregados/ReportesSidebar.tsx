@@ -62,7 +62,7 @@ const categoriaSeleccionada =
                     "
                 >
 
-                    Reportes Entregados
+                    Categoría
 
                 </h2>
 

@@ -275,7 +275,7 @@ console.log("Input =", Input);
 
   <strong>
 
-    Ciudadano:
+    Solicitante del recibo:
 
   </strong>{" "}
 
@@ -287,7 +287,7 @@ console.log("Input =", Input);
 
   <strong>
 
-    Documento:
+    Documento del solicitante:
 
   </strong>{" "}
 
@@ -324,16 +324,24 @@ console.log("Input =", Input);
         <tr className="bg-gray-100">
 
           <th className="p-2 text-left">
-            Recibo
-          </th>
+  Recibo
+</th>
 
-          <th className="p-2 text-left">
-            Actuación
-          </th>
+<th className="p-2 text-left">
+  Actuación
+</th>
 
-          <th className="p-2 text-left">
-            Actuación Nro
-          </th>
+<th className="p-2 text-left">
+  Titular
+</th>
+
+<th className="p-2 text-left">
+  Documento
+</th>
+
+<th className="p-2 text-left">
+  Actuación Nro
+</th>
 
         </tr>
 
@@ -346,31 +354,40 @@ console.log("Input =", Input);
           <tr key={`${item.recibo}-${item.codigo}-${index}`}>
 
             <td className="p-2">
-              {item.recibo}
-            </td>
+  {item.recibo}
+</td>
 
-            <td className="p-2">
-              {item.actuacion}
-            </td>
+<td className="p-2">
+  {item.actuacion}
+</td>
 
-            <td className="p-2">
+<td className="p-2">
+  {item.titular}
+</td>
 
-              <Input
-  value={numerosActuacion[index]}
-  inputMode="numeric"
-  onChange={(valor) => {
+<td className="p-2">
+  {item.documento}
+</td>
 
-    const copia = [...numerosActuacion];
+<td className="p-2">
 
-    copia[index] =
-      valor.replace(/\D/g, "");
+  <Input
+    value={numerosActuacion[index] ?? ""}
+    inputMode="numeric"
+    onChange={(valor) => {
 
-    setNumerosActuacion(copia);
+      const copia = [...numerosActuacion];
 
-  }}
-/>
+      copia[index] =
+        valor.replace(/\D/g, "");
 
-            </td>
+      setNumerosActuacion(copia);
+
+    }}
+
+  />
+
+</td>
 
           </tr>
 
@@ -403,7 +420,7 @@ console.log("Input =", Input);
           </label>
 
           <Input
-  value={planilla}
+  value={fechaPlanilla ?? ""}
   onChange={(valor) =>
     setPlanilla(
       valor.replace(/\D/g, "")

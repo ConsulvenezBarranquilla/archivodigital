@@ -5,28 +5,20 @@
 // ======================================================
 
 import {
-
     sheets,
-
     MODULO_CAJA_SHEET_ID,
-
     HOJA_REPORTES_ENTREGADOS,
-
 } from "@/lib/googleSheets";
 
 import {
-
     ReporteEntregado,
-
 } from "@/types/ReporteEntregado";
 
 // ======================================================
 // Configuración
 // ======================================================
 
-const RANGO_REPORTES =
-
-    "A:BA";
+const RANGO_REPORTES = "A:BA";
 
 // ======================================================
 // Índices de columnas
@@ -76,105 +68,192 @@ export const COLUMNAS = {
 
     NACIONALIDAD: 20,
 
-    VIGENCIA: 21,
+        VIGENCIA: 21,
+
+    // ==========================================
+    // Apostilla
+    // ==========================================
 
     ESTADO_APOSTILLA: 22,
 
-    CORRELATIVO: 23,
+    // ==========================================
+    // Fe de Vida
+    // X
+    // ==========================================
 
-    TIPO_CERTIFICADO: 24,
+    FECHA_EMISION_DOCUMENTO: 23,
 
-    FECHA_REGISTRO: 25,
+    CORRELATIVO_DOCUMENTO: 24,
 
-    NUMERO_CERTIFICADO: 26,
+    // ==========================================
+    // Carta de Soltería
+    // Z
+    // ==========================================
 
-    NUMERO_REGISTRO: 27,
+    FECHA_CARTA: 25,
 
-    FECHA_CONSTANCIA: 28,
+    CORRELATIVO_CARTA: 26,
 
-    TIPO_PODER: 29,
+    // ==========================================
+    // Certificados
+    // ==========================================
 
-    APODERADO: 30,
+    TIPO_CERTIFICADO: 27,
 
-    DOCUMENTO_APODERADO: 31,
+    FECHA_REGISTRO: 28,
 
-    ESTADO_PODER: 32,
+    NUMERO_CERTIFICADO: 29,
 
-    AUTORIZA: 33,
+    NUMERO_REGISTRO: 30,
 
-    PARENTESCO: 34,
+    FECHA_REGISTRO_CONSULAR: 31,
 
-    MENOR: 35,
+    // ==========================================
+    // Constancia Consular
+    // ==========================================
 
-    PASAPORTE_MENOR: 36,
+    FECHA_CONSTANCIA: 32,
 
-    DESTINO: 37,
+    CORRELATIVO_CONSTANCIA: 33,
 
-    FECHA_IDA: 38,
+    // ==========================================
+    // Poderes
+    // ==========================================
 
-    FECHA_RETORNO: 39,
+    TIPO_PODER: 34,
 
-    ACOMPANANTE: 40,
+    APODERADO: 35,
 
-    PASAPORTE_ACOMPANANTE: 41,
+    DOCUMENTO_APODERADO: 36,
 
-    MODALIDAD: 42,
+    ESTADO_PODER: 37,
 
-    FECHA_CREACION: 43,
+    // ==========================================
+    // Autorización de viaje
+    // ==========================================
 
-    USUARIO_CREACION: 44,
+    AUTORIZA: 38,
 
-    FECHA_ACTUALIZACION: 45,
+    PARENTESCO: 39,
 
-    USUARIO_ACTUALIZACION: 46,
+    MENOR: 40,
+
+    PASAPORTE_MENOR: 41,
+
+    DESTINO: 42,
+
+    FECHA_IDA: 43,
+
+    FECHA_RETORNO: 44,
+
+    ACOMPANANTE: 45,
+
+    PASAPORTE_ACOMPANANTE: 46,
+
+    MODALIDAD: 47,
+
+    // ==========================================
+    // Auditoría
+    // ==========================================
+
+    FECHA_CREACION: 48,
+
+    USUARIO_CREACION: 49,
+
+    FECHA_ACTUALIZACION: 50,
+
+    USUARIO_ACTUALIZACION: 51,
+   
+    // ==================================================
+    // BA
+    // Estado interno de procesamiento
+    // ==================================================
+
+    ESTADO_PROCESAMIENTO: 52,
 
 } as const;
 
 // ======================================================
-// Leer hoja completa
+// Convertir datos históricos de PODER desde Google Sheets
+// al modelo actual de ReporteEntregado
 // ======================================================
 
-async function leerReportes()
+function obtenerApoderadosPoder(
+    row: any[]
+): {
+    nombre: string;
+    documento: string;
+}[] {
 
-: Promise<any[][]> {
+    const nombre =
+        String(
+            row[
+                COLUMNAS.APODERADO
+            ] ?? ""
+        ).trim();
+
+    const documento =
+        String(
+            row[
+                COLUMNAS.DOCUMENTO_APODERADO
+            ] ?? ""
+        ).trim();
+
+    if (
+        !nombre &&
+        !documento
+    ) {
+        return [];
+    }
+
+    return [
+        {
+            nombre,
+            documento,
+        },
+    ];
+}
+// ======================================================
+// Estado por defecto
+// ======================================================
+
+const ESTADO_PROCESAMIENTO_DEFAULT =
+    "EN_PROCESO";
+
+// ======================================================
+// Leer reportes
+// ======================================================
+
+async function leerReportes(): Promise<any[][]> {
 
     const response =
-
         await sheets.spreadsheets.values.get({
 
             spreadsheetId:
-
                 MODULO_CAJA_SHEET_ID,
 
             range:
-
                 `${HOJA_REPORTES_ENTREGADOS}!${RANGO_REPORTES}`,
 
         });
 
     return (
-
-        response.data.values ??
-
-        []
-
+        response.data.values ?? []
     );
 
 }
 
 // ======================================================
-// Fecha/Hora actual
+// Fecha / hora actual
 // ======================================================
 
-function ahora()
-
-: string {
+function ahora(): string {
 
     return new Date()
-
         .toISOString();
 
 }
+
 // ======================================================
 // Buscar fila por ID
 // ======================================================
@@ -186,7 +265,6 @@ export async function buscarFilaPorId(
 ): Promise<number> {
 
     const filas =
-
         await leerReportes();
 
     for (
@@ -201,10 +279,74 @@ export async function buscarFilaPorId(
 
         if (
 
-            filas[i][COLUMNAS.ID] ===
+            String(
+                filas[i][COLUMNAS.ID] ??
+                ""
+            ).trim() ===
 
-            id
+            String(id).trim()
 
+        ) {
+
+            return i + 1;
+
+        }
+
+    }
+
+    return -1;
+
+}
+
+// ======================================================
+// Buscar fila por recibo
+// ======================================================
+//
+// El recibo es la referencia común entre:
+// Caja → Gestión Consular → Reportes Entregados.
+//
+// ======================================================
+
+export async function buscarFilaPorRecibo(
+
+    recibo: string
+
+): Promise<number> {
+
+    const filas =
+        await leerReportes();
+
+    const reciboBuscado =
+        String(
+            recibo ?? ""
+        ).trim();
+
+    if (!reciboBuscado) {
+
+        return -1;
+
+    }
+
+    for (
+
+        let i = 1;
+
+        i < filas.length;
+
+        i++
+
+    ) {
+
+        const reciboFila =
+            String(
+                filas[i][
+                    COLUMNAS.RECIBO
+                ] ?? ""
+            ).trim();
+
+        if (
+            reciboFila ===
+            reciboBuscado
         ) {
 
             return i + 1;
@@ -228,8 +370,12 @@ export async function obtenerReportePorId(
 ): Promise<ReporteEntregado | null> {
 
     const filas =
-
         await leerReportes();
+
+    const idBuscado =
+        String(
+            id ?? ""
+        ).trim();
 
     for (
 
@@ -242,15 +388,18 @@ export async function obtenerReportePorId(
     ) {
 
         const row =
-
             filas[i];
 
+        const idFila =
+            String(
+                row[
+                    COLUMNAS.ID
+                ] ?? ""
+            ).trim();
+
         if (
-
-            row[COLUMNAS.ID] !==
-
-            id
-
+            idFila !==
+            idBuscado
         ) {
 
             continue;
@@ -260,178 +409,315 @@ export async function obtenerReportePorId(
         return {
 
             id:
-
-                row[COLUMNAS.ID] ?? "",
+                row[
+                    COLUMNAS.ID
+                ] ?? "",
 
             categoria:
-
-                row[COLUMNAS.CATEGORIA],
+                row[
+                    COLUMNAS.CATEGORIA
+                ],
 
             tipoDocumento:
-
-                row[COLUMNAS.TIPO_DOCUMENTO],
+                row[
+                    COLUMNAS.TIPO_DOCUMENTO
+                ],
 
             recibo:
-
-                row[COLUMNAS.RECIBO] ?? "",
+                row[
+                    COLUMNAS.RECIBO
+                ] ?? "",
 
             fechaRecibo:
-
-                row[COLUMNAS.FECHA_RECIBO] ?? "",
+                row[
+                    COLUMNAS.FECHA_RECIBO
+                ] ?? "",
 
             planillaGC:
-
-                row[COLUMNAS.PLANILLA_GC] ?? "",
+                row[
+                    COLUMNAS.PLANILLA_GC
+                ] ?? "",
 
             solicitante:
-
-                row[COLUMNAS.SOLICITANTE] ?? "",
+                row[
+                    COLUMNAS.SOLICITANTE
+                ] ?? "",
 
             documento:
-
-                row[COLUMNAS.DOCUMENTO] ?? "",
+                row[
+                    COLUMNAS.DOCUMENTO
+                ] ?? "",
 
             estado:
-
-                row[COLUMNAS.ESTADO] ?? "",
+                row[
+                    COLUMNAS.ESTADO
+                ] ?? "",
 
             entregado:
-
-                row[COLUMNAS.ENTREGADO] ===
-
-                "SI",
+                row[
+                    COLUMNAS.ENTREGADO
+                ] === "SI",
 
             fechaEntrega:
-
-                row[COLUMNAS.FECHA_ENTREGA] ?? "",
+                row[
+                    COLUMNAS.FECHA_ENTREGA
+                ] ?? "",
 
             entregadoPor:
-
-                row[COLUMNAS.ENTREGADO_POR] ?? "",
+                row[
+                    COLUMNAS.ENTREGADO_POR
+                ] ?? "",
 
             observaciones:
+                row[
+                    COLUMNAS.OBSERVACIONES
+                ] ?? "",
 
-                row[COLUMNAS.OBSERVACIONES] ?? "",
+            // ==========================================
+            // Estado de procesamiento
+            // ==========================================
+
+            estadoProcesamiento:
+
+                row[
+                    COLUMNAS
+                        .ESTADO_PROCESAMIENTO
+                ]?.toString().trim() ||
+
+                ESTADO_PROCESAMIENTO_DEFAULT,
+
+            // ==========================================
+            // Pasaportes
+            // ==========================================
 
             titularPasaporte:
-
-                row[COLUMNAS.TITULAR_PASAPORTE] ?? "",
+                row[
+                    COLUMNAS
+                        .TITULAR_PASAPORTE
+                ] ?? "",
 
             numeroPasaporte:
-
-                row[COLUMNAS.NUMERO_PASAPORTE] ?? "",
+                row[
+                    COLUMNAS
+                        .NUMERO_PASAPORTE
+                ] ?? "",
 
             fechaValija:
-
-                row[COLUMNAS.FECHA_VALIJA] ?? "",
+                row[
+                    COLUMNAS
+                        .FECHA_VALIJA
+                ] ?? "",
 
             fechaEmision:
-
-                row[COLUMNAS.FECHA_EMISION] ?? "",
+                row[
+                    COLUMNAS
+                        .FECHA_EMISION
+                ] ?? "",
 
             fechaVencimiento:
+                row[
+                    COLUMNAS
+                        .FECHA_VENCIMIENTO
+                ] ?? "",
 
-                row[COLUMNAS.FECHA_VENCIMIENTO] ?? "",
+            // ==========================================
+            // Visas
+            // ==========================================
 
             numeroVisa:
-
-                row[COLUMNAS.NUMERO_VISA] ?? "",
+                row[
+                    COLUMNAS
+                        .NUMERO_VISA
+                ] ?? "",
 
             tipoVisa:
-
-                row[COLUMNAS.TIPO_VISA] ?? "",
+                row[
+                    COLUMNAS
+                        .TIPO_VISA
+                ] ?? "",
 
             nacionalidad:
-
-                row[COLUMNAS.NACIONALIDAD] ?? "",
+                row[
+                    COLUMNAS
+                        .NACIONALIDAD
+                ] ?? "",
 
             vigencia:
+                row[
+                    COLUMNAS
+                        .VIGENCIA
+                ] ?? "",
 
-                row[COLUMNAS.VIGENCIA] ?? "",
+            // ==========================================
+            // Apostilla
+            // ==========================================
 
             estadoApostilla:
+                row[
+                    COLUMNAS
+                        .ESTADO_APOSTILLA
+                ] ?? "",
 
-                row[COLUMNAS.ESTADO_APOSTILLA] ?? "",
+            // ==========================================
+// Fe de Vida
+// ==========================================
 
-            correlativo:
+fechaEmisionDocumento:
+    row[
+        COLUMNAS.FECHA_EMISION_DOCUMENTO
+    ] ?? "",
 
-                row[COLUMNAS.CORRELATIVO] ?? "",
+correlativoDocumento:
+    row[
+        COLUMNAS.CORRELATIVO_DOCUMENTO
+    ] ?? "",
+
+// ==========================================
+// Carta de Soltería
+// ==========================================
+
+fechaCarta:
+    row[
+        COLUMNAS.FECHA_CARTA
+    ] ?? "",
+
+correlativoCarta:
+    row[
+        COLUMNAS.CORRELATIVO_CARTA
+    ] ?? "",
+
+            // ==========================================
+            // Certificados
+            // ==========================================
 
             tipoCertificado:
-
-                row[COLUMNAS.TIPO_CERTIFICADO] ?? "",
+                row[
+                    COLUMNAS
+                        .TIPO_CERTIFICADO
+                ] ?? "",
 
             fechaRegistro:
-
-                row[COLUMNAS.FECHA_REGISTRO] ?? "",
+                row[
+                    COLUMNAS
+                        .FECHA_REGISTRO
+                ] ?? "",
 
             numeroCertificado:
+                row[
+                    COLUMNAS
+                        .NUMERO_CERTIFICADO
+                ] ?? "",
 
-                row[COLUMNAS.NUMERO_CERTIFICADO] ?? "",
+            // ==========================================
+// Registro Consular
+// ==========================================
 
-            numeroRegistro:
+numeroRegistro:
+    row[
+        COLUMNAS
+            .NUMERO_REGISTRO
+    ] ?? "",
 
-                row[COLUMNAS.NUMERO_REGISTRO] ?? "",
+fechaRegistroConsular:
+    row[
+        COLUMNAS
+            .FECHA_REGISTRO
+    ] ?? "",
+
+            // ==========================================
+            // Constancia Consular
+            // ==========================================
 
             fechaConstancia:
+                row[
+                    COLUMNAS
+                        .FECHA_CONSTANCIA
+                ] ?? "",
 
-                row[COLUMNAS.FECHA_CONSTANCIA] ?? "",
+            // ==========================================
+            // Poderes
+            // ==========================================
 
             tipoPoder:
+    row[
+        COLUMNAS
+            .TIPO_PODER
+    ] ?? "",
 
-                row[COLUMNAS.TIPO_PODER] ?? "",
+apoderadosPoder:
+    obtenerApoderadosPoder(
+        row
+    ),
 
-            apoderado:
+estadoPoder:
+    row[
+        COLUMNAS
+            .ESTADO_PODER
+    ] ?? "",
 
-                row[COLUMNAS.APODERADO] ?? "",
+            // ==========================================
+            // Autorización de viaje
+            // ==========================================
 
-            documentoApoderado:
-
-                row[COLUMNAS.DOCUMENTO_APODERADO] ?? "",
-
-            estadoPoder:
-
-                row[COLUMNAS.ESTADO_PODER] ?? "",
-
-            autoriza:
-
-                row[COLUMNAS.AUTORIZA] ?? "",
+            origen:
+                row[
+                    COLUMNAS
+                        .AUTORIZA
+                ] ?? "",
 
             parentesco:
-
-                row[COLUMNAS.PARENTESCO] ?? "",
+                row[
+                    COLUMNAS
+                        .PARENTESCO
+                ] ?? "",
 
             menor:
-
-                row[COLUMNAS.MENOR] ?? "",
+                row[
+                    COLUMNAS
+                        .MENOR
+                ] ?? "",
 
             pasaporteMenor:
-
-                row[COLUMNAS.PASAPORTE_MENOR] ?? "",
+                row[
+                    COLUMNAS
+                        .PASAPORTE_MENOR
+                ] ?? "",
 
             destino:
-
-                row[COLUMNAS.DESTINO] ?? "",
+                row[
+                    COLUMNAS
+                        .DESTINO
+                ] ?? "",
 
             fechaIda:
-
-                row[COLUMNAS.FECHA_IDA] ?? "",
+                row[
+                    COLUMNAS
+                        .FECHA_IDA
+                ] ?? "",
 
             fechaRetorno:
-
-                row[COLUMNAS.FECHA_RETORNO] ?? "",
+                row[
+                    COLUMNAS
+                        .FECHA_RETORNO
+                ] ?? "",
 
             acompanante:
-
-                row[COLUMNAS.ACOMPANANTE] ?? "",
+                row[
+                    COLUMNAS
+                        .ACOMPANANTE
+                ] ?? "",
 
             pasaporteAcompanante:
-
-                row[COLUMNAS.PASAPORTE_ACOMPANANTE] ?? "",
+                row[
+                    COLUMNAS
+                        .PASAPORTE_ACOMPANANTE
+                ] ?? "",
 
             modalidad:
-
-                row[COLUMNAS.MODALIDAD] ?? "",
+                row[
+                    COLUMNAS
+                        .MODALIDAD
+                ] ?? "",
 
         };
 
@@ -442,24 +728,464 @@ export async function obtenerReportePorId(
 }
 
 // ======================================================
+// Obtener reporte por recibo
+// ======================================================
+//
+// Se utiliza especialmente para Registrar Valija.
+//
+// El ID que viene de Gestión Consular no necesariamente
+// coincide con el ID de ReportesEntregados.
+//
+// El recibo sí constituye la referencia común.
+//
+// ======================================================
+
+export async function obtenerReportePorRecibo(
+
+    recibo: string
+
+): Promise<ReporteEntregado | null> {
+
+    const filas =
+        await leerReportes();
+
+    const reciboBuscado =
+        String(
+            recibo ?? ""
+        ).trim();
+
+    if (!reciboBuscado) {
+
+        return null;
+
+    }
+
+    for (
+
+        let i = 1;
+
+        i < filas.length;
+
+        i++
+
+    ) {
+
+        const row =
+            filas[i];
+
+        const reciboFila =
+            String(
+                row[
+                    COLUMNAS.RECIBO
+                ] ?? ""
+            ).trim();
+
+        if (
+            reciboFila !==
+            reciboBuscado
+        ) {
+
+            continue;
+
+        }
+
+        return {
+
+            id:
+                row[
+                    COLUMNAS.ID
+                ] ?? "",
+
+            categoria:
+                row[
+                    COLUMNAS.CATEGORIA
+                ],
+
+            tipoDocumento:
+                row[
+                    COLUMNAS.TIPO_DOCUMENTO
+                ],
+
+            recibo:
+                row[
+                    COLUMNAS.RECIBO
+                ] ?? "",
+
+            fechaRecibo:
+                row[
+                    COLUMNAS.FECHA_RECIBO
+                ] ?? "",
+
+            planillaGC:
+                row[
+                    COLUMNAS.PLANILLA_GC
+                ] ?? "",
+
+            solicitante:
+                row[
+                    COLUMNAS.SOLICITANTE
+                ] ?? "",
+
+            documento:
+                row[
+                    COLUMNAS.DOCUMENTO
+                ] ?? "",
+
+            estado:
+                row[
+                    COLUMNAS.ESTADO
+                ] ?? "",
+
+            entregado:
+                row[
+                    COLUMNAS.ENTREGADO
+                ] === "SI",
+
+            fechaEntrega:
+                row[
+                    COLUMNAS.FECHA_ENTREGA
+                ] ?? "",
+
+            entregadoPor:
+                row[
+                    COLUMNAS.ENTREGADO_POR
+                ] ?? "",
+
+            observaciones:
+                row[
+                    COLUMNAS.OBSERVACIONES
+                ] ?? "",
+
+            estadoProcesamiento:
+
+                row[
+                    COLUMNAS
+                        .ESTADO_PROCESAMIENTO
+                ]?.toString().trim() ||
+
+                ESTADO_PROCESAMIENTO_DEFAULT,
+
+            titularPasaporte:
+                row[
+                    COLUMNAS
+                        .TITULAR_PASAPORTE
+                ] ?? "",
+
+            numeroPasaporte:
+                row[
+                    COLUMNAS
+                        .NUMERO_PASAPORTE
+                ] ?? "",
+
+            fechaValija:
+                row[
+                    COLUMNAS
+                        .FECHA_VALIJA
+                ] ?? "",
+
+            fechaEmision:
+                row[
+                    COLUMNAS
+                        .FECHA_EMISION
+                ] ?? "",
+
+            fechaVencimiento:
+                row[
+                    COLUMNAS
+                        .FECHA_VENCIMIENTO
+                ] ?? "",
+
+            numeroVisa:
+                row[
+                    COLUMNAS
+                        .NUMERO_VISA
+                ] ?? "",
+
+            tipoVisa:
+                row[
+                    COLUMNAS
+                        .TIPO_VISA
+                ] ?? "",
+
+            nacionalidad:
+                row[
+                    COLUMNAS
+                        .NACIONALIDAD
+                ] ?? "",
+
+            vigencia:
+                row[
+                    COLUMNAS
+                        .VIGENCIA
+                ] ?? "",
+
+            estadoApostilla:
+                row[
+                    COLUMNAS
+                        .ESTADO_APOSTILLA
+                ] ?? "",
+
+            fechaEmisionDocumento:
+    row[
+        COLUMNAS.FECHA_EMISION_DOCUMENTO
+    ] ?? "",
+
+correlativoDocumento:
+    row[
+        COLUMNAS.CORRELATIVO_DOCUMENTO
+    ] ?? "",
+
+// ==========================================
+// Carta de Soltería
+// ==========================================
+
+fechaCarta:
+    row[
+        COLUMNAS.FECHA_CARTA
+    ] ?? "",
+
+correlativoCarta:
+    row[
+        COLUMNAS.CORRELATIVO_CARTA
+    ] ?? "",
+
+            tipoCertificado:
+                row[
+                    COLUMNAS
+                        .TIPO_CERTIFICADO
+                ] ?? "",
+
+            fechaRegistro:
+                row[
+                    COLUMNAS
+                        .FECHA_REGISTRO
+                ] ?? "",
+
+            numeroCertificado:
+                row[
+                    COLUMNAS
+                        .NUMERO_CERTIFICADO
+                ] ?? "",
+
+            numeroRegistro:
+                row[
+                    COLUMNAS
+                        .NUMERO_REGISTRO
+                ] ?? "",
+
+            fechaConstancia:
+                row[
+                    COLUMNAS
+                        .FECHA_CONSTANCIA
+                ] ?? "",
+
+            tipoPoder:
+    row[
+        COLUMNAS
+            .TIPO_PODER
+    ] ?? "",
+
+apoderadosPoder:
+    obtenerApoderadosPoder(
+        row
+    ),
+
+estadoPoder:
+    row[
+        COLUMNAS
+            .ESTADO_PODER
+    ] ?? "",
+
+            origen:
+                row[
+                    COLUMNAS
+                        .AUTORIZA
+                ] ?? "",
+
+            parentesco:
+                row[
+                    COLUMNAS
+                        .PARENTESCO
+                ] ?? "",
+
+            menor:
+                row[
+                    COLUMNAS
+                        .MENOR
+                ] ?? "",
+
+            pasaporteMenor:
+                row[
+                    COLUMNAS
+                        .PASAPORTE_MENOR
+                ] ?? "",
+
+            destino:
+                row[
+                    COLUMNAS
+                        .DESTINO
+                ] ?? "",
+
+            fechaIda:
+                row[
+                    COLUMNAS
+                        .FECHA_IDA
+                ] ?? "",
+
+            fechaRetorno:
+                row[
+                    COLUMNAS
+                        .FECHA_RETORNO
+                ] ?? "",
+
+            acompanante:
+                row[
+                    COLUMNAS
+                        .ACOMPANANTE
+                ] ?? "",
+
+            pasaporteAcompanante:
+                row[
+                    COLUMNAS
+                        .PASAPORTE_ACOMPANANTE
+                ] ?? "",
+
+            modalidad:
+                row[
+                    COLUMNAS
+                        .MODALIDAD
+                ] ?? "",
+
+        };
+
+    }
+
+    return null;
+
+}
+// ======================================================
+// Validar N° Etiqueta de VISA
+// ======================================================
+
+async function validarNumeroVisa(
+
+    numeroVisa: string,
+
+    idActual?: string
+
+): Promise<void> {
+
+    const numeroNormalizado =
+        String(numeroVisa ?? "")
+            .trim()
+            .toUpperCase();
+
+    if (!numeroNormalizado) {
+
+        throw new Error(
+            "El N° Etiqueta es obligatorio."
+        );
+
+    }
+
+    if (
+        !/^[A-Z0-9]+$/.test(
+            numeroNormalizado
+        )
+    ) {
+
+        throw new Error(
+            "El N° Etiqueta solamente puede contener letras mayúsculas y números."
+        );
+
+    }
+
+    const filas =
+        await leerReportes();
+
+    for (
+        let i = 1;
+        i < filas.length;
+        i++
+    ) {
+
+        const row =
+            filas[i];
+
+        const categoria =
+            String(
+                row[
+                    COLUMNAS.CATEGORIA
+                ] ?? ""
+            )
+                .trim()
+                .toUpperCase();
+
+        if (
+            categoria !== "VISA"
+        ) {
+
+            continue;
+
+        }
+
+        const etiquetaExistente =
+            String(
+                row[
+                    COLUMNAS.NUMERO_VISA
+                ] ?? ""
+            )
+                .trim()
+                .toUpperCase();
+
+        if (
+            etiquetaExistente !==
+            numeroNormalizado
+        ) {
+
+            continue;
+
+        }
+
+        const idExistente =
+            String(
+                row[
+                    COLUMNAS.ID
+                ] ?? ""
+            )
+                .trim();
+
+        // Si estamos editando el mismo documento,
+        // permitimos conservar su propia etiqueta.
+
+        if (
+            idActual &&
+            idExistente ===
+                String(idActual).trim()
+        ) {
+
+            continue;
+
+        }
+
+        throw new Error(
+            `El N° Etiqueta ${numeroNormalizado} ya está registrado.`
+        );
+
+    }
+
+}
+// ======================================================
 // Crear fila vacía
 // ======================================================
 
-function crearFilaVacia()
+function crearFilaVacia(): string[] {
 
-: string[] {
-
-    return new Array(
-
-        Object.keys(
-
-            COLUMNAS
-
-        ).length
-
-    ).fill("");
+    return new Array(53)
+        .fill("");
 
 }
+
 // ======================================================
 // Agregar nuevo reporte
 // ======================================================
@@ -473,23 +1199,18 @@ export async function crearReporte(
     await sheets.spreadsheets.values.append({
 
         spreadsheetId:
-
             MODULO_CAJA_SHEET_ID,
 
         range:
-
             `${HOJA_REPORTES_ENTREGADOS}!A:BA`,
 
         valueInputOption:
-
             "USER_ENTERED",
 
         requestBody: {
 
             values: [
-
                 fila,
-
             ],
 
         },
@@ -499,7 +1220,7 @@ export async function crearReporte(
 }
 
 // ======================================================
-// Actualizar una fila completa
+// Actualizar fila completa
 // ======================================================
 
 export async function actualizarFila(
@@ -513,23 +1234,18 @@ export async function actualizarFila(
     await sheets.spreadsheets.values.update({
 
         spreadsheetId:
-
             MODULO_CAJA_SHEET_ID,
 
         range:
-
             `${HOJA_REPORTES_ENTREGADOS}!A${numeroFila}:BA${numeroFila}`,
 
         valueInputOption:
-
             "USER_ENTERED",
 
         requestBody: {
 
             values: [
-
                 fila,
-
             ],
 
         },
@@ -539,7 +1255,175 @@ export async function actualizarFila(
 }
 
 // ======================================================
-// Actualizar un reporte existente
+// Determinar estado de procesamiento
+// ======================================================
+//
+// La valija NO determina el estado.
+//
+// La valija solamente registra la fecha
+// en que llegó físicamente el pasaporte.
+//
+// ======================================================
+
+function determinarEstadoProcesamiento(
+
+    documento: ReporteEntregado
+
+): "EN_PROCESO" | "PROCESADO" {
+
+    switch (
+        documento.tipoDocumento
+    ) {
+
+        // ==========================================
+        // PASAPORTE ADULTO / NNA
+        // ==========================================
+
+        case "PASAPORTE_ADULTO":
+
+        case "PASAPORTE_NNA":
+
+            if (
+
+                documento.titularPasaporte
+                    ?.trim() &&
+
+                documento.numeroPasaporte
+                    ?.trim() &&
+
+                documento.fechaValija
+                    ?.trim() &&
+
+                documento.fechaEmision
+                    ?.trim() &&
+
+                documento.fechaVencimiento
+                    ?.trim()
+
+            ) {
+
+                return "PROCESADO";
+
+            }
+
+            return "EN_PROCESO";
+
+
+        // ==========================================
+        // VISA
+        // ==========================================
+
+        case "VISA":
+
+            if (
+
+                documento.estado
+                    ?.trim()
+                    .toUpperCase() ===
+                    "APROBADA" &&
+
+                documento.numeroVisa
+                    ?.trim() &&
+
+                documento.fechaVencimiento
+                    ?.trim()
+
+            ) {
+
+                return "PROCESADO";
+
+            }
+
+            return "EN_PROCESO";
+
+
+        // ==========================================
+        // APOSTILLA
+        // ==========================================
+
+        case "APOSTILLA":
+
+            if (
+
+                documento.estadoApostilla
+                    ?.trim()
+                    .toUpperCase() ===
+                    "APROBADA"
+
+            ) {
+
+                return "PROCESADO";
+
+            }
+
+            return "EN_PROCESO";
+
+// ==========================================
+// FE DE VIDA
+// ==========================================
+
+case "FE_VIDA":
+
+    if (
+
+        documento.fechaEmisionDocumento
+            ?.trim() &&
+
+        documento.correlativoDocumento
+            ?.trim()
+
+    ) {
+
+        return "PROCESADO";
+
+    }
+
+    return "EN_PROCESO";
+
+
+// ==========================================
+// CARTA DE SOLTERÍA
+// ==========================================
+
+case "CARTA_SOLTERIA":
+
+    if (
+
+        documento.fechaCarta
+            ?.trim() &&
+
+        documento.correlativoCarta
+            ?.trim()
+
+    ) {
+
+        return "PROCESADO";
+
+    }
+
+    return "EN_PROCESO";
+        // ==========================================
+        // RESTO
+        // ==========================================
+
+        default:
+
+            return (
+
+                documento.estadoProcesamiento ??
+
+                ESTADO_PROCESAMIENTO_DEFAULT
+
+            ) as
+                "EN_PROCESO" |
+                "PROCESADO";
+
+    }
+
+}
+
+// ======================================================
+// Actualizar reporte existente
 // ======================================================
 
 export async function actualizarReporte(
@@ -551,226 +1435,387 @@ export async function actualizarReporte(
 ): Promise<void> {
 
     const fila =
-
         await buscarFilaPorId(
-
             reporte.id
-
         );
 
     if (
-
         fila === -1
-
     ) {
 
         throw new Error(
-
             "No se encontró el reporte."
-
         );
 
     }
 
     const datos =
-
         crearFilaVacia();
 
-    datos[COLUMNAS.ID] =
+    // ==========================================
+    // Identificación
+    // ==========================================
 
+    datos[
+        COLUMNAS.ID
+    ] =
         reporte.id;
 
-    datos[COLUMNAS.CATEGORIA] =
-
+    datos[
+        COLUMNAS.CATEGORIA
+    ] =
         reporte.categoria;
 
-    datos[COLUMNAS.TIPO_DOCUMENTO] =
-
+    datos[
+        COLUMNAS.TIPO_DOCUMENTO
+    ] =
         reporte.tipoDocumento ?? "";
 
-    datos[COLUMNAS.RECIBO] =
+    // ==========================================
+    // Datos comunes
+    // ==========================================
 
+    datos[
+        COLUMNAS.RECIBO
+    ] =
         reporte.recibo;
 
-    datos[COLUMNAS.FECHA_RECIBO] =
-
+    datos[
+        COLUMNAS.FECHA_RECIBO
+    ] =
         reporte.fechaRecibo;
 
-    datos[COLUMNAS.PLANILLA_GC] =
-
+    datos[
+        COLUMNAS.PLANILLA_GC
+    ] =
         reporte.planillaGC;
 
-    datos[COLUMNAS.SOLICITANTE] =
-
+    datos[
+        COLUMNAS.SOLICITANTE
+    ] =
         reporte.solicitante;
 
-    datos[COLUMNAS.DOCUMENTO] =
-
+    datos[
+        COLUMNAS.DOCUMENTO
+    ] =
         reporte.documento;
 
-    datos[COLUMNAS.ESTADO] =
-
+    datos[
+        COLUMNAS.ESTADO
+    ] =
         reporte.estado;
 
-    datos[COLUMNAS.ENTREGADO] =
-
+    datos[
+        COLUMNAS.ENTREGADO
+    ] =
         reporte.entregado
-
             ? "SI"
-
             : "NO";
 
-    datos[COLUMNAS.FECHA_ENTREGA] =
-
+    datos[
+        COLUMNAS.FECHA_ENTREGA
+    ] =
         reporte.fechaEntrega ?? "";
 
-    datos[COLUMNAS.ENTREGADO_POR] =
-
+    datos[
+        COLUMNAS.ENTREGADO_POR
+    ] =
         reporte.entregadoPor ?? "";
 
-    datos[COLUMNAS.OBSERVACIONES] =
-
+    datos[
+        COLUMNAS.OBSERVACIONES
+    ] =
         reporte.observaciones ?? "";
 
-    datos[COLUMNAS.TITULAR_PASAPORTE] =
+    // ==========================================
+    // Estado de procesamiento
+    // ==========================================
 
+    datos[
+        COLUMNAS.ESTADO_PROCESAMIENTO
+    ] =
+
+        reporte.estadoProcesamiento ??
+
+        ESTADO_PROCESAMIENTO_DEFAULT;
+
+    // ==========================================
+    // Pasaportes
+    // ==========================================
+
+    datos[
+        COLUMNAS.TITULAR_PASAPORTE
+    ] =
         reporte.titularPasaporte ?? "";
 
-    datos[COLUMNAS.NUMERO_PASAPORTE] =
-
+    datos[
+        COLUMNAS.NUMERO_PASAPORTE
+    ] =
         reporte.numeroPasaporte ?? "";
 
-    datos[COLUMNAS.FECHA_VALIJA] =
-
+    datos[
+        COLUMNAS.FECHA_VALIJA
+    ] =
         reporte.fechaValija ?? "";
 
-    datos[COLUMNAS.FECHA_EMISION] =
-
+    datos[
+        COLUMNAS.FECHA_EMISION
+    ] =
         reporte.fechaEmision ?? "";
 
-    datos[COLUMNAS.FECHA_VENCIMIENTO] =
-
+    datos[
+        COLUMNAS.FECHA_VENCIMIENTO
+    ] =
         reporte.fechaVencimiento ?? "";
 
-    datos[COLUMNAS.NUMERO_VISA] =
+    // ==========================================
+    // Visas
+    // ==========================================
 
+    datos[
+        COLUMNAS.NUMERO_VISA
+    ] =
         reporte.numeroVisa ?? "";
 
-    datos[COLUMNAS.TIPO_VISA] =
-
+    datos[
+        COLUMNAS.TIPO_VISA
+    ] =
         reporte.tipoVisa ?? "";
 
-    datos[COLUMNAS.NACIONALIDAD] =
-
+    datos[
+        COLUMNAS.NACIONALIDAD
+    ] =
         reporte.nacionalidad ?? "";
 
-    datos[COLUMNAS.VIGENCIA] =
-
+    datos[
+        COLUMNAS.VIGENCIA
+    ] =
         reporte.vigencia ?? "";
 
-    datos[COLUMNAS.ESTADO_APOSTILLA] =
+    // ==========================================
+    // Apostilla
+    // ==========================================
 
+    datos[
+        COLUMNAS.ESTADO_APOSTILLA
+    ] =
         reporte.estadoApostilla ?? "";
 
-    datos[COLUMNAS.CORRELATIVO] =
+  // ==========================================
+// Fe de Vida
+// ==========================================
 
-        reporte.correlativo ?? "";
+datos[
+    COLUMNAS.FECHA_EMISION_DOCUMENTO
+] =
+    reporte.fechaEmisionDocumento ?? "";
 
-    datos[COLUMNAS.TIPO_CERTIFICADO] =
+datos[
+    COLUMNAS.CORRELATIVO_DOCUMENTO
+] =
+    reporte.correlativoDocumento ?? "";
 
+
+// ==========================================
+// Carta de Soltería
+// ==========================================
+
+datos[
+    COLUMNAS.FECHA_CARTA
+] =
+    reporte.fechaCarta ?? "";
+
+datos[
+    COLUMNAS.CORRELATIVO_CARTA
+] =
+    reporte.correlativoCarta ?? "";
+
+    // ==========================================
+    // Certificados
+    // ==========================================
+
+    datos[
+        COLUMNAS.TIPO_CERTIFICADO
+    ] =
         reporte.tipoCertificado ?? "";
 
-    datos[COLUMNAS.FECHA_REGISTRO] =
-
+    datos[
+        COLUMNAS.FECHA_REGISTRO
+    ] =
         reporte.fechaRegistro ?? "";
 
-    datos[COLUMNAS.NUMERO_CERTIFICADO] =
-
+    datos[
+        COLUMNAS.NUMERO_CERTIFICADO
+    ] =
         reporte.numeroCertificado ?? "";
 
-    datos[COLUMNAS.NUMERO_REGISTRO] =
+    // ==========================================
+    // Registro Consular
+    // ==========================================
 
+    datos[
+        COLUMNAS.NUMERO_REGISTRO
+    ] =
         reporte.numeroRegistro ?? "";
 
-    datos[COLUMNAS.FECHA_CONSTANCIA] =
+    // ==========================================
+    // Constancia Consular
+    // ==========================================
 
+    datos[
+        COLUMNAS.FECHA_CONSTANCIA
+    ] =
         reporte.fechaConstancia ?? "";
 
-    datos[COLUMNAS.TIPO_PODER] =
+    // ==========================================
+// Poderes
+// ==========================================
 
-        reporte.tipoPoder ?? "";
+datos[
+    COLUMNAS.TIPO_PODER
+] =
+    reporte.tipoPoder ?? "";
 
-    datos[COLUMNAS.APODERADO] =
+const primerApoderado =
+    reporte.apoderadosPoder?.[0];
 
-        reporte.apoderado ?? "";
+datos[
+    COLUMNAS.APODERADO
+] =
+    primerApoderado?.nombre ?? "";
 
-    datos[COLUMNAS.DOCUMENTO_APODERADO] =
+datos[
+    COLUMNAS.DOCUMENTO_APODERADO
+] =
+    primerApoderado?.documento ?? "";
 
-        reporte.documentoApoderado ?? "";
+datos[
+    COLUMNAS.ESTADO_PODER
+] =
+    reporte.estadoPoder ?? "";
 
-    datos[COLUMNAS.ESTADO_PODER] =
+    // ==========================================
+    // Autorización de viaje
+    // ==========================================
 
-        reporte.estadoPoder ?? "";
+    datos[
+        COLUMNAS.AUTORIZA
+    ] =
+        reporte.origen ?? ""
 
-    datos[COLUMNAS.AUTORIZA] =
-
-        reporte.autoriza ?? "";
-
-    datos[COLUMNAS.PARENTESCO] =
-
+    datos[
+        COLUMNAS.PARENTESCO
+    ] =
         reporte.parentesco ?? "";
 
-    datos[COLUMNAS.MENOR] =
-
+    datos[
+        COLUMNAS.MENOR
+    ] =
         reporte.menor ?? "";
 
-    datos[COLUMNAS.PASAPORTE_MENOR] =
-
+    datos[
+        COLUMNAS.PASAPORTE_MENOR
+    ] =
         reporte.pasaporteMenor ?? "";
 
-    datos[COLUMNAS.DESTINO] =
-
+    datos[
+        COLUMNAS.DESTINO
+    ] =
         reporte.destino ?? "";
 
-    datos[COLUMNAS.FECHA_IDA] =
-
+    datos[
+        COLUMNAS.FECHA_IDA
+    ] =
         reporte.fechaIda ?? "";
 
-    datos[COLUMNAS.FECHA_RETORNO] =
-
+    datos[
+        COLUMNAS.FECHA_RETORNO
+    ] =
         reporte.fechaRetorno ?? "";
 
-    datos[COLUMNAS.ACOMPANANTE] =
-
+    datos[
+        COLUMNAS.ACOMPANANTE
+    ] =
         reporte.acompanante ?? "";
 
-    datos[COLUMNAS.PASAPORTE_ACOMPANANTE] =
-
+    datos[
+        COLUMNAS.PASAPORTE_ACOMPANANTE
+    ] =
         reporte.pasaporteAcompanante ?? "";
 
-    datos[COLUMNAS.MODALIDAD] =
-
+    datos[
+        COLUMNAS.MODALIDAD
+    ] =
         reporte.modalidad ?? "";
 
-    datos[COLUMNAS.FECHA_ACTUALIZACION] =
+    // ==========================================
+    // Auditoría
+    // ==========================================
 
+    datos[
+        COLUMNAS.FECHA_CREACION
+    ] =
+        reporte.fechaCreacion ?? "";
+
+    datos[
+        COLUMNAS.USUARIO_CREACION
+    ] =
+        reporte.usuarioCreacion ?? "";
+
+    datos[
+        COLUMNAS.FECHA_ACTUALIZACION
+    ] =
         ahora();
 
-    datos[COLUMNAS.USUARIO_ACTUALIZACION] =
-
+    datos[
+        COLUMNAS.USUARIO_ACTUALIZACION
+    ] =
         usuario;
 
+    // ==========================================
+    // Guardar
+    // ==========================================
+
     await actualizarFila(
-
         fila,
-
         datos
-
     );
 
 }
 // ======================================================
+// Normalizar recibo
+// ======================================================
+
+function normalizarRecibo(
+    valor: unknown
+): string {
+
+    return String(valor ?? "")
+        .trim()
+        .replace(/\s+/g, "");
+
+}
+// ======================================================
 // Registrar recepción de valija
+// ======================================================
+//
+// La valija solamente registra la fecha de llegada
+// física del pasaporte.
+//
+// Si el reporte todavía NO existe en
+// ReportesEntregados, se crea el registro base.
+//
+// NO se requieren todavía:
+//
+//     numeroPasaporte
+//     fechaEmision
+//     fechaVencimiento
+//
+// El documento queda EN_PROCESO.
+//
+// Posteriormente, desde "Actualizar Documento",
+// se completan los datos físicos del pasaporte.
+//
 // ======================================================
 
 export async function registrarValija(
@@ -783,155 +1828,412 @@ export async function registrarValija(
 
 ): Promise<void> {
 
-    for (
+    if (!usuario?.trim()) {
 
-        const documento of documentos
+        throw new Error(
+            "El usuario es obligatorio."
+        );
 
+    }
+
+    if (!fechaValija?.trim()) {
+
+        throw new Error(
+            "La fecha de valija es obligatoria."
+        );
+
+    }
+
+    if (
+        !Array.isArray(documentos) ||
+        documentos.length === 0
     ) {
 
-        const reporte =
+        throw new Error(
+            "No se seleccionaron pasaportes."
+        );
 
-            await obtenerReportePorId(
+    }
 
-                documento.id
+    // ==================================================
+    // Procesar cada pasaporte seleccionado
+    // ==================================================
 
-            );
+    for (
+        const documento of documentos
+    ) {
 
-        if (
-
-            !reporte
-
-        ) {
+        if (!documento?.id) {
 
             throw new Error(
-
-                `No existe el reporte ${documento.id}.`
-
+                "Uno de los pasaportes seleccionados no tiene un ID válido."
             );
 
         }
 
-        reporte.fechaValija =
+        // ==================================================
+        // Buscar el reporte por ID
+        //
+        // ID = GestionConsular!L
+        // ID = ReportesEntregados!A
+        // ==================================================
 
+        const reporteExistente =
+            await obtenerReportePorId(
+                String(documento.id)
+            );
+
+        // ==================================================
+        // CASO 1
+        // El reporte ya existe
+        // ==================================================
+
+        if (reporteExistente) {
+
+            // ----------------------------------------------
+            // Solo modificar fecha de valija
+            // ----------------------------------------------
+
+            reporteExistente.fechaValija =
+                fechaValija;
+
+            // ----------------------------------------------
+            // NO modificar:
+            //
+            // numeroPasaporte
+            // fechaEmision
+            // fechaVencimiento
+            // estadoProcesamiento
+            // ----------------------------------------------
+
+            await actualizarReporte(
+
+                reporteExistente,
+
+                usuario
+
+            );
+
+            continue;
+
+        }
+
+        // ==================================================
+        // CASO 2
+        // El reporte todavía NO existe
+        //
+        // Crear registro inicial
+        // ==================================================
+
+        const fila =
+            crearFilaVacia();
+
+        // ==================================================
+        // Identificación
+        // ==================================================
+
+        fila[
+            COLUMNAS.ID
+        ] =
+            String(
+                documento.id
+            );
+
+        fila[
+            COLUMNAS.CATEGORIA
+        ] =
+            "PASAPORTES";
+
+        fila[
+            COLUMNAS.TIPO_DOCUMENTO
+        ] =
+            documento.tipoDocumento ||
+            "PASAPORTE_ADULTO";
+
+        // ==================================================
+        // Datos comunes
+        // ==================================================
+
+        fila[
+            COLUMNAS.RECIBO
+        ] =
+            documento.recibo ?? "";
+
+        fila[
+            COLUMNAS.FECHA_RECIBO
+        ] =
+            documento.fechaRecibo ?? "";
+
+        fila[
+            COLUMNAS.PLANILLA_GC
+        ] =
+            documento.planillaGC ?? "";
+
+        fila[
+            COLUMNAS.SOLICITANTE
+        ] =
+            documento.solicitante ?? "";
+
+        fila[
+            COLUMNAS.DOCUMENTO
+        ] =
+            documento.documento ?? "";
+
+        fila[
+            COLUMNAS.ESTADO
+        ] =
+            documento.estado ?? "";
+
+        // ==================================================
+        // Entrega
+        // ==================================================
+
+        fila[
+            COLUMNAS.ENTREGADO
+        ] =
+            documento.entregado
+                ? "SI"
+                : "NO";
+
+        fila[
+            COLUMNAS.FECHA_ENTREGA
+        ] =
+            documento.fechaEntrega ?? "";
+
+        fila[
+            COLUMNAS.ENTREGADO_POR
+        ] =
+            documento.entregadoPor ?? "";
+
+        // ==================================================
+        // Observaciones
+        // ==================================================
+
+        fila[
+            COLUMNAS.OBSERVACIONES
+        ] =
+            documento.observaciones ?? "";
+
+        // ==================================================
+        // Pasaporte
+        // ==================================================
+
+        fila[
+            COLUMNAS.TITULAR_PASAPORTE
+        ] =
+            documento.titularPasaporte ?? "";
+
+        // ----------------------------------------------
+        // Estos datos todavía NO se conocen
+        // ----------------------------------------------
+
+        fila[
+            COLUMNAS.NUMERO_PASAPORTE
+        ] =
+            "";
+
+        fila[
+            COLUMNAS.FECHA_VALIJA
+        ] =
             fechaValija;
 
-        reporte.numeroPasaporte =
+        fila[
+            COLUMNAS.FECHA_EMISION
+        ] =
+            "";
 
-            documento.numeroPasaporte;
+        fila[
+            COLUMNAS.FECHA_VENCIMIENTO
+        ] =
+            "";
 
-        reporte.fechaEmision =
+        // ==================================================
+        // Estado de procesamiento
+        // ==================================================
+        //
+        // La llegada de la valija NO significa
+        // que el pasaporte esté procesado.
+        //
+        // ==================================================
 
-            documento.fechaEmision;
+        fila[
+            COLUMNAS.ESTADO_PROCESAMIENTO
+        ] =
+            ESTADO_PROCESAMIENTO_DEFAULT;
 
-        reporte.fechaVencimiento =
+        // ==================================================
+        // Auditoría
+        // ==================================================
 
-            documento.fechaVencimiento;
+        const fechaActual =
+            ahora();
 
-        await actualizarReporte(
+        fila[
+            COLUMNAS.FECHA_CREACION
+        ] =
+            fechaActual;
 
-            reporte,
+        fila[
+            COLUMNAS.USUARIO_CREACION
+        ] =
+            usuario;
 
-            usuario
+        fila[
+            COLUMNAS.FECHA_ACTUALIZACION
+        ] =
+            fechaActual;
 
+        fila[
+            COLUMNAS.USUARIO_ACTUALIZACION
+        ] =
+            usuario;
+
+        // ==================================================
+        // Crear reporte
+        // ==================================================
+
+        await crearReporte(
+            fila
         );
 
     }
 
 }
+
 // ======================================================
-// Registrar entrega de documento
-// ======================================================
-
-export async function registrarEntrega(
-
-    usuario: string,
-
-    documento: ReporteEntregado,
-
-    fechaEntrega: string,
-
-    observaciones: string
-
-): Promise<void> {
-
-    const reporte =
-
-        await obtenerReportePorId(
-
-            documento.id
-
-        );
-
-    if (
-
-        !reporte
-
-    ) {
-
-        throw new Error(
-
-            `No existe el reporte ${documento.id}.`
-
-        );
-
-    }
-
-    reporte.entregado =
-
-        true;
-
-    reporte.fechaEntrega =
-
-        fechaEntrega;
-
-    reporte.entregadoPor =
-
-        usuario;
-
-    reporte.observaciones =
-
-        observaciones;
-
-    await actualizarReporte(
-
-        reporte,
-
-        usuario
-
-    );
-
-}
-// ======================================================
-// Actualizar datos de un documento
+// Actualizar documento desde Editar
 // ======================================================
 
 export async function actualizarDocumento(
-
     usuario: string,
-
     documento: ReporteEntregado
-
 ): Promise<void> {
 
+    // =====================================
+    // Obtener reporte original
+    // =====================================
+
     const reporte =
-
         await obtenerReportePorId(
-
             documento.id
-
         );
 
-    if (
-
-        !reporte
-
-    ) {
+    if (!reporte) {
 
         throw new Error(
-
             `No existe el reporte ${documento.id}.`
-
         );
+
+    }
+
+    // =====================================
+    // VISA
+    // =====================================
+
+    if (
+        documento.categoria === "VISA"
+    ) {
+
+        const numeroEtiqueta =
+            String(
+                documento.numeroVisa ?? ""
+            )
+                .trim()
+                .toUpperCase();
+
+        // -------------------------------
+        // Validar N° Etiqueta
+        // -------------------------------
+
+        await validarNumeroVisa(
+            numeroEtiqueta,
+            documento.id
+        );
+
+        documento.numeroVisa =
+            numeroEtiqueta;
+
+        // -------------------------------
+        // Copiar datos VISA
+        // -------------------------------
+
+        reporte.estado =
+            String(
+                documento.estado ?? ""
+            ).trim().toUpperCase();
+
+        reporte.numeroVisa =
+            numeroEtiqueta;
+
+        reporte.fechaVencimiento =
+            documento.fechaVencimiento ?? "";
+
+        reporte.tipoVisa =
+            documento.tipoVisa;
+
+        reporte.nacionalidad =
+            documento.nacionalidad;
+
+        reporte.vigencia =
+            documento.vigencia;
+
+    }
+
+    // =====================================
+    // APOSTILLA
+    // =====================================
+
+    else if (
+        documento.categoria === "APOSTILLA"
+    ) {
+
+        const estadoApostilla =
+            String(
+                documento.estado ?? ""
+            )
+                .trim()
+                .toUpperCase();
+
+        // -------------------------------
+        // El formulario usa "estado"
+        // -------------------------------
+
+        reporte.estado =
+            estadoApostilla;
+
+        // -------------------------------
+        // Google Sheets utiliza
+        // estadoApostilla
+        // -------------------------------
+
+        reporte.estadoApostilla =
+            estadoApostilla;
+
+    }
+
+    // =====================================
+    // PASAPORTES
+    // =====================================
+
+    else {
+
+        reporte.estado =
+            documento.estado;
+
+        reporte.titularPasaporte =
+            documento.titularPasaporte;
+
+        reporte.numeroPasaporte =
+            documento.numeroPasaporte;
+
+        reporte.fechaValija =
+            documento.fechaValija;
+
+        reporte.fechaEmision =
+            documento.fechaEmision;
+
+        reporte.fechaVencimiento =
+            documento.fechaVencimiento;
 
     }
 
@@ -939,176 +2241,201 @@ export async function actualizarDocumento(
     // Datos comunes
     // =====================================
 
-    reporte.estado =
-
-        documento.estado;
-
     reporte.observaciones =
-
         documento.observaciones;
 
-    // =====================================
-    // Pasaportes
-    // =====================================
+   // =====================================
+// FE DE VIDA
+// =====================================
 
-    reporte.titularPasaporte =
+reporte.fechaEmisionDocumento =
+    documento.fechaEmisionDocumento;
 
-        documento.titularPasaporte;
+reporte.correlativoDocumento =
+    documento.correlativoDocumento;
 
-    reporte.numeroPasaporte =
 
-        documento.numeroPasaporte;
+// =====================================
+// CARTA DE SOLTERÍA
+// =====================================
 
-    reporte.fechaValija =
+reporte.fechaCarta =
+    documento.fechaCarta;
 
-        documento.fechaValija;
-
-    reporte.fechaEmision =
-
-        documento.fechaEmision;
-
-    reporte.fechaVencimiento =
-
-        documento.fechaVencimiento;
-
-    // =====================================
-    // Visas
-    // =====================================
-
-    reporte.numeroVisa =
-
-        documento.numeroVisa;
-
-    reporte.tipoVisa =
-
-        documento.tipoVisa;
-
-    reporte.nacionalidad =
-
-        documento.nacionalidad;
-
-    reporte.vigencia =
-
-        documento.vigencia;
-
-    // =====================================
-    // Apostillas
-    // =====================================
-
-    reporte.estadoApostilla =
-
-        documento.estadoApostilla;
-
-    // =====================================
-    // Fe de Vida / Carta de Soltería
-    // =====================================
-
-    reporte.correlativo =
-
-        documento.correlativo;
+reporte.correlativoCarta =
+    documento.correlativoCarta;
 
     // =====================================
     // Certificados
     // =====================================
 
     reporte.tipoCertificado =
-
         documento.tipoCertificado;
 
     reporte.fechaRegistro =
-
         documento.fechaRegistro;
 
     reporte.numeroCertificado =
-
         documento.numeroCertificado;
 
     // =====================================
-    // Registro Consular
-    // =====================================
+// Registro Consular
+// =====================================
 
-    reporte.numeroRegistro =
+reporte.numeroRegistro =
+    documento.numeroRegistro;
 
-        documento.numeroRegistro;
+reporte.fechaRegistroConsular =
+    documento.fechaRegistroConsular;
 
     // =====================================
     // Constancia Consular
     // =====================================
 
     reporte.fechaConstancia =
-
         documento.fechaConstancia;
 
     // =====================================
-    // Poderes
-    // =====================================
+// Poderes
+// =====================================
 
-    reporte.tipoPoder =
+reporte.tipoPoder =
+    documento.tipoPoder;
 
-        documento.tipoPoder;
+reporte.apoderadosPoder =
+    documento.apoderadosPoder;
 
-    reporte.apoderado =
-
-        documento.apoderado;
-
-    reporte.documentoApoderado =
-
-        documento.documentoApoderado;
-
-    reporte.estadoPoder =
-
-        documento.estadoPoder;
+reporte.estadoPoder =
+    documento.estadoPoder;
 
     // =====================================
-    // Autorizaciones
+    // Autorización de viaje
     // =====================================
 
-    reporte.autoriza =
-
-        documento.autoriza;
+    reporte.origen =
+    documento.origen;
 
     reporte.parentesco =
-
         documento.parentesco;
 
     reporte.menor =
-
         documento.menor;
 
     reporte.pasaporteMenor =
-
         documento.pasaporteMenor;
 
     reporte.destino =
-
         documento.destino;
 
     reporte.fechaIda =
-
         documento.fechaIda;
 
     reporte.fechaRetorno =
-
         documento.fechaRetorno;
 
     reporte.acompanante =
-
         documento.acompanante;
 
     reporte.pasaporteAcompanante =
-
         documento.pasaporteAcompanante;
 
     reporte.modalidad =
-
         documento.modalidad;
 
+    // =====================================
+    // Determinar estado de procesamiento
+    // =====================================
+
+    reporte.estadoProcesamiento =
+        determinarEstadoProcesamiento(
+            reporte
+        );
+
+    // =====================================
+    // Guardar
+    // =====================================
+
     await actualizarReporte(
-
         reporte,
-
         usuario
-
     );
 
+}
+// ======================================================
+// Registrar entrega de documento
+// ======================================================
+//
+// Marca el documento como entregado y registra:
+//
+// - Fecha de entrega
+// - Usuario que realizó la entrega
+// - Observaciones
+//
+// Conserva todos los demás datos del reporte.
+//
+// ======================================================
+
+export async function registrarEntrega(
+    usuario: string,
+    documento: ReporteEntregado,
+    fechaEntrega: string,
+    observaciones: string
+): Promise<void> {
+
+    if (!usuario?.trim()) {
+        throw new Error(
+            "El usuario es obligatorio."
+        );
+    }
+
+    if (!documento?.id) {
+        throw new Error(
+            "El documento es obligatorio."
+        );
+    }
+
+    if (!fechaEntrega?.trim()) {
+        throw new Error(
+            "La fecha de entrega es obligatoria."
+        );
+    }
+
+    // ==========================================
+    // Buscar reporte existente
+    // ==========================================
+
+    const reporte =
+        await obtenerReportePorId(
+            String(documento.id)
+        );
+
+    if (!reporte) {
+        throw new Error(
+            `No existe el reporte ${documento.id}.`
+        );
+    }
+
+    // ==========================================
+    // Registrar entrega
+    // ==========================================
+
+    reporte.entregado = true;
+
+    reporte.fechaEntrega =
+        fechaEntrega;
+
+    reporte.entregadoPor =
+        usuario;
+
+    reporte.observaciones =
+        observaciones ?? "";
+
+    // ==========================================
+    // Guardar
+    // ==========================================
+
+    await actualizarReporte(
+        reporte,
+        usuario
+    );
 }

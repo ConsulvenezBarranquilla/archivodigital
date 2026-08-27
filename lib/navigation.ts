@@ -57,8 +57,8 @@ export const navigation: NavigationItem[] = [
         permiso: MODULOS.CAJA,
       },
       {
-        label: "Reporte Entregados",
-        disabled: true,
+        label: "Documentos en Proceso",
+        href: "/reportesentregados",
         permiso: MODULOS.CAJA,
       },
     ],

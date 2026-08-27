@@ -10,6 +10,40 @@ import {
 } from "@/types/ReporteEntregado";
 
 // ==========================================
+// Fuentes de información de los campos
+// ==========================================
+
+export type FuenteCampo =
+    | "AUTOMATICO"
+    | "MANUAL"
+    | "CATALOGO";
+
+// ==========================================
+// Configuración de un campo del documento
+// ==========================================
+
+export interface CampoDocumentoConfig {
+
+    campo: string;
+
+    etiqueta: string;
+
+    requerido: boolean;
+
+    fuente: FuenteCampo;
+
+    /**
+     * Catálogo utilizado cuando la fuente
+     * es "CATALOGO".
+     *
+     * Ejemplo:
+     * Catalogos!A:A
+     */
+    catalogo?: string;
+
+}
+
+// ==========================================
 // Configuración de cada categoría
 // ==========================================
 
@@ -44,6 +78,12 @@ export interface DocumentoConfig {
     nombre: string;
 
     icono: string;
+
+    /**
+     * Campos que intervienen en el procesamiento
+     * del documento.
+     */
+    campos: CampoDocumentoConfig[];
 
 }
 
@@ -241,6 +281,10 @@ export const MENU_DOCUMENTOS: CategoriaDocumentoConfig[] = [
 
 export const DOCUMENTOS: DocumentoConfig[] = [
 
+    // ======================================
+    // PASAPORTE ADULTO
+    // ======================================
+
     {
 
         id: "PASAPORTE_ADULTO",
@@ -251,7 +295,68 @@ export const DOCUMENTOS: DocumentoConfig[] = [
 
         icono: "🛂",
 
+        campos: [
+
+            {
+
+                campo: "titularPasaporte",
+
+                etiqueta: "Titular del Pasaporte",
+
+                requerido: true,
+
+                fuente: "AUTOMATICO",
+
+            },
+
+            {
+
+                campo: "numeroPasaporte",
+
+                etiqueta: "Número de Pasaporte",
+
+                requerido: true,
+
+                fuente: "MANUAL",
+
+            },
+{
+    campo: "fechaValija",
+    etiqueta: "Fecha de Valija",
+    requerido: true,
+    fuente: "MANUAL",
+},
+            {
+
+                campo: "fechaEmision",
+
+                etiqueta: "Fecha de Emisión",
+
+                requerido: true,
+
+                fuente: "MANUAL",
+
+            },
+
+            {
+
+                campo: "fechaVencimiento",
+
+                etiqueta: "Fecha de Vencimiento",
+
+                requerido: true,
+
+                fuente: "MANUAL",
+
+            },
+
+        ],
+
     },
+
+    // ======================================
+    // PASAPORTE NNA
+    // ======================================
 
     {
 
@@ -259,11 +364,73 @@ export const DOCUMENTOS: DocumentoConfig[] = [
 
         categoria: "PASAPORTES",
 
-        nombre: "Pasaporte Niño, Niña y Adolescente",
+        nombre:
+            "Pasaporte Niño, Niña y Adolescente",
 
         icono: "🛂",
 
+        campos: [
+
+            {
+
+                campo: "titularPasaporte",
+
+                etiqueta: "Titular del Pasaporte",
+
+                requerido: true,
+
+                fuente: "AUTOMATICO",
+
+            },
+
+            {
+
+                campo: "numeroPasaporte",
+
+                etiqueta: "Número de Pasaporte",
+
+                requerido: true,
+
+                fuente: "MANUAL",
+
+            },
+{
+    campo: "fechaValija",
+    etiqueta: "Fecha de Valija",
+    requerido: true,
+    fuente: "MANUAL",
+},
+            {
+
+                campo: "fechaEmision",
+
+                etiqueta: "Fecha de Emisión",
+
+                requerido: true,
+
+                fuente: "MANUAL",
+
+            },
+
+            {
+
+                campo: "fechaVencimiento",
+
+                etiqueta: "Fecha de Vencimiento",
+
+                requerido: true,
+
+                fuente: "MANUAL",
+
+            },
+
+        ],
+
     },
+
+    // ======================================
+    // VISA
+    // ======================================
 
     {
 
@@ -275,7 +442,78 @@ export const DOCUMENTOS: DocumentoConfig[] = [
 
         icono: "🛃",
 
+        campos: [
+
+            {
+
+                campo: "titularVisa",
+
+                etiqueta: "Titular de la Visa",
+
+                requerido: true,
+
+                fuente: "AUTOMATICO",
+
+            },
+
+            {
+
+                campo: "pasaporteTitularVisa",
+
+                etiqueta:
+                    "Pasaporte del Titular",
+
+                requerido: true,
+
+                fuente: "AUTOMATICO",
+
+            },
+
+            {
+
+                campo: "numeroVisa",
+
+                etiqueta: "Número de Visa",
+
+                requerido: true,
+
+                fuente: "MANUAL",
+
+            },
+
+            {
+
+                campo: "nacionalidad",
+
+                etiqueta: "Nacionalidad",
+
+                requerido: true,
+
+                fuente: "CATALOGO",
+
+                catalogo: "Catalogos!A:A",
+
+            },
+
+            {
+
+                campo: "vigencia",
+
+                etiqueta: "Vigencia",
+
+                requerido: true,
+
+                fuente: "MANUAL",
+
+            },
+
+        ],
+
     },
+
+    // ======================================
+    // APOSTILLA
+    // ======================================
 
     {
 
@@ -287,7 +525,35 @@ export const DOCUMENTOS: DocumentoConfig[] = [
 
         icono: "📑",
 
+        campos: [
+
+            {
+
+                campo: "titularApostilla",
+
+                etiqueta:
+                    "Titular de la Apostilla",
+
+                requerido: true,
+
+                fuente: "AUTOMATICO",
+
+            },
+
+            // --------------------------------
+            // Estos campos se completarán
+            // cuando definamos exactamente
+            // qué información debe registrar
+            // el usuario para la apostilla.
+            // --------------------------------
+
+        ],
+
     },
+
+    // ======================================
+    // FE DE VIDA
+    // ======================================
 
     {
 
@@ -299,7 +565,13 @@ export const DOCUMENTOS: DocumentoConfig[] = [
 
         icono: "❤️",
 
+        campos: [],
+
     },
+
+    // ======================================
+    // CARTA DE SOLTERÍA
+    // ======================================
 
     {
 
@@ -311,7 +583,13 @@ export const DOCUMENTOS: DocumentoConfig[] = [
 
         icono: "💍",
 
+        campos: [],
+
     },
+
+    // ======================================
+    // CERTIFICADO DE USO
+    // ======================================
 
     {
 
@@ -323,7 +601,13 @@ export const DOCUMENTOS: DocumentoConfig[] = [
 
         icono: "🚗",
 
+        campos: [],
+
     },
+
+    // ======================================
+    // CONSTANCIA REGISTRO CONSULAR
+    // ======================================
 
     {
 
@@ -331,11 +615,18 @@ export const DOCUMENTOS: DocumentoConfig[] = [
 
         categoria: "CONSTANCIA_REGISTRO",
 
-        nombre: "Constancia Registro Consular",
+        nombre:
+            "Constancia Registro Consular",
 
         icono: "🏛️",
 
+        campos: [],
+
     },
+
+    // ======================================
+    // CONSTANCIA CONSULAR
+    // ======================================
 
     {
 
@@ -347,7 +638,13 @@ export const DOCUMENTOS: DocumentoConfig[] = [
 
         icono: "📄",
 
+        campos: [],
+
     },
+
+    // ======================================
+    // PODER
+    // ======================================
 
     {
 
@@ -359,7 +656,13 @@ export const DOCUMENTOS: DocumentoConfig[] = [
 
         icono: "✍️",
 
+        campos: [],
+
     },
+
+    // ======================================
+    // AUTORIZACIÓN DE VIAJE
+    // ======================================
 
     {
 
@@ -370,6 +673,8 @@ export const DOCUMENTOS: DocumentoConfig[] = [
         nombre: "Autorización de Viaje",
 
         icono: "👨‍👩‍👧",
+
+        campos: [],
 
     },
 

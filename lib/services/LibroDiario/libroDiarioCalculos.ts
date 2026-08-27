@@ -295,79 +295,298 @@ export function construirDebe(
 
 ): MovimientoLibro[] {
 
-  return movimientos
+  console.log(
+    "=========================================="
+  );
 
-    .slice(1)
+  console.log(
+    "PERIODO LIBRO:",
+    periodo
+  );
 
-    .filter((fila) => {
+  console.log(
+    "MOVIMIENTOS MANUALES RECIBIDOS:",
+    movimientos
+  );
 
-    const fecha =
-        String(fila[0] ?? "").substring(0, 10);
+  console.log(
+    "CANTIDAD MOVIMIENTOS:",
+    movimientos.length
+  );
 
-    if (fechaInicial && fechaFinal) {
+  console.log(
+    "=========================================="
+  );
 
-        return (
-            fecha >= fechaInicial &&
-            fecha <= fechaFinal
+  const resultado: MovimientoLibro[] = [];
+
+  movimientos.forEach(
+    (movimientoRecibido, index) => {
+
+      // ======================================
+      // COMPATIBILIDAD
+      //
+      // Actualmente recibimos objetos:
+      //
+      // {
+      //   id,
+      //   fecha,
+      //   tipoMovimiento,
+      //   referencia,
+      //   concepto,
+      //   monto
+      // }
+      //
+      // Pero también permitimos filas directas
+      // de Google Sheets por compatibilidad.
+      // ======================================
+
+      const esObjeto =
+        !Array.isArray(
+          movimientoRecibido
         );
 
-    }
-
-    return fecha.startsWith(periodo);
-
-})
-
-    .map((fila, index) => {
-
       const fecha =
-        (fila[0] || "").toString();
+        esObjeto
+
+          ? String(
+              movimientoRecibido.fecha ?? ""
+            ).trim()
+
+          : String(
+              movimientoRecibido[0] ?? ""
+            ).trim();
 
       const tipoMovimiento =
-        (fila[1] || "").toString();
+        esObjeto
+
+          ? String(
+              movimientoRecibido.tipoMovimiento ?? ""
+            ).trim()
+
+          : String(
+              movimientoRecibido[1] ?? ""
+            ).trim();
 
       const referencia =
-        (fila[2] || "").toString();
+        esObjeto
+
+          ? String(
+              movimientoRecibido.referencia ?? ""
+            ).trim()
+
+          : String(
+              movimientoRecibido[2] ?? ""
+            ).trim();
 
       const concepto =
-        (fila[3] || "").toString();
+        esObjeto
 
-      const monto = convertirNumero(fila[4]);
+          ? String(
+              movimientoRecibido.concepto ?? ""
+            ).trim()
+
+          : String(
+              movimientoRecibido[3] ?? ""
+            ).trim();
+
+      const monto =
+        esObjeto
+
+          ? convertirNumero(
+              movimientoRecibido.monto
+            )
+
+          : convertirNumero(
+              movimientoRecibido[4]
+            );
+
+      // ======================================
+      // ID
+      // ======================================
+
+      const idHoja =
+        esObjeto
+
+          ? String(
+              movimientoRecibido.id ?? ""
+            ).trim()
+
+          : String(
+              movimientoRecibido[5] ?? ""
+            ).trim();
+
+      /*
+       * Los movimientos históricos no tienen ID.
+       *
+       * Creamos una clave interna solamente para
+       * React y para identificar la fila durante
+       * esta carga.
+       *
+       * NO se escribe este ID en Google Sheets.
+       */
+
+      const id =
+        idHoja ||
+        `LEGACY-${fecha}-${referencia || "SIN-REF"}-${index}`;
+
+      // ======================================
+      // EDITABLE
+      // ======================================
+
+      const editable =
+        Boolean(idHoja);
+
+      // ======================================
+      // VALIDAR FECHA
+      // ======================================
+
+      if (!fecha) {
+
+        return;
+
+      }
+
+      // ======================================
+      // DETERMINAR SI ES REINTEGRO
+      // ======================================
 
       const esReintegro =
         tipoMovimiento
-          .trim()
-          .toUpperCase() === "REINTEGRO";
+          .toUpperCase() ===
+        "REINTEGRO";
 
-      return {
+      // ======================================
+      // FILTRO POR RANGO DE FECHAS
+      // ======================================
 
-    id:`MOV-${index}`,
+      if (
+        fechaInicial &&
+        fechaFinal
+      ) {
 
-    tipoFila:"MOVIMIENTO",
+        const fechaConvertida =
+          convertirFecha(
+            fecha
+          );
+
+        if (!fechaConvertida) {
+
+          return;
+
+        }
+
+        const inicio =
+          inicioDelDia(
+            fechaInicial
+          );
+
+        const fin =
+          finDelDia(
+            fechaFinal
+          );
+
+        if (
+          !inicio ||
+          !fin
+        ) {
+
+          return;
+
+        }
+
+        if (
+          fechaConvertida < inicio ||
+          fechaConvertida > fin
+        ) {
+
+          return;
+
+        }
+
+      }
+
+      // ======================================
+      // FILTRO POR MES
+      // ======================================
+
+      else {
+
+        if (
+          periodoFecha(
+            fecha
+          ) !== periodo
+        ) {
+
+          return;
+
+        }
+
+      }
+
+      // ======================================
+      // CREAR MOVIMIENTO
+      // ======================================
+
+      const movimiento:
+        MovimientoLibro = {
+
+        id,
+
+        tipoFila:
+          "MOVIMIENTO",
 
         fecha,
 
         referencia,
 
-        descripcion: concepto,
+        descripcion:
+          concepto,
 
         arancel:
-  0,
+          0,
 
-        haber: esReintegro ? monto : 0,
+        haber:
+          esReintegro
+            ? monto
+            : 0,
 
-        debe: esReintegro ? 0 : monto,
+        debe:
+          esReintegro
+            ? 0
+            : monto,
 
-        saldo: 0,
+        saldo:
+          0,
 
-        origen: "MOVIMIENTO",
+        origen:
+          "MOVIMIENTO",
 
-        tipoMovimiento,
+        tipoMovimiento:
+          tipoMovimiento || undefined,
 
-        editable: true,
+        editable,
 
       };
 
-    });
+      resultado.push(
+        movimiento
+      );
+
+    }
+  );
+
+  console.log(
+    "MOVIMIENTOS DEBE CONSTRUIDOS:",
+    resultado
+  );
+
+  console.log(
+    "CANTIDAD DEBE CONSTRUIDOS:",
+    resultado.length
+  );
+
+  return resultado;
 
 }
 
