@@ -22,8 +22,9 @@ export const PERMISOS = {
   ],
 
   analista: [
-    "sgc",
-  ],
+  "sgc",
+  "consultas",
+],
 
   consultas: [
     "consultas",

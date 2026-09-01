@@ -1277,6 +1277,51 @@ function cambiarApoderado(
     </div>
 
 )}
+{/* ==========================================
+    TIPO DE DOCUMENTO - APOSTILLA
+    Se guarda como OBSERVACIONES (columna M)
+========================================== */}
+
+{categoria === "APOSTILLA" &&
+    modo === "editar" && (
+
+    <div className="space-y-1">
+
+        <label
+            className="
+                block
+                text-sm
+                font-medium
+                text-slate-700
+            "
+        >
+            Tipo de Documento
+        </label>
+
+        <input
+            type="text"
+            value={documento.observaciones ?? ""}
+            onChange={e =>
+                onChange({
+                    observaciones:
+                        e.target.value,
+                })
+            }
+            className="
+                w-full
+                rounded-lg
+                border
+                border-slate-300
+                px-3
+                py-2
+                focus:border-blue-600
+                focus:outline-none
+            "
+            placeholder="Ej. Titulo de Bachiller, Certificado Titulo en Pergamino..."
+        />
+
+    </div>
+)}
         {campos.map(campo => {
 
             const valor =

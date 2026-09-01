@@ -53,14 +53,14 @@ export const navigation: NavigationItem[] = [
       },
       {
         label: "Entrega Documentos",
-        disabled: true,
+        href: "/entrega",
         permiso: MODULOS.CAJA,
       },
       {
-        label: "Documentos en Proceso",
-        href: "/reportesentregados",
-        permiso: MODULOS.CAJA,
-      },
+  label: "Documentos en Proceso",
+  href: "/reportesentregados",
+  permiso: MODULOS.GESTION_CONSULAR,
+},
     ],
   },
 

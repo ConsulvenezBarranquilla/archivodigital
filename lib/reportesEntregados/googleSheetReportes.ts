@@ -2371,7 +2371,10 @@ reporte.estadoPoder =
 // - Usuario que realizó la entrega
 // - Observaciones
 //
-// Conserva todos los demás datos del reporte.
+// IMPORTANTE:
+// La entrega NO cambia el estado de procesamiento.
+// El documento debe continuar como PROCESADO para que
+// permanezca visible en el módulo /entrega.
 //
 // ======================================================
 
@@ -2429,6 +2432,19 @@ export async function registrarEntrega(
 
     reporte.observaciones =
         observaciones ?? "";
+
+    // ==========================================
+    // IMPORTANTE
+    //
+    // Una entrega no significa que el proceso
+    // haya dejado de ser PROCESADO.
+    //
+    // Esto permite que /entrega siga mostrando
+    // el documento después de entregarlo.
+    // ==========================================
+
+    reporte.estadoProcesamiento =
+        "PROCESADO";
 
     // ==========================================
     // Guardar

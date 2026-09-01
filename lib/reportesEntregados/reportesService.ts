@@ -1728,7 +1728,25 @@ function obtenerVisas(
 
         });
 
-    return resultado;
+     return resultado.sort(
+        (a, b) => {
+
+            const planillaA =
+                Number(
+                    texto(a.planillaGC)
+                        .replace(/\D/g, "")
+                );
+
+            const planillaB =
+                Number(
+                    texto(b.planillaGC)
+                        .replace(/\D/g, "")
+                );
+
+            return planillaA - planillaB;
+
+        }
+    );
 
 }
 
