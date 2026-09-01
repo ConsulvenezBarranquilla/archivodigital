@@ -1530,6 +1530,9 @@ function obtenerVisas(
     const cajaMap =
         new Map<string, any>();
 
+    const contadorVisas =
+    new Map<string, number>();
+
     data.caja
         .slice(1)
         .forEach((fila) => {
@@ -1620,26 +1623,62 @@ function obtenerVisas(
             const nacionalidadSolicitante =
                 texto(recibo[13]);
 
-            const titularEspecial =
-                texto(recibo[16]);
+            // --------------------------------------
+// TITULARES DE VISA
+// --------------------------------------
+// Caja!Q contiene los titulares
+// separados por ;
+// Caja!R contiene sus pasaportes
+// --------------------------------------
 
-            const pasaporteEspecial =
-                texto(recibo[17]);
+const titularesVisa =
+    convertirListaTexto(
+        recibo[16]
+    );
 
-            const tieneTitularEspecial =
-                titularEspecial !== "";
+const pasaportesTitularVisa =
+    convertirListaTexto(
+        recibo[17]
+    );
 
-            const titularVisa =
+// --------------------------------------
+// Posición de esta VISA dentro
+// del mismo recibo
+// --------------------------------------
 
-                tieneTitularEspecial
-                    ? titularEspecial
-                    : solicitante;
+const contadorVisa =
+    contadorVisas.get(
+        correlativo
+    ) ?? 0;
 
-            const pasaporteTitularVisa =
+const titularEspecial =
+    texto(
+        titularesVisa[contadorVisa]
+    );
 
-                tieneTitularEspecial
-                    ? pasaporteEspecial
-                    : "";
+const pasaporteEspecial =
+    texto(
+        pasaportesTitularVisa[contadorVisa]
+    );
+
+const tieneTitularEspecial =
+    titularEspecial !== "";
+
+const titularVisa =
+    tieneTitularEspecial
+        ? titularEspecial
+        : solicitante;
+
+
+const pasaporteTitularVisa =
+    tieneTitularEspecial
+        ? pasaporteEspecial
+        : "";
+
+contadorVisas.set(
+    correlativo,
+    contadorVisa + 1
+);
 
             const documento:
                 ReporteEntregado = {

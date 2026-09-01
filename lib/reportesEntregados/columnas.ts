@@ -223,27 +223,30 @@ TableColumn<ReporteEntregado>[] {
 // ==========================================
 
 function columnasVisas():
+    TableColumn<ReporteEntregado>[] {
 
-TableColumn<ReporteEntregado>[] {
+    const columnas = columnasComunes();
+
+    const columnaSolicitante = columnas.find(
+        (columna) => columna.field === "solicitante"
+    );
+
+    if (columnaSolicitante) {
+        columnaSolicitante.render = (row) =>
+            row.titularVisa || row.solicitante || "";
+    }
 
     return [
 
-        ...columnasComunes(),
+        ...columnas,
 
         {
-
             field: "numeroVisa",
-
             title: "N° Etiqueta",
-
             width: "150px",
-
             align: "center",
-
             render: (row: any) =>
-
                 row.numeroVisa || "",
-
         },
 
         {
