@@ -166,6 +166,13 @@ CampoDocumento[]
             editableEn: "editar",
 
         },
+        {
+    key: "nacionalidad",
+    label: "Nacionalidad",
+    type: "select",
+    requerido: false,
+    editableEn: "editar",
+},
 
     ],
 

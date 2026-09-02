@@ -1675,6 +1675,11 @@ const pasaporteTitularVisa =
         ? pasaporteEspecial
         : "";
 
+const documentoTitularVisa =
+    tieneTitularEspecial
+        ? pasaporteEspecial
+        : texto(recibo[2]);
+
 contadorVisas.set(
     correlativo,
     contadorVisa + 1
@@ -1705,9 +1710,7 @@ contadorVisas.set(
                 solicitante,
 
                 documento:
-                    texto(
-                        recibo[2]
-                    ),
+    documentoTitularVisa,
 
                 estado:
                     estadoCaja,
@@ -1735,6 +1738,9 @@ contadorVisas.set(
                     documento,
                     reporte
                 );
+
+            documentoFinal.documento =
+    documentoTitularVisa;
 
             documentoFinal.titularVisa =
                 titularVisa;

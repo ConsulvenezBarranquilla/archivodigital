@@ -182,6 +182,16 @@ export async function obtenerConfiguracion() {
   return config;
 }
 
+export async function obtenerCatalogoNacionalidades() {
+  const rows = await leerHojaRegistro(
+    "Catalogos!A1:A1000"
+  );
+
+  return rows
+    .map((row) => String(row[0] ?? "").trim())
+    .filter(Boolean);
+}
+
 export async function obtenerActuaciones() {
   return await leerHoja(
     HOJA_ACTUACIONES,

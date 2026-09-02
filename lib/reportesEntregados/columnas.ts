@@ -312,7 +312,20 @@ TableColumn<ReporteEntregado>[] {
     return [
 
         ...columnasComunes(),
-
+{
+            field: "titularApostilla",
+            title: "Titular del Documento",
+            width: "260px",
+            render: (row: any) =>
+                row.titularApostilla || "",
+        },
+              {
+            field: "observaciones",
+            title: "Tipo de Documento",
+            width: "220px",
+            render: (row: any) =>
+                row.observaciones || "",
+        },
         {
 
             field: "estadoApostilla",

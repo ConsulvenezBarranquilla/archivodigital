@@ -10,7 +10,11 @@ import {
 
 } from "@/types/ReporteEntregado";
 
+import ModalNuevaConstancia from "@/components/reportesEntregados/ModalNuevaConstancia";
+
 const BASE_URL = "/api/reportes-entregados";
+
+
 
 // ======================================================
 // Tipos de respuesta
@@ -282,5 +286,31 @@ export async function exportarExcel(
     }
 
     return await response.blob();
+
+}
+export async function obtenerNacionalidades(): Promise<string[]> {
+
+    const response = await fetch(
+        `${BASE_URL}/catalogos/nacionalidades`,
+        {
+            method: "GET",
+            cache: "no-store",
+        }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok || !data?.ok) {
+
+        throw new Error(
+            data?.error ??
+            "No fue posible obtener las nacionalidades."
+        );
+
+    }
+
+    return Array.isArray(data.nacionalidades)
+        ? data.nacionalidades
+        : [];
 
 }

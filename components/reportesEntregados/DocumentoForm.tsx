@@ -6,6 +6,15 @@ import {
 } from "@/types/ReporteEntregado";
 
 import {
+    useEffect,
+    useState,
+} from "react";
+
+import {
+    obtenerNacionalidades,
+} from "@/lib/services/ReportesEntregados";
+
+import {
     CONFIG_CAMPOS,
 } from "@/lib/reportesEntregados/configCampos";
 
@@ -121,7 +130,40 @@ export default function DocumentoForm({
                 campo.editableEn === modo
 
         );
+const [nacionalidades, setNacionalidades] =
+    useState<string[]>([]);
 
+    useEffect(() => {
+
+    if (
+        categoria !== "VISA" ||
+        modo !== "editar"
+    ) {
+        return;
+    }
+
+    obtenerNacionalidades()
+        .then((lista) => {
+
+            setNacionalidades(
+                lista
+            );
+
+        })
+        .catch((error) => {
+
+            console.error(
+                "Error cargando nacionalidades:",
+                error
+            );
+
+            setNacionalidades([]);
+        });
+
+}, [
+    categoria,
+    modo,
+]);
     // ==================================================
     // ¿Es un pasaporte?
     // ==================================================
@@ -1546,18 +1588,30 @@ function cambiarApoderado(
                                 Seleccione...
                             </option>
 
-                            {campo.opciones?.map(
-                                (opcion) => (
+                            {(
+    categoria === "VISA" &&
+    campo.key === "nacionalidad"
+        ? Array.from(
+            new Set([
+                ...nacionalidades,
+                ...(valor
+                    ? [valor]
+                    : []),
+            ])
+        )
+        : campo.opciones ?? []
+).map(
+    (opcion) => (
 
-                                    <option
-                                        key={opcion}
-                                        value={opcion}
-                                    >
-                                        {opcion}
-                                    </option>
+        <option
+            key={opcion}
+            value={opcion}
+        >
+            {opcion}
+        </option>
 
-                                )
-                            )}
+    )
+)}
 
                         </select>
 
