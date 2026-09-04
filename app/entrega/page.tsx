@@ -1161,7 +1161,24 @@ export default function EntregaPage() {
                     },
 
             },
+// ------------------------------------------
+// FUNCIONARIO QUE ENTREGÓ
+// ------------------------------------------
 
+{
+    field:
+        "entregadoPor",
+
+    title:
+        "Funcionario que entregó",
+
+    render:
+        documento =>
+
+            documento.entregadoPor ||
+            "-",
+
+},
         ];
 
     // ==================================================

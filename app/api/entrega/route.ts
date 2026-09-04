@@ -26,25 +26,15 @@ import {
 const CATEGORIAS: CategoriaDocumento[] = [
 
     "PASAPORTES",
-
     "VISA",
-
     "APOSTILLA",
-
     "FE_VIDA",
-
     "CARTA_SOLTERIA",
-
     "CERTIFICADO_USO",
-
     "CONSTANCIA_REGISTRO",
-
     "CONSTANCIA_CONSULAR",
-
     "PODER",
-
     "AUTORIZACION_VIAJE",
-
 ];
 
 // ======================================================
@@ -52,6 +42,8 @@ const CATEGORIAS: CategoriaDocumento[] = [
 // ======================================================
 
 interface EstadoEntrega {
+
+    id: string;
 
     recibo: string;
 
@@ -79,15 +71,16 @@ interface EstadoEntrega {
 // recupera directamente de ReportesEntregados.
 //
 // Esto permite que:
+//
 // - la entrega persista al salir y volver a entrar
 // - no dependamos de registrarEntrega()
 // - no modifiquemos reportesentregados
 // - no modifiquemos reportesService
 // - no modifiquemos googleSheetReportes
 //
-// La búsqueda de persistencia utiliza RECIBO,
-// que es también la referencia utilizada por
-// /api/entrega/registrar.
+// La correspondencia principal utiliza el ID del documento.
+// El RECIBO queda como respaldo cuando no existe
+// coincidencia por ID.
 // ======================================================
 
 export async function GET() {
@@ -159,18 +152,18 @@ export async function GET() {
         // en /entrega.
         // ==================================================
 
-       const procesados =
-    documentos.filter(
+        const procesados =
+            documentos.filter(
 
-        documento =>
+                documento =>
 
-            documento.estadoProcesamiento ===
-                "PROCESADO" ||
+                    documento.estadoProcesamiento ===
+                        "PROCESADO" ||
 
-            documento.estadoProcesamiento ===
-                "ENTREGADO"
+                    documento.estadoProcesamiento ===
+                        "ENTREGADO"
 
-    );
+            );
 
         // ==================================================
         // LEER DIRECTAMENTE ReportesEntregados
@@ -199,12 +192,31 @@ export async function GET() {
             response.data.values || [];
 
         // ==================================================
-        // CREAR MAPA POR RECIBO
+        // CREAR MAPA POR ID
+        //
+        // El ID es la identificación única del documento.
+        //
+        // Esto permite:
+        //
+        // - entregar varios documentos del mismo recibo
+        // - entregar documentos sin recibo
+        // - evitar que una fila de un mismo recibo se
+        //   confunda con otra
+        // ==================================================
+
+        const reportesPorId =
+            new Map<
+                string,
+                EstadoEntrega
+            >();
+
+        // ==================================================
+        // CREAR MAPA POR RECIBO COMO RESPALDO
         //
         // Un mismo recibo puede tener varias filas.
         //
-        // Por eso el valor del mapa es un ARRAY y no
-        // un único registro.
+        // Este mapa solamente se utilizará cuando no
+        // exista coincidencia por ID.
         // ==================================================
 
         const reportesPorRecibo =
@@ -223,6 +235,16 @@ export async function GET() {
                 rows[i];
 
             // ----------------------------------------------
+            // ID
+            // A = índice 0
+            // ----------------------------------------------
+
+            const id =
+                String(
+                    row[0] ?? ""
+                ).trim();
+
+            // ----------------------------------------------
             // RECIBO
             // D = índice 3
             // ----------------------------------------------
@@ -231,10 +253,6 @@ export async function GET() {
                 String(
                     row[3] ?? ""
                 ).trim();
-
-            if (!recibo) {
-                continue;
-            }
 
             // ----------------------------------------------
             // ESTADO ENTREGA
@@ -280,6 +298,8 @@ export async function GET() {
 
             const estado: EstadoEntrega = {
 
+                id,
+
                 recibo,
 
                 entregado,
@@ -295,23 +315,48 @@ export async function GET() {
 
             };
 
-            const existentes =
-                reportesPorRecibo.get(
-                    recibo
-                );
+            // ----------------------------------------------
+            // MAPA PRINCIPAL POR ID
+            //
+            // Solo registramos IDs no vacíos.
+            // ----------------------------------------------
 
-            if (existentes) {
+            if (id) {
 
-                existentes.push(
+                reportesPorId.set(
+                    id,
                     estado
                 );
 
-            } else {
+            }
 
-                reportesPorRecibo.set(
-                    recibo,
-                    [estado]
-                );
+            // ----------------------------------------------
+            // MAPA SECUNDARIO POR RECIBO
+            //
+            // Solo registramos recibos no vacíos.
+            // ----------------------------------------------
+
+            if (recibo) {
+
+                const existentes =
+                    reportesPorRecibo.get(
+                        recibo
+                    );
+
+                if (existentes) {
+
+                    existentes.push(
+                        estado
+                    );
+
+                } else {
+
+                    reportesPorRecibo.set(
+                        recibo,
+                        [estado]
+                    );
+
+                }
 
             }
 
@@ -320,14 +365,21 @@ export async function GET() {
         // ==================================================
         // SINCRONIZAR ESTADO
         //
-        // Para cada documento buscamos primero por RECIBO.
+        // La correspondencia principal se hace por ID.
         //
-        // Si existen varias filas con el mismo recibo,
-        // intentamos primero utilizar el ID de la fila para
-        // mejorar la correspondencia.
+        // Esto es importante porque:
         //
-        // Si no hay coincidencia por ID, utilizamos las filas
-        // del recibo en orden.
+        // - un recibo puede tener varios documentos
+        // - una Constancia Consular manual puede no tener
+        //   recibo
+        //
+        // Por lo tanto NO debemos utilizar el recibo como
+        // identificador principal.
+        //
+        // Si por alguna razón un documento no tiene ID
+        // coincidente, utilizamos el recibo únicamente como
+        // respaldo cuando existe una sola fila para ese
+        // recibo.
         // ==================================================
 
         const documentosEntrega:
@@ -336,33 +388,8 @@ export async function GET() {
 
                 documento => {
 
-                    const recibo =
-                        String(
-                            documento.recibo ?? ""
-                        ).trim();
-
-                    if (!recibo) {
-
-                        return documento;
-
-                    }
-
-                    const candidatos =
-                        reportesPorRecibo.get(
-                            recibo
-                        );
-
-                    if (
-                        !candidatos ||
-                        candidatos.length === 0
-                    ) {
-
-                        return documento;
-
-                    }
-
                     // ------------------------------------------
-                    // Intentar primero coincidencia por ID
+                    // ID DEL DOCUMENTO
                     // ------------------------------------------
 
                     const idDocumento =
@@ -370,61 +397,81 @@ export async function GET() {
                             documento.id ?? ""
                         ).trim();
 
-                    const indicePorId =
-                        candidatos.findIndex(
-
-                            reporte => {
-
-                                const fila =
-                                    rows[
-                                        reporte.fila - 1
-                                    ];
-
-                                const idFila =
-                                    String(
-                                        fila?.[0] ?? ""
-                                    ).trim();
-
-                                return (
-                                    idDocumento !== "" &&
-                                    idFila === idDocumento
-                                );
-
-                            }
-
-                        );
+                    // ------------------------------------------
+                    // PRIMERA OPCIÓN:
+                    // Coincidencia exacta por ID.
+                    //
+                    // Funciona también para documentos sin
+                    // número de recibo.
+                    // ------------------------------------------
 
                     let reporte:
                         EstadoEntrega | undefined;
 
-                    if (
-                        indicePorId >= 0
-                    ) {
+                    if (idDocumento) {
 
                         reporte =
-                            candidatos[
-                                indicePorId
-                            ];
-
-                    } else {
-
-                        // --------------------------------------
-                        // Sin coincidencia por ID.
-                        //
-                        // Utilizamos la primera fila disponible
-                        // para ese recibo.
-                        // --------------------------------------
-
-                        reporte =
-                            candidatos[0];
+                            reportesPorId.get(
+                                idDocumento
+                            );
 
                     }
+
+                    // ------------------------------------------
+                    // SEGUNDA OPCIÓN:
+                    // Utilizar RECIBO solamente como respaldo.
+                    //
+                    // IMPORTANTE:
+                    // Si hay varias filas con el mismo recibo,
+                    // NO elegimos arbitrariamente la primera.
+                    //
+                    // De esa manera evitamos volver a presentar
+                    // el problema de documentos diferentes del
+                    // mismo recibo.
+                    // ------------------------------------------
+
+                    if (!reporte) {
+
+                        const recibo =
+                            String(
+                                documento.recibo ?? ""
+                            ).trim();
+
+                        if (recibo) {
+
+                            const candidatos =
+                                reportesPorRecibo.get(
+                                    recibo
+                                );
+
+                            if (
+                                candidatos &&
+                                candidatos.length === 1
+                            ) {
+
+                                reporte =
+                                    candidatos[0];
+
+                            }
+
+                        }
+
+                    }
+
+                    // ------------------------------------------
+                    // Si no encontramos una fila correspondiente,
+                    // conservamos el documento tal como viene.
+                    // ------------------------------------------
 
                     if (!reporte) {
 
                         return documento;
 
                     }
+
+                    // ------------------------------------------
+                    // Aplicar estado de entrega
+                    // ------------------------------------------
 
                     return {
 
@@ -495,11 +542,8 @@ export async function GET() {
     catch (error: any) {
 
         console.error(
-
             "Error obteniendo documentos para entrega:",
-
             error
-
         );
 
         return NextResponse.json(

@@ -81,34 +81,78 @@ export const HOJA_REPORTES_ENTREGADOS =
 FUNCIONES GENÉRICAS
 ------------------------------------------*/
 
+const CACHE_TTL_MS = 10_000;
+
+const cacheHojas = new Map<string, { datos: any[][]; timestamp: number }>();
+const lecturasEnCurso = new Map<string, Promise<any[][]>>();
+
+function obtenerClaveCache(spreadsheetId: string, hoja: string, rango: string) {
+  return `${spreadsheetId}|${hoja}|${rango}`;
+}
+
+function invalidarCacheHoja(spreadsheetId: string, hoja: string) {
+  const prefijo = `${spreadsheetId}|${hoja}|`;
+
+  for (const clave of cacheHojas.keys()) {
+    if (clave.startsWith(prefijo)) {
+      cacheHojas.delete(clave);
+    }
+  }
+}
+
+async function leerHojaConCache(
+  spreadsheetId: string,
+  hoja: string,
+  rango: string
+) {
+  const clave = obtenerClaveCache(spreadsheetId, hoja, rango);
+  const cache = cacheHojas.get(clave);
+
+  if (cache && Date.now() - cache.timestamp < CACHE_TTL_MS) {
+    return cache.datos;
+  }
+
+  const lecturaExistente = lecturasEnCurso.get(clave);
+  if (lecturaExistente) {
+    return await lecturaExistente;
+  }
+
+  const lectura = (async () => {
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: `${hoja}!${rango}`,
+    });
+
+    const datos = response.data.values || [];
+    cacheHojas.set(clave, { datos, timestamp: Date.now() });
+    return datos;
+  })();
+
+  lecturasEnCurso.set(clave, lectura);
+  try {
+    return await lectura;
+  } finally {
+    if (lecturasEnCurso.get(clave) === lectura) {
+      lecturasEnCurso.delete(clave);
+    }
+  }
+}
+
 export async function leerHoja(
   hoja: string,
   rango: string
 ) {
-  const response =
-    await sheets.spreadsheets.values.get({
-      spreadsheetId:
-        MODULO_CAJA_SHEET_ID,
-
-      range:
-        `${hoja}!${rango}`,
-    });
-
-  return response.data.values || [];
+  return await leerHojaConCache(MODULO_CAJA_SHEET_ID, hoja, rango);
 }
 
 export async function leerHojaRegistro(
   rango: string
 ) {
-  const response =
-    await sheets.spreadsheets.values.get({
-      spreadsheetId:
-        REGISTRO_CONSULAR_SHEET_ID,
+  const separador = rango.indexOf('!');
+  const hoja = separador >= 0 ? rango.substring(0, separador) : '__RANGO_DIRECTO__';
+  const rangoReal = separador >= 0 ? rango.substring(separador + 1) : rango;
 
-      range: rango,
-    });
-
-  return response.data.values || [];
+  return await leerHojaConCache(REGISTRO_CONSULAR_SHEET_ID, hoja, rangoReal);
 }
 
 export async function agregarFila(
@@ -129,6 +173,8 @@ export async function agregarFila(
       values: [datos],
     },
   });
+
+  invalidarCacheHoja(MODULO_CAJA_SHEET_ID, hoja);
 }
 
 export async function actualizarCelda(
@@ -150,6 +196,8 @@ export async function actualizarCelda(
       values: [[valor]],
     },
   });
+
+  invalidarCacheHoja(MODULO_CAJA_SHEET_ID, hoja);
 }
 
 /*------------------------------------------
@@ -742,6 +790,8 @@ export async function actualizarFila(
       values: [datos],
     },
   });
+
+  invalidarCacheHoja(MODULO_CAJA_SHEET_ID, hoja);
 }
 
 /*------------------------------------------
@@ -1078,6 +1128,11 @@ export async function actualizarPasaporteAdultoRegistro(
         ],
       },
     });
+
+    invalidarCacheHoja(
+      REGISTRO_CONSULAR_SHEET_ID,
+      "Respuestas de formulario 1"
+    );
 
     return true;
   }

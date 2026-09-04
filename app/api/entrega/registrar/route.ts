@@ -8,8 +8,9 @@
 // NO utiliza registrarEntrega() de
 // googleSheetReportes.ts.
 //
-// La búsqueda se realiza por RECIBO,
-// que es la referencia común entre los módulos.
+// La búsqueda se realiza por ID del documento.
+// El RECIBO se utiliza únicamente como información
+// complementaria.
 // ======================================================
 
 import {
@@ -68,19 +69,19 @@ export async function POST(
         }
 
 
-        const recibo =
+        const idDocumento =
             String(
-                documento.recibo ?? ""
+                documento.id ?? ""
             ).trim();
 
 
-        if (!recibo) {
+        if (!idDocumento) {
 
             return NextResponse.json(
                 {
                     ok: false,
                     error:
-                        "El documento no tiene número de recibo.",
+                        "El documento no tiene ID.",
                 },
                 {
                     status: 400,
@@ -88,6 +89,12 @@ export async function POST(
             );
 
         }
+
+
+        const recibo =
+            String(
+                documento.recibo ?? ""
+            ).trim();
 
 
         const usuarioEntrega =
@@ -160,9 +167,17 @@ export async function POST(
 
 
         // ==================================================
-        // BUSCAR POR RECIBO
+        // BUSCAR POR ID
         //
-        // NO utilizamos documento.id.
+        // El ID de ReportesEntregados!A identifica
+        // individualmente cada documento.
+        //
+        // Esto permite:
+        //
+        // - entregar varios documentos del mismo recibo
+        // - entregar documentos sin recibo
+        // - evitar confundir dos documentos con el mismo
+        //   número de recibo
         // ==================================================
 
         let fila =
@@ -175,14 +190,14 @@ export async function POST(
             i++
         ) {
 
-            const reciboFila =
+            const idFila =
                 String(
-                    rows[i][3] ?? ""
+                    rows[i][0] ?? ""
                 ).trim();
 
 
             if (
-                reciboFila === recibo
+                idFila === idDocumento
             ) {
 
                 fila =
@@ -196,18 +211,24 @@ export async function POST(
 
 
         // ==================================================
-        // RECIBO NO ENCONTRADO
+        // DOCUMENTO NO ENCONTRADO
         // ==================================================
 
         if (
             fila === -1
         ) {
 
+            const referencia =
+                recibo
+                    ? `ID ${idDocumento}, recibo ${recibo}`
+                    : `ID ${idDocumento}`;
+
+
             return NextResponse.json(
                 {
                     ok: false,
                     error:
-                        `No se encontró el documento asociado al recibo ${recibo}.`,
+                        `No se encontró el documento asociado a ${referencia}.`,
                 },
                 {
                     status: 404,
@@ -219,6 +240,8 @@ export async function POST(
 
         // ==================================================
         // VERIFICAR SI YA ESTÁ ENTREGADO
+        //
+        // Se verifica la fila correspondiente al ID exacto.
         // ==================================================
 
         const estadoActual =
@@ -233,11 +256,17 @@ export async function POST(
             estadoActual === "SI"
         ) {
 
+            const referencia =
+                recibo
+                    ? `del recibo ${recibo}`
+                    : `con ID ${idDocumento}`;
+
+
             return NextResponse.json(
                 {
                     ok: false,
                     error:
-                        `El documento del recibo ${recibo} ya se encuentra registrado como entregado.`,
+                        `El documento ${referencia} ya se encuentra registrado como entregado.`,
                 },
                 {
                     status: 400,
@@ -294,6 +323,9 @@ export async function POST(
 
             ok: true,
 
+            id:
+                idDocumento,
+
             recibo,
 
             fechaEntrega:
@@ -308,6 +340,7 @@ export async function POST(
         });
 
     }
+
 
     catch (error: any) {
 

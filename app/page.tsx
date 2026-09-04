@@ -9,37 +9,35 @@ export default function Home() {
   const [resultado, setResultado] = useState<any>(null)
   const [cargando, setCargando] = useState(false)
 
-  const hojas: any = {
-    viaje:
-      'https://docs.google.com/spreadsheets/d/e/2PACX-1vRkkTarkCdW1Iy0MN1PfG3ZetMrPAlgGH5aIH7tYYcLYqlVjwB0ePNp33yIrZ5WWX4x9cIyZc6HGK4e/pub?output=csv',
-
+  const placeholderPorTipo: Record<string, string> = {
     enseres:
-      'https://docs.google.com/spreadsheets/d/e/2PACX-1vTSK5nMNWj_CoeVR7-HmNKlsjlckfs1Y6JR1eAbEzJEXn8B9CXmZZqrbbp9nu6BgmTZe-xPJ6gN2nNA/pub?output=csv',
-
+      'Ingrese numero de Certificado p.e 000000-00000000',
     solteria:
-      'https://docs.google.com/spreadsheets/d/e/2PACX-1vTaH26wNEDdp8aPxopHOjGzP26jjq-smL2MeaDfQFiZ-LOiQpnH-UEPl5iuk5y4Ut7kKaza1jS7jLuv/pub?output=csv',
-
+      'Ingrese numero de correlativo p.e 00/0000',
     registro:
-      'https://docs.google.com/spreadsheets/d/e/2PACX-1vToHq90AEjPQXsOs3sxTmT3DK7ZtRKJh6uNv0L1ungd-lFAj4TS5l_Z3oRxT5usExlDQXmrdYpLp1fm/pub?output=csv',
-
+      'Ingrese numero de Registro p.e 000000',
     constancia:
-      'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ8uKGMH_Nfwkkl3uRQQegzLs5xygoIctgFjsu004akpinfBdfo9Thczw6lCPttcwcYz9wyUE-mdlEM/pub?output=csv',
-
-    notarial:
-      'https://docs.google.com/spreadsheets/d/e/2PACX-1vTvUgpdQIdHzI09BDg5m0sBgKZKckGxtqx2N__sKvDmMxIRzANZ_fS7SFj3hsK6keulj4-3UMD_GUYK/pub?output=csv'
+      'Ingrese numero de correlativo p.e 000/0000',
+    fevida:
+      'Ingrese numero de correlativo p.e 000/0000',
+    pasaporte:
+      'Ingrese numero de cedula sin puntos o nombres completos de menores no cedulados',
+    poder:
+      'Ingrese los ultimos 4 digitos de la planilla de Gestión Consular p.e 0000',
+    autorizacion:
+      'Ingrese los ultimos 4 digitos de la planilla de Gestión Consular p.e 0000'
   }
 
-  function obtenerFechaHora() {
-    const ahora = new Date()
+  function cambiarTipoDocumento(tipo: string) {
+    setTipoDocumento(tipo)
+    setCodigo('')
+    setResultado(null)
+  }
 
-    return ahora.toLocaleString('es-CO', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    })
+  function limpiarConsulta() {
+    setTipoDocumento('')
+    setCodigo('')
+    setResultado(null)
   }
 
   async function buscarDocumento() {
@@ -54,46 +52,55 @@ export default function Home() {
     setResultado(null)
 
     try {
-      const res = await fetch(hojas[tipoDocumento])
-      const texto = await res.text()
-
-      const filas = texto
-        .trim()
-        .split('\n')
-        .map((fila) => fila.split(','))
-
-      const encabezados = filas[0]
-
-      const encontrado = filas.find(
-        (fila, index) =>
-          index > 0 &&
-          fila[0]?.trim().toLowerCase() === codigo.trim().toLowerCase()
-      )
-
-      if (encontrado) {
-        const objeto: any = {}
-
-        encabezados.forEach((titulo, i) => {
-          objeto[titulo.trim()] = encontrado[i]?.trim()
+      const res = await fetch('/api/validar-documento', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          tipo: tipoDocumento,
+          codigo: codigo.trim()
         })
+      })
 
+      const data = await res.json()
+
+      if (!res.ok || !data.ok) {
         setResultado({
-          encontrado: true,
-          datos: objeto,
-          fechaHora: obtenerFechaHora()
+          error: data.error || 'Error consultando base de datos.'
         })
-      } else {
+        return
+      }
+
+      if (!data.encontrado) {
         setResultado({
           error: 'Documento no encontrado.'
         })
+        return
       }
+
+      setResultado({
+        encontrado: true,
+        datos: data.datos,
+        mensaje: data.mensaje,
+        fechaHora: new Date().toLocaleString('es-CO', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit'
+        })
+      })
     } catch (error) {
+      console.error(error)
+
       setResultado({
         error: 'Error consultando base de datos.'
       })
+    } finally {
+      setCargando(false)
     }
-
-    setCargando(false)
   }
 
   return (
@@ -138,23 +145,52 @@ export default function Home() {
 
             <select
               value={tipoDocumento}
-              onChange={(e) => setTipoDocumento(e.target.value)}
+              onChange={(e) => cambiarTipoDocumento(e.target.value)}
               className="w-full border border-slate-300 rounded-2xl p-4 text-lg"
             >
-              <option value="">Seleccione tipo de documento</option>
-              <option value="viaje">Documento de Viaje</option>
-              <option value="enseres">Certificado de Uso</option>
-              <option value="solteria">Carta de Soltería</option>
-              <option value="registro">Registro Consular</option>
-              <option value="constancia">Constancia Consular</option>
-              <option value="notarial">
-                Actuación Notarial (Poder / Autorización de Viaje NNA)
+              <option value="">
+                Seleccione tipo de documento
+              </option>
+
+              <option value="enseres">
+                Certificado de Uso
+              </option>
+
+              <option value="solteria">
+                Carta de Soltería
+              </option>
+
+              <option value="registro">
+                Registro Consular
+              </option>
+
+              <option value="constancia">
+                Constancia Consular
+              </option>
+
+              <option value="fevida">
+                Fe de Vida
+              </option>
+
+              <option value="pasaporte">
+                Pasaporte
+              </option>
+
+              <option value="poder">
+                Poder
+              </option>
+
+              <option value="autorizacion">
+                Autorización de Viaje
               </option>
             </select>
 
             <input
               type="text"
-              placeholder="Ingrese número de documento p. ej. XX/XXXX"
+              placeholder={
+                placeholderPorTipo[tipoDocumento] ||
+                'Ingrese número de documento'
+              }
               value={codigo}
               onChange={(e) => setCodigo(e.target.value)}
               className="w-full border border-slate-300 rounded-2xl p-4 text-lg"
@@ -167,27 +203,7 @@ export default function Home() {
               {cargando ? 'Buscando...' : 'Buscar Documento'}
             </button>
 
-           {/* PDF INSTRUCTIVO */}
-<div className="flex flex-col items-center pt-2">
-  <a
-    href="https://drive.google.com/file/d/11SHGdn22fIc_GHvkqvtnMt2K6xYKshSX/view?usp=sharing"
-    target="_blank"
-    rel="noopener noreferrer"
-    className="flex flex-col items-center hover:opacity-80 transition"
-  >
-    <div className="w-12 h-14 bg-red-600 rounded-md shadow-md relative flex items-center justify-center">
-      <div className="absolute top-0 right-0 w-4 h-4 bg-white rounded-bl-md"></div>
 
-      <span className="text-white text-[10px] font-bold tracking-wide">
-        PDF
-      </span>
-    </div>
-
-    <span className="text-xs text-slate-600 mt-2 text-center">
-      Instructivo de Consulta de Documentos
-    </span>
-  </a>
-</div>
 
           </div>
 
@@ -211,30 +227,52 @@ export default function Home() {
                     </p>
                   </div>
 
-                  <div className="p-6 space-y-4">
-                    {Object.entries(resultado.datos).map(
-                      ([clave, valor], i) => (
-                        <div
-                          key={i}
-                          className="grid grid-cols-1 md:grid-cols-2 border-b border-slate-200 pb-3"
-                        >
-                          <div className="font-semibold text-blue-950 capitalize">
-                            {clave}
-                          </div>
+                  {/* MENSAJE */}
+                  {resultado.mensaje && (
+                    <div className="p-6 text-center text-slate-700 font-medium">
+                      {resultado.mensaje}
+                    </div>
+                  )}
 
-                          <div className="text-slate-700">
-                            {String(valor)}
+                  {/* DATOS */}
+                  {resultado.datos && (
+                    <div className="p-6 space-y-4">
+                      {Object.entries(resultado.datos).map(
+                        ([clave, valor], i) => (
+                          <div
+                            key={i}
+                            className="grid grid-cols-1 md:grid-cols-2 border-b border-slate-200 pb-3"
+                          >
+                            <div className="font-semibold text-blue-950 capitalize">
+                              {clave}
+                            </div>
+
+                            <div className="text-slate-700 whitespace-pre-line">
+                              {String(valor)}
+                            </div>
                           </div>
-                        </div>
-                      )
-                    )}
-                  </div>
+                        )
+                      )}
+                    </div>
+                  )}
 
                   <div className="px-6 py-4 bg-white text-slate-600 text-sm">
                     Consulta realizada correctamente
                   </div>
                 </>
               )}
+            </div>
+          )}
+
+          {/* BOTÓN LIMPIAR */}
+          {resultado && (
+            <div className="mt-4 flex justify-center">
+              <button
+                onClick={limpiarConsulta}
+                className="bg-slate-500 hover:bg-slate-600 text-white font-bold text-lg rounded-2xl px-8 py-3"
+              >
+                Limpiar
+              </button>
             </div>
           )}
         </div>
