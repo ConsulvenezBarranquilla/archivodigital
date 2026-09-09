@@ -126,20 +126,16 @@ export async function generarPdfRecibo(
   }
 
   // ======================================================
-// CONTADORES DE TITULARES ESPECIALES
-// ======================================================
-
-let indicePasaporteNNA = 0;
-let indiceApostillaNNA = 0;
-let indiceVisa = 0;
-
-
-// ======================================================
 // BUSCAR TITULAR ESPECIAL PARA UNA ACTUACIÓN
 // ======================================================
 
 function obtenerTitularParaActuacion(
-  actuacion: string
+  actuacion: string,
+  indices: {
+    pasaporteNNA: number;
+    apostillaNNA: number;
+    visa: number;
+  }
 ): string | null {
 
   const texto =
@@ -169,10 +165,10 @@ function obtenerTitularParaActuacion(
 
     const titular =
       titularesPasaporteNNA[
-        indicePasaporteNNA
+        indices.pasaporteNNA
       ];
 
-    indicePasaporteNNA++;
+    indices.pasaporteNNA++;
 
     if (titular?.titular) {
 
@@ -216,10 +212,10 @@ function obtenerTitularParaActuacion(
 
     const titular =
       titularesApostillaNNA[
-        indiceApostillaNNA
+        indices.apostillaNNA
       ];
 
-    indiceApostillaNNA++;
+    indices.apostillaNNA++;
 
     if (titular?.titular) {
 
@@ -265,10 +261,10 @@ function obtenerTitularParaActuacion(
 
     const titular =
       titularesVisa[
-        indiceVisa
+        indices.visa
       ];
 
-    indiceVisa++;
+    indices.visa++;
 
     if (titular?.titular) {
 
@@ -321,6 +317,15 @@ function obtenerTitularParaActuacion(
     yInicio: number,
     tituloCopia: string
   ) {
+
+    // Cada copia debe recorrer los titulares especiales
+    // desde el principio. Así el mismo titular aparece
+    // en Original Usuario, Copia Caja y Copia Expediente.
+    const indicesTitulares = {
+      pasaporteNNA: 0,
+      apostillaNNA: 0,
+      visa: 0,
+    };
 
     let y =
       yInicio;
@@ -486,7 +491,8 @@ function obtenerTitularParaActuacion(
 
         const titular =
           obtenerTitularParaActuacion(
-            a.actuacion
+            a.actuacion,
+            indicesTitulares
           );
 
         const descripcion =

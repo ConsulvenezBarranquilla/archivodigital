@@ -3,9 +3,8 @@ import {
 } from "next/server";
 
 import {
-  sheets,
-  MODULO_CAJA_SHEET_ID,
-  REGISTRO_CONSULAR_SHEET_ID,
+  leerHoja,
+  leerHojaRegistro,
 } from "@/lib/googleSheets";
 
 import {
@@ -17,26 +16,16 @@ export async function GET() {
 
   try {
 
-    const response =
-      await sheets.spreadsheets.values.get({
-        spreadsheetId:
-          MODULO_CAJA_SHEET_ID,
-        range:
-          "BitacoraVisitas!A:F",
-      });
-const registroResponse =
-  await sheets.spreadsheets.values.get({
-    spreadsheetId:
-      REGISTRO_CONSULAR_SHEET_ID,
-    range:
-      "Respuestas de formulario 1!B:G",
-  });
+    const rows =
+  await leerHoja(
+    "BitacoraVisitas",
+    "A:F",
+  );
 
 const registroRows =
-  registroResponse.data.values || [];
-
-    const rows =
-      response.data.values || [];
+  await leerHojaRegistro(
+    "Respuestas de formulario 1!B:G",
+  );
 
     const hoy =
   hoyISO();
