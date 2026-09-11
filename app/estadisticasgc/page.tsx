@@ -584,13 +584,7 @@ USD
 
 {
   resumen.actuaciones
-    ?.sort(
-      (a: any, b: any) =>
-        a.codigo.localeCompare(
-          b.codigo
-        )
-    )
-    .map((item: any) => (
+    ?.map((item: any) => (
 
       <tr key={item.codigo}>
 

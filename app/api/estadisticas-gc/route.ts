@@ -667,6 +667,18 @@ async function obtenerResumenActuaciones(
   const visitasRows =
     await leerVisitas();
 
+  const detalleRows =
+    await leerHoja(
+      "DetalleCaja",
+      "A:D"
+    );
+
+  const actuacionesRows =
+    await leerHoja(
+      "Actuaciones",
+      "A:D"
+    );
+
   const columnasGC =
     crearMapaColumnas(
       gestionRows[0]
@@ -683,6 +695,84 @@ async function obtenerResumenActuaciones(
       columnasCaja
     );
 
+  const ordenActuaciones =
+    new Map<string, number>();
+
+  actuacionesRows
+    .slice(1)
+    .forEach((row, index) => {
+
+      const codigo =
+        (row[0] || "")
+          .toString()
+          .trim();
+
+      if (!codigo) {
+        return;
+      }
+
+      ordenActuaciones.set(
+        codigo,
+        index
+      );
+
+    });
+
+  /*
+   * Índice de los montos individuales de
+   * DetalleCaja.
+   *
+   * La llave utiliza correlativo + código
+   * para evitar utilizar Caja.TotalUsd,
+   * que representa el total completo del recibo.
+   */
+  const montosDetalle =
+    new Map<string, number[]>();
+
+  detalleRows
+    .slice(1)
+    .forEach((row) => {
+
+      const correlativo =
+        (row[0] || "")
+          .toString()
+          .trim();
+
+      const codigo =
+        (row[1] || "")
+          .toString()
+          .trim();
+
+      if (
+        !correlativo ||
+        !codigo
+      ) {
+        return;
+      }
+
+      const monto =
+        Number(row[3] || 0);
+
+      const llave =
+        `${correlativo}|${codigo}`;
+
+      if (
+        !montosDetalle.has(llave)
+      ) {
+
+        montosDetalle.set(
+          llave,
+          []
+        );
+
+      }
+
+      montosDetalle
+        .get(llave)!
+        .push(monto);
+
+    });
+
   const fechaDesde =
     inicioDelDia(desde);
 
@@ -695,11 +785,8 @@ async function obtenerResumenActuaciones(
   ) {
 
     return NextResponse.json({
-
       ok:false,
-
       error:"Fechas inválidas",
-
     });
 
   }
@@ -711,7 +798,6 @@ async function obtenerResumenActuaciones(
       nombre:string;
       cantidad:number;
       usd:number;
-      correlativos:Set<string>;
     }
   > = {};
 
@@ -760,7 +846,9 @@ async function obtenerResumenActuaciones(
           row,
           columnasGC,
           "Codigo Actuacion"
-        );
+        )
+        .toString()
+        .trim();
 
       const nombre =
         valorColumna(
@@ -774,7 +862,15 @@ async function obtenerResumenActuaciones(
           row,
           columnasGC,
           "Correlativo"
-        );
+        )
+        .toString()
+        .trim();
+
+      if(
+        !codigo
+      ){
+        return;
+      }
 
       if(
         !actuaciones[codigo]
@@ -790,14 +886,9 @@ async function obtenerResumenActuaciones(
 
           usd:0,
 
-          correlativos:new Set(),
-
         };
 
       }
-
-      actuaciones[codigo]
-        .cantidad++;
 
       const filaCaja =
         indiceCaja.get(
@@ -824,30 +915,24 @@ async function obtenerResumenActuaciones(
         return;
       }
 
-      if(
-        !actuaciones[codigo]
-          .correlativos
-          .has(correlativo)
-      ){
+      actuaciones[codigo]
+        .cantidad++;
 
-        actuaciones[codigo]
-          .usd += Number(
+      const llave =
+        `${correlativo}|${codigo}`;
 
-            valorColumna(
+      const montos =
+        montosDetalle.get(
+          llave
+        );
 
-              filaCaja,
+      if (
+        montos &&
+        montos.length > 0
+      ) {
 
-              columnasCaja,
-
-              "TotalUsd"
-
-            ) || 0
-
-          );
-
-        actuaciones[codigo]
-          .correlativos
-          .add(correlativo);
+        actuaciones[codigo].usd +=
+          montos.shift()!;
 
       }
 
@@ -905,11 +990,8 @@ async function obtenerResumenActuaciones(
       }
 
       else if(
-
         tipo==="INFORMACIÓN" ||
-
         tipo==="INFORMACION"
-
       ){
 
         visitas.informacion++;
@@ -934,20 +1016,34 @@ async function obtenerResumenActuaciones(
 
     });
 
-  const resumen=
+  const resumen =
     Object.values(
       actuaciones
-    ).map((item)=>({
+    )
+      .sort(
+        (a, b) =>
+          (
+            ordenActuaciones.get(
+              a.codigo
+            ) ?? 9999
+          ) -
+          (
+            ordenActuaciones.get(
+              b.codigo
+            ) ?? 9999
+          )
+      )
+      .map((item)=>({
 
-      codigo:item.codigo,
+        codigo:item.codigo,
 
-      nombre:item.nombre,
+        nombre:item.nombre,
 
-      cantidad:item.cantidad,
+        cantidad:item.cantidad,
 
-      usd:item.usd,
+        usd:item.usd,
 
-    }));
+      }));
 
   return NextResponse.json({
 
