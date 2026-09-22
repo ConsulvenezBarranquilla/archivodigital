@@ -67,7 +67,8 @@ export async function POST(
       body.documentoOriginal
         ?.trim()
         .toUpperCase();
-            // ===============================
+
+    // ===============================
     // Buscar la fila del ciudadano
     // ===============================
 
@@ -227,7 +228,8 @@ export async function POST(
       }
 
     }
-        // ===============================
+
+    // ===============================
     // Actualizar ciudadano
     // ===============================
 
@@ -271,8 +273,8 @@ export async function POST(
           body.telefono,
 
           fechaDesdeInput(
-  body.fechaNacimiento
-),
+            body.fechaNacimiento
+          ),
 
           body.pasaporte,
 
@@ -281,122 +283,160 @@ export async function POST(
       },
 
     });
-    
-// ===============================
-// Sincronizar datos en Caja
-// ===============================
 
-const cajaResponse =
-  await sheets.spreadsheets.values.get({
+    // ===============================
+    // Determinar documento principal
+    // ===============================
 
-    spreadsheetId:
-      MODULO_CAJA_SHEET_ID,
-
-    range:
-      "Caja!A:N",
-
-  });
-
-const cajaRows =
-  cajaResponse.data.values || [];
-
-const requests: any[] = [];
-
-cajaRows
-  .slice(1)
-  .forEach((row, index) => {
-
-    const documento =
-      (row[2] || "")
+    const nacionalidadNueva =
+      (body.nacionalidad || "")
         .toString()
         .trim()
         .toUpperCase();
 
-    const cedula =
-      (row[11] || "")
-        .toString()
-        .trim()
-        .toUpperCase();
-
-    const pasaporte =
-      (row[12] || "")
-        .toString()
-        .trim()
-        .toUpperCase();
+    let documentoPrincipal = "";
 
     if (
 
-      documento !== buscado &&
+      nacionalidadNueva ===
+        "VENEZOLANA" ||
 
-      cedula !== buscado &&
-
-      pasaporte !== buscado
+      nacionalidadNueva ===
+        "VENEZOLANO"
 
     ) {
 
-      return;
+      documentoPrincipal =
+        cedulaNueva ||
+        pasaporteNuevo ||
+        "";
+
+    } else {
+
+      documentoPrincipal =
+        pasaporteNuevo ||
+        cedulaNueva ||
+        "";
 
     }
 
-    requests.push({
+    // ===============================
+    // Sincronizar datos en Caja
+    // ===============================
 
-      range:
-        `Caja!C${index + 2}:N${index + 2}`,
+    const cajaResponse =
+      await sheets.spreadsheets.values.get({
 
-      values: [[
+        spreadsheetId:
+          MODULO_CAJA_SHEET_ID,
 
-        body.cedula || body.pasaporte,
+        range:
+          "Caja!A:N",
 
-        `${body.primerNombre} ${body.segundoNombre} ${body.primerApellido} ${body.segundoApellido}`
-          .replace(/\s+/g, " ")
-          .trim(),
+      });
 
-        body.correo,
+    const cajaRows =
+      cajaResponse.data.values || [];
 
-        row[5] || "",     // actuaciones
+    const requests: any[] = [];
 
-        row[6] || "",     // total
+    cajaRows
+      .slice(1)
+      .forEach((row, index) => {
 
-        row[7] || "",     // usuario
+        const documento =
+          (row[2] || "")
+            .toString()
+            .trim()
+            .toUpperCase();
 
-        row[8] || "",     // caja
+        const cedula =
+          (row[11] || "")
+            .toString()
+            .trim()
+            .toUpperCase();
 
-        row[9] || "",     // pdf
+        const pasaporte =
+          (row[12] || "")
+            .toString()
+            .trim()
+            .toUpperCase();
 
-        row[10] || "",    // estado
+        if (
 
-        body.cedula,
+          documento !== buscado &&
 
-        body.pasaporte,
+          cedula !== buscado &&
 
-        body.nacionalidad,
+          pasaporte !== buscado
 
-      ]],
+        ) {
 
-    });
+          return;
 
-  });
+        }
 
-if (requests.length) {
+        requests.push({
 
-  await sheets.spreadsheets.values.batchUpdate({
+          range:
+            `Caja!C${index + 2}:N${index + 2}`,
 
-    spreadsheetId:
-      MODULO_CAJA_SHEET_ID,
+          values: [[
 
-    requestBody: {
+            documentoPrincipal,
 
-      valueInputOption:
-        "USER_ENTERED",
+            `${body.primerNombre} ${body.segundoNombre} ${body.primerApellido} ${body.segundoApellido}`
+              .replace(/\s+/g, " ")
+              .trim(),
 
-      data: requests,
+            body.correo,
 
-    },
+            row[5] || "",     // actuaciones
 
-  });
+            row[6] || "",     // total
 
-}
-return NextResponse.json({
+            row[7] || "",     // usuario
+
+            row[8] || "",     // caja
+
+            row[9] || "",     // pdf
+
+            row[10] || "",    // estado
+
+            cedulaNueva,
+
+            pasaporteNuevo,
+
+            body.nacionalidad,
+
+          ]],
+
+        });
+
+      });
+
+    if (requests.length) {
+
+      await sheets.spreadsheets.values.batchUpdate({
+
+        spreadsheetId:
+          MODULO_CAJA_SHEET_ID,
+
+        requestBody: {
+
+          valueInputOption:
+            "USER_ENTERED",
+
+          data:
+            requests,
+
+        },
+
+      });
+
+    }
+
+    return NextResponse.json({
 
       ok: true,
 
@@ -404,6 +444,7 @@ return NextResponse.json({
         "Ciudadano actualizado correctamente.",
 
     });
+
   } catch (error: any) {
 
     return NextResponse.json(

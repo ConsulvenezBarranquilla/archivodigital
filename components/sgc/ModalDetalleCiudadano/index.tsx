@@ -465,24 +465,28 @@ console.log(
 />
 
             <Campo
-
-              titulo="Cédula"
-
-              value={formulario.cedula}
-
-              disabled
-
-            />
+  titulo="Cédula"
+  value={formulario.cedula}
+  disabled={!editando}
+  onChange={(v) =>
+    actualizarCampo(
+      "cedula",
+      v
+    )
+  }
+/>
 
             <Campo
-
-              titulo="Pasaporte"
-
-              value={formulario.pasaporte}
-
-              disabled
-
-            />
+  titulo="Pasaporte"
+  value={formulario.pasaporte}
+  disabled={!editando}
+  onChange={(v) =>
+    actualizarCampo(
+      "pasaporte",
+      v
+    )
+  }
+/>
 
           </Seccion>
 

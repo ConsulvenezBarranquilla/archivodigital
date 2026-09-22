@@ -9,6 +9,7 @@ import {
 import SistemaLayout from "@/components/layout/SistemaLayout";
 import { MODULOS } from "@/lib/modulos";
 import PopupTitulares from "@/components/caja/PopupTitulares";
+import { obtenerCatalogos } from "@/lib/services/Catalogos";
 
 export default function CajaPage() {
   const [usuario, setUsuario] = useState<any>(null);
@@ -17,6 +18,21 @@ export default function CajaPage() {
 
   const [ciudadano, setCiudadano] =
     useState<any>(null);
+
+    const [
+    campoEditando,
+    setCampoEditando,
+  ] = useState<string | null>(null);
+
+  const [
+    valorEdicion,
+    setValorEdicion,
+  ] = useState("");
+
+  const [
+    guardandoEdicion,
+    setGuardandoEdicion,
+  ] = useState(false);
 
   const [mensaje, setMensaje] =
     useState("");
@@ -36,6 +52,11 @@ const [
   setGenerandoCierre,
 ] = useState(false);
 
+const [
+  mostrarOpcionesCierre,
+  setMostrarOpcionesCierre,
+] = useState(false);
+
   const [actuaciones, setActuaciones] =
     useState<any[]>([]);
 
@@ -43,6 +64,8 @@ const [
   busquedaActuacion,
   setBusquedaActuacion,
 ] = useState("");
+
+const [nacionalidades, setNacionalidades] = useState<string[]>([]);
 
 const [
   mostrarActuaciones,
@@ -206,6 +229,42 @@ useEffect(() => {
 
 }, []);
 
+// ======================================================
+// Cargar nacionalidades desde Catálogos
+// ======================================================
+
+useEffect(() => {
+
+  async function cargarNacionalidades() {
+
+    try {
+
+      const respuesta = await obtenerCatalogos();
+
+      if (respuesta.ok) {
+
+        setNacionalidades(
+          respuesta.nacionalidades
+        );
+
+      }
+
+    } catch (error) {
+
+      console.error(
+        "Error cargando nacionalidades:",
+        error
+      );
+
+    }
+
+  }
+
+  cargarNacionalidades();
+
+}, []);
+
+
   async function buscarCiudadano() {
 
 setMensaje("");
@@ -247,6 +306,201 @@ setTitularesEspeciales([]);
   if (!usuario) {
     return <div>Cargando...</div>;
   }
+
+  async function guardarEdicionCiudadano() {
+
+    if (
+      !ciudadano ||
+      !campoEditando
+    ) {
+      return;
+    }
+
+    try {
+
+      setGuardandoEdicion(true);
+
+      const response =
+        await fetch(
+          "/api/caja/editar-ciudadano-caja",
+          {
+            method: "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body:
+              JSON.stringify({
+                documentoOriginal:
+                  ciudadano.documentoOriginal,
+
+                campo:
+                  campoEditando,
+
+                valor:
+                  valorEdicion,
+              }),
+          }
+        );
+
+
+      const data =
+        await response.json();
+
+
+      if (
+        !response.ok ||
+        !data.ok
+      ) {
+
+        throw new Error(
+          data.error ||
+          "No se pudo actualizar el ciudadano."
+        );
+
+      }
+
+
+      /*
+      Actualizar inmediatamente
+      los datos mostrados en Caja.
+      */
+
+      setCiudadano(
+        {
+          ...ciudadano,
+
+          documento:
+            data.documento,
+
+          cedula:
+            data.cedula,
+
+          pasaporte:
+            data.pasaporte,
+
+          primerNombre:
+            data.primerNombre,
+
+          segundoNombre:
+            data.segundoNombre,
+
+          primerApellido:
+            data.primerApellido,
+
+          segundoApellido:
+            data.segundoApellido,
+
+          nombreCompleto:
+            data.nombreCompleto,
+
+          nacionalidad:
+            data.nacionalidad,
+
+          correo:
+            data.correo,
+
+          telefono:
+            data.telefono,
+
+          /*
+          El documento utilizado para
+          futuras ediciones pasa a ser
+          el documento principal actual.
+          */
+
+          documentoOriginal:
+            data.documento,
+        }
+      );
+
+
+      /*
+      Si cambió el documento principal,
+      actualizar también el buscador.
+      */
+
+      if (
+        data.documento
+      ) {
+
+        setDocumento(
+          data.documento
+        );
+
+      }
+
+
+      setCampoEditando(
+        null
+      );
+
+      setValorEdicion(
+        ""
+      );
+
+      setMensaje(
+        ""
+      );
+
+    }
+    catch (
+      error: any
+    ) {
+
+      setMensaje(
+        error?.message ||
+        "No se pudo actualizar el ciudadano."
+      );
+
+    }
+    finally {
+
+      setGuardandoEdicion(
+        false
+      );
+
+    }
+
+  }
+
+
+  function iniciarEdicionCiudadano(
+    campo: string,
+    valor: any
+  ) {
+
+    setCampoEditando(
+      campo
+    );
+
+    setValorEdicion(
+      String(
+        valor ?? ""
+      )
+    );
+
+    setMensaje(
+      ""
+    );
+
+  }
+
+
+  function cancelarEdicionCiudadano() {
+
+    setCampoEditando(
+      null
+    );
+
+    setValorEdicion(
+      ""
+    );
+
+  }
+
 function cambiarCaja(nuevaCaja: number) {
 
     const nuevoUsuario = {
@@ -526,6 +780,109 @@ async function confirmarGeneracion() {
   await generarRecibo();
 
 }
+function seleccionarTipoImpresionCierre() {
+
+  setMostrarOpcionesCierre(true);
+
+}
+
+async function generarCompiladoRecibos() {
+
+  try {
+
+    setMostrarOpcionesCierre(false);
+
+    setGenerandoCierre(true);
+
+    const response =
+      await fetch(
+        "/api/caja/compilar-recibos-caja",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+  caja: usuario.caja,
+  usuario: usuario.nombre,
+  rol: usuario.rol,
+}),
+        }
+      );
+
+    if (!response.ok) {
+
+      let mensaje =
+        "Error generando compilado de recibos.";
+
+      try {
+
+        const error =
+          await response.json();
+
+        mensaje =
+          error.error ||
+          mensaje;
+
+      } catch {}
+
+      alert(mensaje);
+
+      return;
+
+    }
+
+    const blob =
+      await response.blob();
+
+    const url =
+      window.URL.createObjectURL(
+        blob
+      );
+
+    const enlace =
+      document.createElement("a");
+
+    enlace.href = url;
+
+    enlace.download =
+      `COMPILADO_RECIBOS_${usuario.caja}_${new Date()
+        .toISOString()
+        .substring(0, 10)}.pdf`;
+
+    document.body.appendChild(
+      enlace
+    );
+
+    enlace.click();
+
+    enlace.remove();
+
+    window.URL.revokeObjectURL(
+      url
+    );
+
+  } catch (error) {
+
+    console.error(
+      "Error generando compilado:",
+      error
+    );
+
+    alert(
+      "Error generando compilado de recibos."
+    );
+
+  } finally {
+
+    setGenerandoCierre(
+      false
+    );
+
+  }
+
+}
 
 async function generarCierreDiario() {
 
@@ -543,13 +900,15 @@ async function generarCierreDiario() {
               "application/json",
           },
           body: JSON.stringify({
-            usuario:
-              usuario.nombre,
-            caja:
-              usuario.caja,
-            tipo:
-              tipoCierre,
-          }),
+  usuario:
+    usuario.nombre,
+  caja:
+    usuario.caja,
+  tipo:
+    tipoCierre,
+  rol:
+    usuario.rol,
+}),
         }
       );
 
@@ -704,6 +1063,123 @@ async function generarCierreDiario() {
 
     }}
 />
+{mostrarOpcionesCierre && (
+
+  <div
+    className="
+      fixed
+      inset-0
+      bg-black/50
+      flex
+      items-center
+      justify-center
+      z-[200]
+    "
+  >
+
+    <div
+      className="
+        bg-white
+        rounded-3xl
+        shadow-2xl
+        p-8
+        w-full
+        max-w-md
+      "
+    >
+
+      <h2
+        className="
+          text-2xl
+          font-bold
+          text-blue-950
+          text-center
+          mb-3
+        "
+      >
+        Seleccionar PDF
+      </h2>
+
+      <p
+        className="
+          text-center
+          text-slate-600
+          mb-6
+        "
+      >
+        ¿Qué documento desea generar?
+      </p>
+
+      <div className="flex flex-col gap-3">
+
+        <button
+          type="button"
+          onClick={() => {
+
+            setMostrarOpcionesCierre(false);
+
+            generarCierreDiario();
+
+          }}
+          className="
+            w-full
+            bg-red-700
+            hover:bg-red-800
+            text-white
+            font-bold
+            px-5
+            py-4
+            rounded-2xl
+          "
+        >
+          Cierre Diario PDF
+        </button>
+
+        <button
+          type="button"
+          onClick={
+            generarCompiladoRecibos
+          }
+          className="
+            w-full
+            bg-blue-700
+            hover:bg-blue-800
+            text-white
+            font-bold
+            px-5
+            py-4
+            rounded-2xl
+          "
+        >
+          Compilado de Recibos
+        </button>
+
+        <button
+          type="button"
+          onClick={() =>
+            setMostrarOpcionesCierre(false)
+          }
+          className="
+            w-full
+            bg-slate-200
+            hover:bg-slate-300
+            text-slate-700
+            font-semibold
+            px-5
+            py-3
+            rounded-2xl
+          "
+        >
+          Cancelar
+        </button>
+
+      </div>
+
+    </div>
+
+  </div>
+
+)}
     {mostrarConfirmacion && (
 
   <div
@@ -1011,88 +1487,525 @@ async function generarCierreDiario() {
 </h3>
 
 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-
-  <div className="bg-slate-50 rounded-xl p-3">
-    <div className="text-sm text-slate-500">
-      Nombre
-    </div>
-
-    <div className="font-semibold text-blue-950">
-      {ciudadano.nombreCompleto}
-    </div>
-  </div>
-
-  <div className="bg-slate-50 rounded-xl p-3">
+<div className="bg-slate-50 rounded-xl p-3">
 
   <div className="text-sm text-slate-500">
-    Cédula
+    Nombre
   </div>
 
   <div className="font-semibold text-blue-950">
-    {ciudadano.cedula}
+    {ciudadano.nombreCompleto || "-"}
   </div>
 
 </div>
+  {/* ==========================================
+      CÉDULA
+  =========================================== */}
 
-{ciudadano.pasaporte && (
+  <div className="bg-slate-50 rounded-xl p-3">
+
+    <div className="text-sm text-slate-500">
+      Cédula
+    </div>
+
+    {campoEditando === "cedula" ? (
+
+      <div className="flex gap-2 mt-1">
+
+        <input
+          type="text"
+          value={valorEdicion}
+          onChange={(e) =>
+            setValorEdicion(
+              e.target.value
+            )
+          }
+          className="
+            flex-1
+            border
+            rounded-lg
+            px-3
+            py-2
+            font-semibold
+            text-blue-950
+          "
+          autoFocus
+        />
+
+        <button
+          type="button"
+          onClick={
+            guardarEdicionCiudadano
+          }
+          disabled={
+            guardandoEdicion
+          }
+          className="
+            px-3
+            rounded-lg
+            bg-green-600
+            text-white
+            font-bold
+          "
+        >
+          ✓
+        </button>
+
+        <button
+          type="button"
+          onClick={
+            cancelarEdicionCiudadano
+          }
+          disabled={
+            guardandoEdicion
+          }
+          className="
+            px-3
+            rounded-lg
+            bg-red-500
+            text-white
+            font-bold
+          "
+        >
+          ✕
+        </button>
+
+      </div>
+
+    ) : (
+
+      <div className="flex items-center gap-2">
+
+        <div className="font-semibold text-blue-950">
+          {ciudadano.cedula || "-"}
+        </div>
+
+        <button
+          type="button"
+          onClick={() =>
+            iniciarEdicionCiudadano(
+              "cedula",
+              ciudadano.cedula
+            )
+          }
+          className="
+            text-blue-600
+            hover:text-blue-800
+            text-sm
+          "
+          title="Editar cédula"
+        >
+          ✏️
+        </button>
+
+      </div>
+
+    )}
+
+  </div>
+
+
+  {/* ==========================================
+      PASAPORTE
+  =========================================== */}
+
   <div className="bg-slate-50 rounded-xl p-3">
 
     <div className="text-sm text-slate-500">
       Pasaporte
     </div>
 
+    {campoEditando === "pasaporte" ? (
+
+      <div className="flex gap-2 mt-1">
+
+        <input
+          type="text"
+          value={valorEdicion}
+          onChange={(e) =>
+            setValorEdicion(
+              e.target.value
+            )
+          }
+          className="
+            flex-1
+            border
+            rounded-lg
+            px-3
+            py-2
+            font-semibold
+            text-blue-950
+          "
+          autoFocus
+        />
+
+        <button
+          type="button"
+          onClick={
+            guardarEdicionCiudadano
+          }
+          disabled={
+            guardandoEdicion
+          }
+          className="
+            px-3
+            rounded-lg
+            bg-green-600
+            text-white
+            font-bold
+          "
+        >
+          ✓
+        </button>
+
+        <button
+          type="button"
+          onClick={
+            cancelarEdicionCiudadano
+          }
+          disabled={
+            guardandoEdicion
+          }
+          className="
+            px-3
+            rounded-lg
+            bg-red-500
+            text-white
+            font-bold
+          "
+        >
+          ✕
+        </button>
+
+      </div>
+
+    ) : (
+
+      <div className="flex items-center gap-2">
+
+        <div className="font-semibold text-blue-950">
+          {ciudadano.pasaporte || "-"}
+        </div>
+
+        <button
+          type="button"
+          onClick={() =>
+            iniciarEdicionCiudadano(
+              "pasaporte",
+              ciudadano.pasaporte
+            )
+          }
+          className="
+            text-blue-600
+            hover:text-blue-800
+            text-sm
+          "
+          title="Editar pasaporte"
+        >
+          ✏️
+        </button>
+
+      </div>
+
+    )}
+
+  </div>
+
+ 
+  {/* ==========================================
+      DOCUMENTO PRINCIPAL
+      NO EDITABLE
+  =========================================== */}
+
+  <div className="bg-slate-50 rounded-xl p-3">
+
+    <div className="text-sm text-slate-500">
+      Documento principal para el Recibo
+    </div>
+
     <div className="font-semibold text-blue-950">
-      {ciudadano.pasaporte}
+      {ciudadano?.documento || "-"}
     </div>
 
   </div>
-)}
-<div className="bg-slate-50 rounded-xl p-3">
 
-  <div className="text-sm text-slate-500">
-    Documento principal para el Recibo
-  </div>
 
-  <div className="font-semibold text-blue-950">
-    {ciudadano?.documento}
-  </div>
+  {/* ==========================================
+      CORREO
+  =========================================== */}
 
-</div>
   <div className="bg-slate-50 rounded-xl p-3">
+
     <div className="text-sm text-slate-500">
       Correo
     </div>
 
-    <div className="font-semibold text-blue-950">
-      {ciudadano.correo}
-    </div>
+    {campoEditando === "correo" ? (
+
+      <div className="flex gap-2 mt-1">
+
+        <input
+          type="email"
+          value={valorEdicion}
+          onChange={(e) =>
+            setValorEdicion(
+              e.target.value
+            )
+          }
+          className="
+            flex-1
+            border
+            rounded-lg
+            px-3
+            py-2
+            font-semibold
+            text-blue-950
+          "
+          autoFocus
+        />
+
+        <button
+          type="button"
+          onClick={
+            guardarEdicionCiudadano
+          }
+          disabled={
+            guardandoEdicion
+          }
+          className="
+            px-3
+            rounded-lg
+            bg-green-600
+            text-white
+            font-bold
+          "
+        >
+          ✓
+        </button>
+
+        <button
+          type="button"
+          onClick={
+            cancelarEdicionCiudadano
+          }
+          disabled={
+            guardandoEdicion
+          }
+          className="
+            px-3
+            rounded-lg
+            bg-red-500
+            text-white
+            font-bold
+          "
+        >
+          ✕
+        </button>
+
+      </div>
+
+    ) : (
+
+      <div className="flex items-center gap-2">
+
+        <div className="font-semibold text-blue-950">
+          {ciudadano.correo || "-"}
+        </div>
+
+        <button
+          type="button"
+          onClick={() =>
+            iniciarEdicionCiudadano(
+              "correo",
+              ciudadano.correo
+            )
+          }
+          className="
+            text-blue-600
+            hover:text-blue-800
+            text-sm
+          "
+          title="Editar correo"
+        >
+          ✏️
+        </button>
+
+      </div>
+
+    )}
+
   </div>
 
+
+  {/* ==========================================
+      TELÉFONO
+  =========================================== */}
+
   <div className="bg-slate-50 rounded-xl p-3">
+
     <div className="text-sm text-slate-500">
       Teléfono
     </div>
 
-    <div className="font-semibold text-blue-950">
-      {ciudadano.telefono}
-    </div>
+    {campoEditando === "telefono" ? (
+
+      <div className="flex gap-2 mt-1">
+
+        <input
+          type="text"
+          value={valorEdicion}
+          onChange={(e) =>
+            setValorEdicion(
+              e.target.value
+            )
+          }
+          className="
+            flex-1
+            border
+            rounded-lg
+            px-3
+            py-2
+            font-semibold
+            text-blue-950
+          "
+          autoFocus
+        />
+
+        <button
+          type="button"
+          onClick={
+            guardarEdicionCiudadano
+          }
+          disabled={
+            guardandoEdicion
+          }
+          className="
+            px-3
+            rounded-lg
+            bg-green-600
+            text-white
+            font-bold
+          "
+        >
+          ✓
+        </button>
+
+        <button
+          type="button"
+          onClick={
+            cancelarEdicionCiudadano
+          }
+          disabled={
+            guardandoEdicion
+          }
+          className="
+            px-3
+            rounded-lg
+            bg-red-500
+            text-white
+            font-bold
+          "
+        >
+          ✕
+        </button>
+
+      </div>
+
+    ) : (
+
+      <div className="flex items-center gap-2">
+
+        <div className="font-semibold text-blue-950">
+          {ciudadano.telefono || "-"}
+        </div>
+
+        <button
+          type="button"
+          onClick={() =>
+            iniciarEdicionCiudadano(
+              "telefono",
+              ciudadano.telefono
+            )
+          }
+          className="
+            text-blue-600
+            hover:text-blue-800
+            text-sm
+          "
+          title="Editar teléfono"
+        >
+          ✏️
+        </button>
+
+      </div>
+
+    )}
+
   </div>
 
-  <div className="bg-slate-50 rounded-xl p-3">
-    <div className="text-sm text-slate-500">
-      Nacionalidad
+
+  {/* NACIONALIDAD */}
+<div className="bg-slate-50 rounded-xl p-3">
+  <div className="text-sm text-slate-500">Nacionalidad</div>
+
+  {campoEditando === "nacionalidad" ? (
+    <div className="flex gap-2 mt-1">
+      <select
+        value={valorEdicion}
+        onChange={(e) => setValorEdicion(e.target.value)}
+        className="flex-1 border rounded-lg px-3 py-2 font-semibold text-blue-950 bg-white"
+        autoFocus
+      >
+        <option value="">Seleccione una nacionalidad</option>
+
+        {nacionalidades.map((nacionalidad) => (
+          <option key={nacionalidad} value={nacionalidad}>
+            {nacionalidad}
+          </option>
+        ))}
+      </select>
+
+      <button
+        onClick={guardarEdicionCiudadano}
+        disabled={guardandoEdicion}
+        className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+        title="Guardar"
+      >
+        ✓
+      </button>
+
+      <button
+        onClick={cancelarEdicionCiudadano}
+        disabled={guardandoEdicion}
+        className="px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+        title="Cancelar"
+      >
+        ✕
+      </button>
     </div>
+  ) : (
+    <div className="flex items-center gap-2">
+      <div className="font-semibold text-blue-950">
+        {ciudadano.nacionalidad || "-"}
+      </div>
 
-    <div className="font-semibold text-blue-950">
-      {ciudadano.nacionalidad}
+      <button
+        onClick={() =>
+          iniciarEdicionCiudadano(
+            "nacionalidad",
+            ciudadano.nacionalidad
+          )
+        }
+        className="text-blue-600 hover:text-blue-800"
+        title="Editar nacionalidad"
+      >
+        ✏️
+      </button>
     </div>
-  </div>
+  )}
+</div>   {/* cierre Nacionalidad */}
 
-</div>
-
-
-          <hr />
-
+</div>   {/* cierre grid de Datos del Ciudadano */}
 <h3>
   Actuaciones Consulares
 </h3>
@@ -1349,25 +2262,28 @@ async function generarCierreDiario() {
       Generar Recibo
     </button>
 
-    {mensajeRecibo && (
+            {mensajeRecibo && (
 
-      <p
-        style={{
-          marginTop: "15px",
-          fontWeight: "bold",
-        }}
-      >
-        {mensajeRecibo}
-      </p>
+          <p
+            style={{
+              marginTop: "15px",
+              fontWeight: "bold",
+            }}
+          >
+            {mensajeRecibo}
+          </p>
+
+        )}
+
+      </div>
 
     )}
 
   </div>
 
+
 )}
 
-        </div>
-      )}
 <hr
   style={{
     marginTop: "40px",
@@ -1528,7 +2444,7 @@ async function generarCierreDiario() {
 
   <button
     onClick={
-      generarCierreDiario
+      seleccionarTipoImpresionCierre
     }
     disabled={
       generandoCierre

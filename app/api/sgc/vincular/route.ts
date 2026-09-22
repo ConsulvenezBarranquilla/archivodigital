@@ -70,6 +70,7 @@ export async function POST(
       });
 
     }
+
 if (
 
   !/^\d+$/.test(
@@ -88,6 +89,7 @@ if (
   });
 
 }
+
     if (
 
       !fechaPlanilla
@@ -123,7 +125,8 @@ if (
     }
 
     const ahora = fechaHoraActual();
-            // ===============================
+
+    // ===============================
     // Verificar actuaciones ya vinculadas
     // ===============================
 
@@ -140,19 +143,21 @@ if (
 
     const registrosGestion =
       gestionResponse.data.values || [];
-const detalleResponse =
-  await sheets.spreadsheets.values.get({
 
-    spreadsheetId:
-      MODULO_CAJA_SHEET_ID,
+    const detalleResponse =
+      await sheets.spreadsheets.values.get({
 
-    range:
-      "DetalleCaja!A:H",
+        spreadsheetId:
+          MODULO_CAJA_SHEET_ID,
 
-  });
+        range:
+          "DetalleCaja!A:H",
 
-const detalleCaja =
-  detalleResponse.data.values || [];
+      });
+
+    const detalleCaja =
+      detalleResponse.data.values || [];
+
     const filasGestion =
       registrosGestion.slice(1);
 
@@ -171,52 +176,52 @@ const detalleCaja =
           .trim();
 
       const numeroActuacion =
-  (actuacion.numeroActuacion || "")
-    .toString()
-    .trim();
+        (actuacion.numeroActuacion || "")
+          .toString()
+          .trim();
 
-if (!numeroActuacion) {
+      if (!numeroActuacion) {
 
-    return NextResponse.json({
+        return NextResponse.json({
 
-        ok: false,
+          ok: false,
 
-        error:
+          error:
             `Debe indicar el número de la actuación para ${codigo}.`,
 
-    });
+        });
 
-}
+      }
 
-if (!/^\d+$/.test(numeroActuacion)) {
+      if (!/^\d+$/.test(numeroActuacion)) {
 
-    return NextResponse.json({
+        return NextResponse.json({
 
-        ok: false,
+          ok: false,
 
-        error:
+          error:
             `El número de actuación debe contener únicamente números.`,
 
-    });
+        });
 
-}
+      }
 
       const existente =
-  filasGestion.find((row) => {
+        filasGestion.find((row) => {
 
-    return (
+          return (
 
-      (row[11] || "")
-        .toString()
-        .trim() === numeroActuacion &&
+            (row[11] || "")
+              .toString()
+              .trim() === numeroActuacion &&
 
-      (row[6] || "")
-        .toString()
-        .trim() !== "DESVINCULADO"
+            (row[6] || "")
+              .toString()
+              .trim() !== "DESVINCULADO"
 
-    );
+          );
 
-  });
+        });
 
       if (existente) {
 
@@ -260,105 +265,235 @@ if (!/^\d+$/.test(numeroActuacion)) {
       ]);
 
     }
+
     // ===============================
-// Registrar actuaciones
-// ===============================
+    // Registrar actuaciones
+    // ===============================
 
-await sheets.spreadsheets.values.append({
+    await sheets.spreadsheets.values.append({
 
-    spreadsheetId:
+      spreadsheetId:
         MODULO_CAJA_SHEET_ID,
 
-    range:
+      range:
         "GestionConsular!A:L",
 
-    valueInputOption:
+      valueInputOption:
         "USER_ENTERED",
 
-    insertDataOption:
+      insertDataOption:
         "INSERT_ROWS",
 
-    requestBody: {
+      requestBody: {
 
         values:
-            nuevasFilas,
+          nuevasFilas,
 
-    },
+      },
 
-});
+    });
 
-// ===============================
-// Actualizar DetalleCaja
-// ===============================
+    // ===============================
+    // Actualizar DetalleCaja
+    // ===============================
 
-const filasDetalle = detalleCaja.map((fila) => [...fila]);
+    const filasDetalle =
+      detalleCaja.map((fila) => [...fila]);
 
-for (const actuacion of actuaciones) {
+    for (const actuacion of actuaciones) {
 
-    const correlativo =
-        String(actuacion.recibo ?? "").trim();
+      const correlativo =
+        String(
+          actuacion.recibo ?? ""
+        ).trim();
 
-    const codigo =
-        String(actuacion.codigo ?? "").trim();
+      const codigo =
+        String(
+          actuacion.codigo ?? ""
+        ).trim();
 
-    const numeroActuacion =
-        String(actuacion.numeroActuacion ?? "").trim();
+      const numeroActuacion =
+        String(
+          actuacion.numeroActuacion ?? ""
+        ).trim();
 
-    for (let i = 1; i < filasDetalle.length; i++) {
+      // ==========================================
+      // Buscar la fila exacta de DetalleCaja
+      // ==========================================
+      //
+      // Primera vinculación:
+      // E está vacío.
+      //
+      // Revinculación:
+      // E contiene el mismo número de actuación
+      // y G está DESVINCULADA.
+      //
+      // De esta manera no se toma una fila
+      // DESVINCULADA de otra actuación.
+      // ==========================================
 
-        const fila = filasDetalle[i];
+      let indiceDetalle = -1;
+
+      // ------------------------------------------
+      // 1. Buscar primero una fila ya asociada
+      //    a esta misma actuación y DESVINCULADA
+      // ------------------------------------------
+
+      for (
+        let i = 1;
+        i < filasDetalle.length;
+        i++
+      ) {
+
+        const fila =
+          filasDetalle[i];
+
+        const mismoCorrelativo =
+          String(
+            fila[0] ?? ""
+          ).trim() === correlativo;
+
+        const mismoCodigo =
+          String(
+            fila[1] ?? ""
+          ).trim() === codigo;
+
+        const mismoNumeroActuacion =
+          String(
+            fila[4] ?? ""
+          ).trim() === numeroActuacion;
+
+        const estaDesvinculada =
+          String(
+            fila[6] ?? ""
+          )
+            .trim()
+            .toUpperCase() ===
+          "DESVINCULADA";
 
         if (
 
-            String(fila[0] ?? "").trim() === correlativo &&
-            String(fila[1] ?? "").trim() === codigo &&
-            !String(fila[4] ?? "").trim()
+          mismoCorrelativo &&
+          mismoCodigo &&
+          mismoNumeroActuacion &&
+          estaDesvinculada
 
         ) {
 
-            fila[4] = numeroActuacion;   // E
-fila[5] = planilla;          // F
-fila[6] = "VINCULADO";       // G
-fila[7] = fechaPlanilla;     // H
+          indiceDetalle = i;
 
-            break;
+          break;
 
         }
 
+      }
+
+      // ------------------------------------------
+      // 2. Si no existe una fila previamente
+      //    vinculada, buscar una fila nueva
+      //    con E vacío.
+      // ------------------------------------------
+
+      if (indiceDetalle === -1) {
+
+        for (
+          let i = 1;
+          i < filasDetalle.length;
+          i++
+        ) {
+
+          const fila =
+            filasDetalle[i];
+
+          const mismoCorrelativo =
+            String(
+              fila[0] ?? ""
+            ).trim() === correlativo;
+
+          const mismoCodigo =
+            String(
+              fila[1] ?? ""
+            ).trim() === codigo;
+
+          const sinActuacion =
+            !String(
+              fila[4] ?? ""
+            ).trim();
+
+          if (
+
+            mismoCorrelativo &&
+            mismoCodigo &&
+            sinActuacion
+
+          ) {
+
+            indiceDetalle = i;
+
+            break;
+
+          }
+
+        }
+
+      }
+
+      // ------------------------------------------
+      // 3. Actualizar solamente la fila encontrada
+      // ------------------------------------------
+
+      if (indiceDetalle !== -1) {
+
+        const fila =
+          filasDetalle[indiceDetalle];
+
+        fila[4] =
+          numeroActuacion;   // E
+
+        fila[5] =
+          planilla;          // F
+
+        fila[6] =
+          "VINCULADO";       // G
+
+        fila[7] =
+          fechaPlanilla;     // H
+
+      }
+
     }
 
-}
+    await sheets.spreadsheets.values.update({
 
-await sheets.spreadsheets.values.update({
-
-    spreadsheetId:
+      spreadsheetId:
         MODULO_CAJA_SHEET_ID,
 
-    range:
+      range:
         `DetalleCaja!A2:H${filasDetalle.length}`,
 
-    valueInputOption:
+      valueInputOption:
         "USER_ENTERED",
 
-    requestBody: {
+      requestBody: {
 
-        values: filasDetalle.slice(1),
+        values:
+          filasDetalle.slice(1),
 
-    },
+      },
 
-});
+    });
 
-return NextResponse.json({
+    return NextResponse.json({
 
-    ok: true,
+      ok: true,
 
-    cantidad:
+      cantidad:
         nuevasFilas.length,
 
-    mensaje:
+      mensaje:
         `${nuevasFilas.length} actuación(es) vinculada(s) correctamente.`,
 
-});
+    });
 
   } catch (error: any) {
 

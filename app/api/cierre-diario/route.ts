@@ -17,10 +17,14 @@ export async function POST(
   try {
 
     const {
-      usuario,
-      caja,
-      tipo,
-    } = await req.json();
+  usuario,
+  caja,
+  tipo,
+  rol,
+} = await req.json();
+
+const esAdmin =
+  String(rol || "").toLowerCase() === "admin";
 
     const hoy = hoyISO();
 
@@ -45,30 +49,50 @@ export async function POST(
       detalleResponse.data.values || [];
 
     const recibosDelDia =
-      movimientos.filter(
-        (row, index) => {
+  movimientos.filter(
+    (row, index) => {
 
-          if (index === 0)
-            return false;
+      if (index === 0)
+        return false;
 
-          const fechaRegistro =
-  (row[0] || "")
-    .substring(0, 10);
+      const fechaRegistro =
+        (row[0] || "")
+          .substring(0, 10);
 
-return (
+      const cumpleFecha =
+        fechaRegistro === hoy;
 
-  fechaRegistro === hoy &&
+      const cumpleCaja =
+        row[8] === caja;
 
-  row[7] === usuario &&
+      const cumpleEstado =
+        row[10] === "GENERADO";
 
-  row[8] === caja &&
+      // ADMIN:
+      // todos los recibos de la caja,
+      // independientemente del usuario que los generó.
+      if (esAdmin) {
 
-  row[10] === "GENERADO"
+        return (
+          cumpleFecha &&
+          cumpleCaja &&
+          cumpleEstado
+        );
 
-);
+      }
 
-        }
+      // USUARIO NORMAL:
+      // solamente sus propios recibos
+      // de la caja.
+      return (
+        cumpleFecha &&
+        row[7] === usuario &&
+        cumpleCaja &&
+        cumpleEstado
       );
+
+    }
+  );
 
     const correlativos =
       recibosDelDia.map(

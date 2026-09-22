@@ -136,7 +136,7 @@ export async function GET(
           MODULO_CAJA_SHEET_ID,
 
         range:
-          "Caja!A:N",
+          "Caja!A:S",
 
       });
 
@@ -147,7 +147,7 @@ export async function GET(
           MODULO_CAJA_SHEET_ID,
 
         range:
-          "DetalleCaja!A:F",
+          "DetalleCaja!A:H",
 
       });
 
@@ -189,6 +189,8 @@ export async function GET(
 
     filasCaja.forEach((row) => {
 
+      // Caja!K = Estado
+
       const estado =
         (row[10] || "")
           .toString()
@@ -226,7 +228,9 @@ export async function GET(
           .toString()
           .trim();
 
-      if (recibo) {
+      if (
+        recibo
+      ) {
 
         recibosGenerados.add(
           recibo
@@ -237,65 +241,51 @@ export async function GET(
     });
 
     // ==================================================
-    // Total de actuaciones
+    // Índice de actuaciones procesadas
+    //
+    // EXACTAMENTE EL MISMO CRITERIO UTILIZADO
+    // POR /api/sgc/pendientes
+    //
+    // Clave:
+    //
+    //     correlativo + código
+    //
+    // GestionConsular:
+    //
+    // A = Correlativo
+    // B = Código
+    // G = Estado
     // ==================================================
 
-    let totalActuaciones = 0;
-
-    filasDetalle.forEach((row) => {
-
-      // DetalleCaja!A = Correlativo / recibo
-
-      const correlativo =
-        (row[0] || "")
-          .toString()
-          .trim();
-
-      if (
-        !recibosGenerados.has(
-          correlativo
-        )
-      ) {
-
-        return;
-
-      }
-
-      totalActuaciones++;
-
-    });
-
-    // ==================================================
-    // Actuaciones vinculadas
-    // ==================================================
-
-    let vinculadas = 0;
-
-    // ==================================================
-    // Actuaciones SIN PLANILLA
-    // ==================================================
-
-    let sinPlanilla = 0;
-
-    // ==================================================
-    // Número de planillas distintas
-    // ==================================================
-
-    const planillas =
-      new Set<string>();
+    const actuacionesProcesadas =
+      new Map<
+        string,
+        {
+          vinculadas: number;
+          sinPlanilla: number;
+        }
+      >();
 
     filasGestion.forEach((row) => {
 
-      // GestionConsular!A = correlativo
+      // GestionConsular!A
+      // Correlativo
 
       const correlativo =
         (row[0] || "")
           .toString()
           .trim();
 
+      if (
+        !correlativo
+      ) {
+
+        return;
+
+      }
+
       // ----------------------------------------------
-      // Solo registros cuyo recibo pertenece
-      // al año seleccionado
+      // Solo recibos pertenecientes al año seleccionado
       // ----------------------------------------------
 
       if (
@@ -308,8 +298,24 @@ export async function GET(
 
       }
 
-      // GestionConsular!G = Estado
-      // Índice 6
+      // GestionConsular!B
+      // Código de actuación
+
+      const codigo =
+        (row[1] || "")
+          .toString()
+          .trim();
+
+      if (
+        !codigo
+      ) {
+
+        return;
+
+      }
+
+      // GestionConsular!G
+      // Estado
 
       const estado =
         (row[6] || "")
@@ -317,65 +323,271 @@ export async function GET(
           .trim()
           .toUpperCase();
 
-      // ----------------------------------------------
-      // Vinculado
-      // ----------------------------------------------
+      if (
+        estado !== "VINCULADO" &&
+        estado !== "SIN PLANILLA"
+      ) {
+
+        return;
+
+      }
+
+      const llave =
+        `${correlativo}|${codigo}`;
+
+      const actual =
+        actuacionesProcesadas.get(
+          llave
+        ) || {
+          vinculadas: 0,
+          sinPlanilla: 0,
+        };
 
       if (
         estado === "VINCULADO"
       ) {
 
-        vinculadas++;
-
-        // GestionConsular!D = Planilla
-        // Índice 3
-
-        const planilla =
-          (row[3] || "")
-            .toString()
-            .trim();
-
-        if (planilla) {
-
-          planillas.add(
-            planilla
-          );
-
-        }
+        actual.vinculadas++;
 
       }
-
-      // ----------------------------------------------
-      // Sin planilla
-      // ----------------------------------------------
 
       if (
         estado === "SIN PLANILLA"
       ) {
 
-        sinPlanilla++;
+        actual.sinPlanilla++;
 
       }
+
+      actuacionesProcesadas.set(
+        llave,
+        actual
+      );
 
     });
 
     // ==================================================
-    // Pendientes
+    // Estadísticas
     // ==================================================
 
-    const pendientes =
+    let totalActuaciones = 0;
 
-      Math.max(
+    let pendientes = 0;
 
-        0,
+    let vinculadas = 0;
 
-        totalActuaciones -
+    let sinPlanilla = 0;
 
-        vinculadas -
+    // ==================================================
+    // Recorrer DetalleCaja
+    //
+    // EXACTAMENTE EL MISMO UNIVERSO UTILIZADO
+    // PARA CONSTRUIR LA TABLA DE PENDIENTES
+    //
+    // DetalleCaja:
+    //
+    // A = Correlativo
+    // B = Código de actuación
+    // C = Nombre de actuación
+    // D = Monto
+    // E = Número de actuación
+    // F = Planilla
+    // G = EstadoGC
+    // H = Fecha última vinculación
+    // ==================================================
 
-        sinPlanilla
+    filasDetalle.forEach((detalle) => {
 
-      );
+      // ----------------------------------------------
+      // DetalleCaja!A
+      // Correlativo
+      // ----------------------------------------------
+
+      const correlativo =
+        (detalle[0] || "")
+          .toString()
+          .trim();
+
+      if (
+        !correlativo
+      ) {
+
+        return;
+
+      }
+
+      // ----------------------------------------------
+      // Solo recibos generados del año seleccionado
+      // ----------------------------------------------
+
+      if (
+        !recibosGenerados.has(
+          correlativo
+        )
+      ) {
+
+        return;
+
+      }
+
+      // ----------------------------------------------
+      // DetalleCaja!B
+      // Código de actuación
+      // ----------------------------------------------
+
+      const codigo =
+        (detalle[1] || "")
+          .toString()
+          .trim();
+
+      if (
+        !codigo
+      ) {
+
+        return;
+
+      }
+
+      // ----------------------------------------------
+      // Cada fila representa una actuación
+      // ----------------------------------------------
+
+      totalActuaciones++;
+
+      // ----------------------------------------------
+      // Buscar actuaciones procesadas
+      // para ese recibo + código
+      // ----------------------------------------------
+
+      const llave =
+        `${correlativo}|${codigo}`;
+
+      const actual =
+        actuacionesProcesadas.get(
+          llave
+        ) || {
+          vinculadas: 0,
+          sinPlanilla: 0,
+        };
+
+      // ----------------------------------------------
+      // Consumir primero una vinculación
+      // ----------------------------------------------
+
+      if (
+        actual.vinculadas > 0
+      ) {
+
+        actual.vinculadas--;
+
+        vinculadas++;
+
+        actuacionesProcesadas.set(
+          llave,
+          actual
+        );
+
+        return;
+
+      }
+
+      // ----------------------------------------------
+      // Luego consumir SIN PLANILLA
+      // ----------------------------------------------
+
+      if (
+        actual.sinPlanilla > 0
+      ) {
+
+        actual.sinPlanilla--;
+
+        sinPlanilla++;
+
+        actuacionesProcesadas.set(
+          llave,
+          actual
+        );
+
+        return;
+
+      }
+
+      // ----------------------------------------------
+      // Si no existe correspondencia en Gestión
+      // o ya fueron consumidas todas las versiones:
+      //
+      // PENDIENTE
+      // ----------------------------------------------
+
+      pendientes++;
+
+    });
+
+    // ==================================================
+    // Número de planillas distintas
+    //
+    // Se mantiene la lógica existente.
+    // ==================================================
+
+    const planillas =
+      new Set<string>();
+
+    filasGestion.forEach((row) => {
+
+      // GestionConsular!A
+      // Correlativo
+
+      const correlativo =
+        (row[0] || "")
+          .toString()
+          .trim();
+
+      if (
+        !recibosGenerados.has(
+          correlativo
+        )
+      ) {
+
+        return;
+
+      }
+
+      // GestionConsular!G
+      // Estado
+
+      const estado =
+        (row[6] || "")
+          .toString()
+          .trim()
+          .toUpperCase();
+
+      if (
+        estado !== "VINCULADO"
+      ) {
+
+        return;
+
+      }
+
+      // GestionConsular!D
+      // Planilla
+
+      const planilla =
+        (row[3] || "")
+          .toString()
+          .trim();
+
+      if (
+        planilla
+      ) {
+
+        planillas.add(
+          planilla
+        );
+
+      }
+
+    });
 
     // ==================================================
     // Respuesta
