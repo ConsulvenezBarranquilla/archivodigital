@@ -83,6 +83,21 @@ const [
 ] = useState(false);
 
 const [
+  mostrarOpcionesRecibo,
+  setMostrarOpcionesRecibo,
+] = useState(false);
+
+const [
+  datosReciboGenerado,
+  setDatosReciboGenerado,
+] = useState<any>(null);
+
+const [
+  generandoFormatoRecibo,
+  setGenerandoFormatoRecibo,
+] = useState(false);
+
+const [
   mostrarPopupTitulares,
   setMostrarPopupTitulares,
 ] = useState(false);
@@ -637,78 +652,133 @@ function eliminarActuacion(
 }
 
 async function generarRecibo() {
+  try {
+    setMensajeRecibo("Generando recibo...");
+
+    const response = await fetch(
+      "/api/generar-recibo",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ciudadano,
+          actuaciones: actuacionesSeleccionadas,
+          totalUSD,
+          usuario,
+          titularesEspeciales,
+        }),
+      }
+    );
+
+    const data = await response.json();
+
+    if (!data.ok) {
+      setMensajeRecibo(
+        data.mensaje ||
+          data.error ||
+          "No fue posible generar el recibo."
+      );
+
+      return;
+    }
+
+    // ======================================================
+    // EL RECIBO YA FUE REGISTRADO
+    // ======================================================
+
+    setDatosReciboGenerado(data);
+
+    setMensajeRecibo(
+      `Recibo registrado correctamente. Correlativo: ${data.correlativo}`
+    );
+
+    // ======================================================
+    // PREGUNTAR FORMATO DE IMPRESIÓN
+    // ======================================================
+
+    setMostrarOpcionesRecibo(true);
+
+  } catch (error) {
+
+    console.error(
+      "ERROR GENERANDO RECIBO:",
+      error
+    );
+
+    setMensajeRecibo(
+      "Error generando recibo."
+    );
+  }
+}
+
+// ======================================================
+// GENERAR PDF SEGÚN FORMATO SELECCIONADO
+// ======================================================
+
+async function generarPdfFormatoRecibo(
+  tipo: "tradicional" | "termico"
+) {
+
+  if (!datosReciboGenerado) {
+    return;
+  }
 
   try {
 
-    setMensajeRecibo(
-      "Generando recibo..."
-    );
-    
+    setGenerandoFormatoRecibo(true);
 
-    const response =
-          await fetch(
-        "/api/generar-recibo",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-          body: JSON.stringify({
-            ciudadano,
-            actuaciones:
-              actuacionesSeleccionadas,
-            totalUSD,
-            usuario,
-            titularesEspeciales,
-          }),
-        }
-      );
+    setMostrarOpcionesRecibo(false);
 
-    const data =
-      await response.json();
-
-    if (!data.ok) {
-
-      setMensajeRecibo(
-        data.mensaje ||
-          data.error
-      );
-
-      return;
-
-    }
+    const endpoint =
+      tipo === "tradicional"
+        ? "/api/pdf-recibo"
+        : "/api/pdf-recibo-termico";
 
     const pdfResponse =
       await fetch(
-        "/api/pdf-recibo",
+        endpoint,
         {
           method: "POST",
+
           headers: {
             "Content-Type":
               "application/json",
           },
-          body: JSON.stringify(data),
+
+          body: JSON.stringify(
+            datosReciboGenerado
+          ),
         }
       );
-setCiudadano(null);
 
-setDocumento("");
-
-setBusquedaActuacion("");
-
-setActuacionesSeleccionadas([]);
-
-setMostrarActuaciones(false);
     if (!pdfResponse.ok) {
 
+      let mensajeError =
+        "Ocurrió un error generando el PDF.";
+
+      try {
+
+        const error =
+          await pdfResponse.json();
+
+        mensajeError =
+          error.error ||
+          mensajeError;
+
+      } catch {}
+
       setMensajeRecibo(
-        "Error generando PDF"
+        `El recibo fue registrado, pero ${mensajeError}`
       );
 
       return;
-
     }
+
+    // ====================================================
+    // DESCARGAR PDF
+    // ====================================================
 
     const blob =
       await pdfResponse.blob();
@@ -724,7 +794,15 @@ setMostrarActuaciones(false);
     enlace.href = url;
 
     enlace.download =
-      `RECIBO_${data.correlativo.replace("/", "-")}.pdf`;
+      tipo === "tradicional"
+        ? `RECIBO_${datosReciboGenerado.correlativo.replace(
+            "/",
+            "-"
+          )}.pdf`
+        : `RECIBO_TERMICO_${datosReciboGenerado.correlativo.replace(
+            "/",
+            "-"
+          )}.pdf`;
 
     document.body.appendChild(
       enlace
@@ -737,40 +815,98 @@ setMostrarActuaciones(false);
     window.URL.revokeObjectURL(
       url
     );
-setMensaje("");
-    setMensajeRecibo(
-      `Recibo generado correctamente. Correlativo: ${data.correlativo}`
-      
-    );
+
+    // ====================================================
+    // LIMPIAR FORMULARIO
+    // ====================================================
+
+    setCiudadano(null);
+
+    setDocumento("");
+
     setBusquedaActuacion("");
 
-setMostrarActuaciones(false);
+    setActuacionesSeleccionadas([]);
 
-setTitularesEspeciales([]);
+    setMostrarActuaciones(false);
 
-setActuacionesSeleccionadas([]);
-fetch(
-  `/api/resumen-caja?caja=${usuario.caja}`
-)
-  .then((res) => res.json())
-  .then((data) => {
+    setTitularesEspeciales([]);
 
-    if (data.ok) {
+    setDatosReciboGenerado(null);
 
-      setResumenCaja(data);
+    setMensaje("");
+
+    // ====================================================
+    // MENSAJE SOBRE EL CORREO
+    // ====================================================
+
+    if (
+      datosReciboGenerado.correoEnviado === true
+    ) {
+
+      setMensajeRecibo(
+        `✅ Recibo generado correctamente. Correlativo: ${datosReciboGenerado.correlativo}. El Original Usuario fue enviado al correo del ciudadano.`
+      );
+
+    } else if (
+      datosReciboGenerado.correoNoAplica === true
+    ) {
+
+      setMensajeRecibo(
+        `✅ Recibo generado correctamente. Correlativo: ${datosReciboGenerado.correlativo}.`
+      );
+
+    } else {
+
+      setMensajeRecibo(
+        `⚠️ Recibo generado correctamente. Correlativo: ${datosReciboGenerado.correlativo}. NO se pudo enviar el Original Usuario al correo del ciudadano. ${
+          datosReciboGenerado.errorCorreo ||
+          "Verifique el correo registrado."
+        }`
+      );
 
     }
 
-  });
+    // ====================================================
+    // ACTUALIZAR RESUMEN DE CAJA
+    // ====================================================
+
+    fetch(
+      `/api/resumen-caja?caja=${usuario.caja}`
+    )
+      .then((res) => res.json())
+      .then((dataResumen) => {
+
+        if (dataResumen.ok) {
+
+          setResumenCaja(
+            dataResumen
+          );
+
+        }
+
+      });
+
   } catch (error) {
 
+    console.error(
+      "ERROR GENERANDO PDF:",
+      error
+    );
+
     setMensajeRecibo(
-      "Error generando recibo"
+      "El recibo fue registrado, pero ocurrió un error generando el PDF."
+    );
+
+  } finally {
+
+    setGenerandoFormatoRecibo(
+      false
     );
 
   }
-
 }
+
 async function confirmarGeneracion() {
 
   setMostrarConfirmacion(
@@ -1313,7 +1449,149 @@ async function generarCierreDiario() {
   </div>
 
 )}
- 
+ {mostrarOpcionesRecibo && (
+
+  <div
+    className="
+      fixed
+      inset-0
+      bg-black/50
+      flex
+      items-center
+      justify-center
+      z-[100]
+    "
+  >
+
+    <div
+      className="
+        bg-white
+        rounded-3xl
+        shadow-2xl
+        p-8
+        w-full
+        max-w-md
+      "
+    >
+
+      <h2
+        className="
+          text-2xl
+          font-bold
+          text-blue-950
+          text-center
+          mb-3
+        "
+      >
+        Seleccionar Recibo
+      </h2>
+
+      <p
+        className="
+          text-center
+          text-slate-600
+          mb-6
+        "
+      >
+        Seleccione el formato en el que desea generar el recibo.
+      </p>
+
+      <div className="flex flex-col gap-4">
+
+        {/* ==================================================
+            RECIBO TRADICIONAL
+        ================================================== */}
+
+        <button
+          type="button"
+          disabled={generandoFormatoRecibo}
+          onClick={() =>
+            generarPdfFormatoRecibo(
+              "tradicional"
+            )
+          }
+          className="
+            w-full
+            bg-blue-700
+            hover:bg-blue-800
+            disabled:opacity-50
+            text-white
+            font-bold
+            px-5
+            py-5
+            rounded-2xl
+            transition
+          "
+        >
+
+          <div className="text-xl">
+            🧾 Recibo tradicional
+          </div>
+
+          <div
+            className="
+              text-sm
+              font-normal
+              mt-1
+              opacity-90
+            "
+          >
+            3 copias
+          </div>
+
+        </button>
+
+
+        {/* ==================================================
+            RECIBO TÉRMICO
+        ================================================== */}
+
+        <button
+          type="button"
+          disabled={generandoFormatoRecibo}
+          onClick={() =>
+            generarPdfFormatoRecibo(
+              "termico"
+            )
+          }
+          className="
+            w-full
+            bg-slate-900
+            hover:bg-black
+            disabled:opacity-50
+            text-white
+            font-bold
+            px-5
+            py-5
+            rounded-2xl
+            transition
+          "
+        >
+
+          <div className="text-xl">
+            🖨️ Recibo individual
+          </div>
+
+          <div
+            className="
+              text-sm
+              font-normal
+              mt-1
+              opacity-90
+            "
+          >
+            Impresora térmica · 80 × 60 mm
+          </div>
+
+        </button>
+
+      </div>
+
+    </div>
+
+  </div>
+
+)}
     <SistemaLayout
     titulo="Caja"
     permiso={MODULOS.CAJA}

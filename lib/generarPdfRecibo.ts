@@ -38,6 +38,8 @@ type DatosRecibo = {
   estado?: string;
 
   titularesEspeciales?: TitularEspecial[];
+
+  soloOriginal?: boolean;
 };
 
 export async function generarPdfRecibo(
@@ -173,20 +175,18 @@ function obtenerTitularParaActuacion(
     if (titular?.titular) {
 
       const nombre =
-        obtenerNombreCorto(
-          titular.titular
-        );
+  titular.titular.trim();
 
-      if (
-        nombre.toUpperCase() !==
-        datos.nombre
-          .trim()
-          .toUpperCase()
-      ) {
+if (
+  nombre.toUpperCase() !==
+  datos.nombre
+    .trim()
+    .toUpperCase()
+) {
 
-        return nombre;
+  return nombre;
 
-      }
+}
 
     }
 
@@ -220,20 +220,18 @@ function obtenerTitularParaActuacion(
     if (titular?.titular) {
 
       const nombre =
-        obtenerNombreCorto(
-          titular.titular
-        );
+  titular.titular.trim();
 
-      if (
-        nombre.toUpperCase() !==
-        datos.nombre
-          .trim()
-          .toUpperCase()
-      ) {
+if (
+  nombre.toUpperCase() !==
+  datos.nombre
+    .trim()
+    .toUpperCase()
+) {
 
-        return nombre;
+  return nombre;
 
-      }
+}
 
     }
 
@@ -280,20 +278,18 @@ function obtenerTitularParaActuacion(
       }
 
       const nombre =
-        obtenerNombreCorto(
-          titular.titular
-        );
+  titular.titular.trim();
 
-      if (
-        nombre.toUpperCase() !==
-        datos.nombre
-          .trim()
-          .toUpperCase()
-      ) {
+if (
+  nombre.toUpperCase() !==
+  datos.nombre
+    .trim()
+    .toUpperCase()
+) {
 
-        return nombre;
+  return nombre;
 
-      }
+}
 
     }
 
@@ -675,32 +671,49 @@ page.drawText(
 
   }
 
+    // ======================================================
+  // COPIAS DEL RECIBO
   // ======================================================
-  // TRES COPIAS
-  // ======================================================
 
-  dibujarRecibo(
-    760,
-    "Original Usuario"
-  );
+  if (datos.soloOriginal) {
 
-  lineaDeCorte(
-    530
-  );
+    // Para correo electrónico:
+    // solamente Original Usuario.
 
-  dibujarRecibo(
-    505,
-    "Copia Caja"
-  );
+    dibujarRecibo(
+      760,
+      "Original Usuario"
+    );
 
-  lineaDeCorte(
-    275
-  );
+  } else {
 
-  dibujarRecibo(
-    250,
-    "Copia Expediente"
-  );
+    // Funcionamiento normal:
+    // las tres copias.
+
+    dibujarRecibo(
+      760,
+      "Original Usuario"
+    );
+
+    lineaDeCorte(
+      530
+    );
+
+    dibujarRecibo(
+      505,
+      "Copia Caja"
+    );
+
+    lineaDeCorte(
+      275
+    );
+
+    dibujarRecibo(
+      250,
+      "Copia Expediente"
+    );
+
+  }
 
   // ======================================================
   // GENERAR PDF
@@ -710,5 +723,4 @@ page.drawText(
     await pdfDoc.save();
 
   return pdfBytes;
-
 }

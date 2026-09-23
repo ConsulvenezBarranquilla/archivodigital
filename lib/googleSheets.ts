@@ -243,7 +243,7 @@ export async function obtenerCatalogoNacionalidades() {
 export async function obtenerActuaciones() {
   return await leerHoja(
     HOJA_ACTUACIONES,
-    "A:D"
+    "A:E"
   );
 }
 

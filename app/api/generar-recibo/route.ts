@@ -8,6 +8,9 @@ import {
   obtenerDocumentoPrincipal,
 } from "@/lib/googleSheets";
 
+import { generarPdfRecibo } from "@/lib/generarPdfRecibo";
+import { enviarReciboPorCorreo } from "@/lib/gmail";
+
 import {
   fechaHoraActual,
   anioActual,
@@ -177,152 +180,147 @@ export async function POST(
     const fecha =
       fechaHoraActual();
 
-   // ======================================================
-// TITULARES ESPECIALES
-// ======================================================
-//
-// Caja:
-// O = Titular Pasaporte NNA
-// P = Titular Apostilla NNA
-// Q = Titular Visa
-// R = Pasaporte Titular Visa
-// S = Observaciones
-// ======================================================
+    // ======================================================
+    // TITULARES ESPECIALES
+    // ======================================================
+    //
+    // Caja:
+    // O = Titular Pasaporte NNA
+    // P = Titular Apostilla NNA
+    // Q = Titular Visa
+    // R = Pasaporte Titular Visa
+    // S = Observaciones
+    // ======================================================
 
-let titularPasaporte = "";
-let titularApostilla = "";
-let titularVisa = "";
-let pasaporteVisa = "";
-let observaciones = "";
-
-if (
-  Array.isArray(titularesEspeciales)
-) {
-
-  const listaPasaporte: string[] = [];
-  const listaApostilla: string[] = [];
-  const listaVisa: string[] = [];
-  const listaPasaporteVisa: string[] = [];
-  const listaObservaciones: string[] = [];
-
-  for (
-    const item of titularesEspeciales
-  ) {
-
-    const tipo =
-      (item.tipo || "")
-        .toString()
-        .trim()
-        .toUpperCase();
-
-    const titular =
-      (item.titular || "")
-        .toString()
-        .trim();
-
-    const pasaporte =
-      (item.pasaporte || "")
-        .toString()
-        .trim();
-
-    const observacion =
-      (item.observacion || "")
-        .toString()
-        .trim();
-
-
-    // -----------------------------------------------
-    // PASAPORTE NNA
-    // -----------------------------------------------
+    let titularPasaporte = "";
+    let titularApostilla = "";
+    let titularVisa = "";
+    let pasaporteVisa = "";
+    let observaciones = "";
 
     if (
-      tipo === "PASAPORTE" &&
-      titular
+      Array.isArray(titularesEspeciales)
     ) {
 
-      listaPasaporte.push(
-        titular
-      );
+      const listaPasaporte: string[] = [];
+      const listaApostilla: string[] = [];
+      const listaVisa: string[] = [];
+      const listaPasaporteVisa: string[] = [];
+      const listaObservaciones: string[] = [];
 
-    }
+      for (
+        const item of titularesEspeciales
+      ) {
 
+        const tipo =
+          (item.tipo || "")
+            .toString()
+            .trim()
+            .toUpperCase();
 
-    // -----------------------------------------------
-    // APOSTILLA NNA
-    // -----------------------------------------------
+        const titular =
+          (item.titular || "")
+            .toString()
+            .trim();
 
-    if (
-      tipo === "APOSTILLA" &&
-      titular
-    ) {
+        const pasaporte =
+          (item.pasaporte || "")
+            .toString()
+            .trim();
 
-      listaApostilla.push(
-        titular
-      );
+        const observacion =
+          (item.observacion || "")
+            .toString()
+            .trim();
 
-    }
+        // -----------------------------------------------
+        // PASAPORTE NNA
+        // -----------------------------------------------
 
-
-    // -----------------------------------------------
-    // VISA
-    // -----------------------------------------------
-
-    if (
-      tipo === "VISA"
-    ) {
-
-      if (titular) {
-
-        listaVisa.push(
+        if (
+          tipo === "PASAPORTE" &&
           titular
-        );
+        ) {
+
+          listaPasaporte.push(
+            titular
+          );
+
+        }
+
+        // -----------------------------------------------
+        // APOSTILLA NNA
+        // -----------------------------------------------
+
+        if (
+          tipo === "APOSTILLA" &&
+          titular
+        ) {
+
+          listaApostilla.push(
+            titular
+          );
+
+        }
+
+        // -----------------------------------------------
+        // VISA
+        // -----------------------------------------------
+
+        if (
+          tipo === "VISA"
+        ) {
+
+          if (titular) {
+
+            listaVisa.push(
+              titular
+            );
+
+          }
+
+          if (pasaporte) {
+
+            listaPasaporteVisa.push(
+              pasaporte
+            );
+
+          }
+
+        }
+
+        // -----------------------------------------------
+        // OBSERVACIONES
+        // -----------------------------------------------
+
+        if (
+          observacion
+        ) {
+
+          listaObservaciones.push(
+            observacion
+          );
+
+        }
 
       }
 
-      if (pasaporte) {
+      titularPasaporte =
+        listaPasaporte.join("; ");
 
-        listaPasaporteVisa.push(
-          pasaporte
-        );
+      titularApostilla =
+        listaApostilla.join("; ");
 
-      }
+      titularVisa =
+        listaVisa.join("; ");
 
-    }
+      pasaporteVisa =
+        listaPasaporteVisa.join("; ");
 
-
-    // -----------------------------------------------
-    // OBSERVACIONES
-    // -----------------------------------------------
-
-    if (
-      observacion
-    ) {
-
-      listaObservaciones.push(
-        observacion
-      );
+      observaciones =
+        listaObservaciones.join("; ");
 
     }
-
-  }
-
-
-  titularPasaporte =
-    listaPasaporte.join("; ");
-
-  titularApostilla =
-    listaApostilla.join("; ");
-
-  titularVisa =
-    listaVisa.join("; ");
-
-  pasaporteVisa =
-    listaPasaporteVisa.join("; ");
-
-  observaciones =
-    listaObservaciones.join("; ");
-
-}
 
     console.log(
       "NACIONALIDAD A GUARDAR:",
@@ -370,13 +368,13 @@ if (
 
       titularPasaporte,
 
-titularApostilla,
+      titularApostilla,
 
-titularVisa,
+      titularVisa,
 
-pasaporteVisa,
+      pasaporteVisa,
 
-observaciones,
+      observaciones,
 
     ]);
 
@@ -408,6 +406,163 @@ observaciones,
     }
 
     // ======================================================
+// ENVIAR RECIBO POR CORREO
+// ======================================================
+//
+// REGLA ESPECIAL:
+// La actuación CONST-RC-E (Constancia de Registro
+// Consular Exenta) NO se envía por correo.
+//
+// Si el recibo contiene CONST-RC-E junto con otras
+// actuaciones, tampoco se envía el correo.
+//
+// El resto de actuaciones sí se envían normalmente.
+// ======================================================
+
+let correoEnviado = false;
+let errorCorreo = "";
+let correoNoAplica = false;
+
+// ------------------------------------------------------
+// VERIFICAR SI EL RECIBO CONTIENE CONST-RC-E
+// ------------------------------------------------------
+
+const contieneConstanciaExenta =
+  actuaciones.some(
+    (actuacion: any) =>
+      String(
+        actuacion.codigo || ""
+      )
+        .trim()
+        .toUpperCase() ===
+      "CONST-RC-E"
+  );
+
+// ------------------------------------------------------
+// SI CONTIENE CONST-RC-E, NO ENVIAR CORREO
+// ------------------------------------------------------
+
+if (
+  contieneConstanciaExenta
+) {
+
+  correoNoAplica = true;
+
+  console.log(
+    "CORREO NO ENVIADO: el recibo contiene la actuación CONST-RC-E."
+  );
+
+} else {
+
+  // ----------------------------------------------------
+  // ENVÍO NORMAL POR CORREO
+  // ----------------------------------------------------
+
+  try {
+
+    const correo =
+      String(
+        ciudadano.correo || ""
+      ).trim();
+
+    if (
+      correo
+    ) {
+
+      const datosRecibo = {
+
+        correlativo,
+
+        fecha,
+
+        documento:
+          documentoImpreso,
+
+        nombre:
+          ciudadano.nombreCompleto,
+
+        correo,
+
+        usuario:
+          usuario.nombre,
+
+        actuaciones,
+
+        totalUSD,
+
+        titularesEspeciales,
+
+      };
+
+      // --------------------------------------------------
+      // GENERAR PDF SOLO ORIGINAL USUARIO
+      // --------------------------------------------------
+
+      const pdfOriginal =
+        await generarPdfRecibo({
+
+          ...datosRecibo,
+
+          soloOriginal: true,
+
+        });
+
+      // --------------------------------------------------
+      // ENVIAR POR GMAIL
+      // --------------------------------------------------
+
+      await enviarReciboPorCorreo({
+
+        destinatario:
+          correo,
+
+        nombre:
+          ciudadano.nombreCompleto,
+
+        correlativo,
+
+        pdfBytes:
+          pdfOriginal,
+
+      });
+
+      correoEnviado =
+        true;
+
+      console.log(
+        "RECIBO ENVIADO POR CORREO:",
+        correo
+      );
+
+    } else {
+
+      errorCorreo =
+        "El ciudadano no tiene correo electrónico registrado.";
+
+      console.log(
+        errorCorreo
+      );
+
+    }
+
+  } catch (
+    error: any
+  ) {
+
+    console.error(
+      "ERROR ENVIANDO RECIBO POR CORREO:",
+      error
+    );
+
+    errorCorreo =
+      error?.message ||
+      "No fue posible enviar el recibo por correo electrónico.";
+
+  }
+
+}
+
+    // ======================================================
     // RESPUESTA
     // ======================================================
 
@@ -437,6 +592,12 @@ observaciones,
 
       titularesEspeciales,
 
+      correoEnviado,
+
+      errorCorreo,
+
+      correoNoAplica,
+
     });
 
   }
@@ -454,6 +615,7 @@ observaciones,
 
       {
         ok: false,
+
         error:
           error.message,
       },

@@ -162,6 +162,17 @@ export default function EntregaPage() {
     >("TODOS");
 
     // ==================================================
+// FILTRO POR ESTADO DE ENTREGA
+// ==================================================
+
+const [
+    filtroEstado,
+    setFiltroEstado,
+] = useState<
+    "TODOS" | "PENDIENTES" | "ENTREGADOS"
+>("TODOS");
+
+    // ==================================================
     // ENTREGA
     // ==================================================
 
@@ -511,231 +522,289 @@ export default function EntregaPage() {
     }
 
     // ==================================================
-    // FILTRAR DOCUMENTOS
-    // ==================================================
+// FILTRAR DOCUMENTOS SIN APLICAR ESTADO
+//
+// Aquí se aplican:
+// - modo de búsqueda
+// - nombre
+// - documento
+// - categoría
+//
+// NO se aplica todavía:
+// - pendientes
+// - entregados
+//
+// Esto permite que los contadores siempre
+// representen el total real del resultado.
+// ==================================================
 
-    const documentosVisibles =
-        useMemo(() => {
+const documentosFiltradosBase =
+    useMemo(() => {
 
-            // ==================================================
-            // No se ha seleccionado búsqueda
-            // ==================================================
+        // ==================================================
+        // No se ha seleccionado búsqueda
+        // ==================================================
 
-            if (!modoBusqueda) {
+        if (!modoBusqueda) {
+
+            return [];
+
+        }
+
+        let resultado =
+            [...documentos];
+
+        // ==================================================
+        // BUSCAR POR NOMBRE
+        //
+        // Se muestran TODOS los documentos de la persona,
+        // tanto pendientes como entregados.
+        // ==================================================
+
+        if (
+            modoBusqueda ===
+            "NOMBRE"
+        ) {
+
+            const texto =
+                busqueda
+                    .trim()
+                    .toLowerCase();
+
+            if (!texto) {
 
                 return [];
 
             }
 
-            let resultado =
-                [...documentos];
+            resultado =
+                resultado.filter(
+                    documento =>
 
-            // ==================================================
-            // BUSCAR POR NOMBRE
-            //
-            // En este modo:
-            // - el usuario busca una persona
-            // - se muestran TODOS sus documentos
-            // - pendientes y entregados
-            //
-            // Esto permite que al entregar un documento
-            // permanezca visible y cambie a verde.
-            // ==================================================
-
-            if (
-                modoBusqueda ===
-                "NOMBRE"
-            ) {
-
-                const texto =
-                    busqueda
-                        .trim()
-                        .toLowerCase();
-
-                if (!texto) {
-
-                    return [];
-
-                }
-
-                resultado =
-                    resultado.filter(
-                        documento =>
-
-                            valoresBusqueda(
-                                documento
-                            ).some(
-                                valor =>
-                                    valor.includes(
-                                        texto
-                                    )
-                            )
-                    );
-
-                return resultado;
-
-            }
-
-            // ==================================================
-            // BUSCAR POR DOCUMENTO
-            //
-            // Se muestra la tabla general.
-            // ==================================================
-
-            // ----------------------------------------------
-            // Categoría
-            // ----------------------------------------------
-
-            if (
-                categoria !==
-                "TODOS"
-            ) {
-
-                resultado =
-                    resultado.filter(
-                        documento =>
-
-                            documento.categoria ===
-                            categoria
-                    );
-
-            }
-
-            // ----------------------------------------------
-            // Filtro por nombre
-            // ----------------------------------------------
-
-            const textoNombre =
-                filtroNombre
-                    .trim()
-                    .toLowerCase();
-
-            if (
-                textoNombre
-            ) {
-
-                resultado =
-                    resultado.filter(
-                        documento =>
-
-                            valoresBusqueda(
-                                documento
-                            ).some(
-                                valor =>
-                                    valor.includes(
-                                        textoNombre
-                                    )
-                            )
-                    );
-
-            }
-
-            // ----------------------------------------------
-            // Documento de identidad
-            // ----------------------------------------------
-
-            const textoDocumento =
-                busqueda
-                    .trim()
-                    .toLowerCase();
-
-            if (
-                textoDocumento
-            ) {
-
-                resultado =
-                    resultado.filter(
-                        documento =>
-
-                            valoresBusqueda(
-                                documento
-                            ).some(
-                                valor =>
-                                    valor.includes(
-                                        textoDocumento
-                                    )
-                            )
-                    );
-
-            }
+                        valoresBusqueda(
+                            documento
+                        ).some(
+                            valor =>
+                                valor.includes(
+                                    texto
+                                )
+                        )
+                );
 
             return resultado;
 
-        }, [
+        }
 
-            documentos,
+        // ==================================================
+        // BUSCAR POR DOCUMENTO
+        // ==================================================
 
-            modoBusqueda,
+        // ----------------------------------------------
+        // Categoría
+        // ----------------------------------------------
 
-            busqueda,
+        if (
+            categoria !==
+            "TODOS"
+        ) {
 
-            filtroNombre,
+            resultado =
+                resultado.filter(
+                    documento =>
 
-            categoria,
+                        documento.categoria ===
+                        categoria
+                );
 
-        ]);
+        }
 
-    // ==================================================
-    // CONTADORES
-    //
-    // Se calculan sobre documentosVisibles.
-    // ==================================================
+        // ----------------------------------------------
+        // Filtro por nombre
+        // ----------------------------------------------
 
-    const totalPendientes =
-        useMemo(() => {
+        const textoNombre =
+            filtroNombre
+                .trim()
+                .toLowerCase();
 
-            return documentosVisibles.filter(
+        if (
+            textoNombre
+        ) {
 
+            resultado =
+                resultado.filter(
+                    documento =>
+
+                        valoresBusqueda(
+                            documento
+                        ).some(
+                            valor =>
+                                valor.includes(
+                                    textoNombre
+                                )
+                        )
+                );
+
+        }
+
+        // ----------------------------------------------
+        // Documento de identidad
+        // ----------------------------------------------
+
+        const textoDocumento =
+            busqueda
+                .trim()
+                .toLowerCase();
+
+        if (
+            textoDocumento
+        ) {
+
+            resultado =
+                resultado.filter(
+                    documento =>
+
+                        valoresBusqueda(
+                            documento
+                        ).some(
+                            valor =>
+                                valor.includes(
+                                    textoDocumento
+                                )
+                        )
+                );
+
+        }
+
+        return resultado;
+
+    }, [
+
+        documentos,
+
+        modoBusqueda,
+
+        busqueda,
+
+        filtroNombre,
+
+        categoria,
+
+    ]);
+
+
+// ==================================================
+// APLICAR FILTRO DE ESTADO
+// ==================================================
+
+const documentosVisibles =
+    useMemo(() => {
+
+        if (
+            filtroEstado ===
+            "PENDIENTES"
+        ) {
+
+            return documentosFiltradosBase.filter(
                 documento =>
-
                     documento.entregado !== true
+            );
 
-            ).length;
+        }
 
-        }, [
+        if (
+            filtroEstado ===
+            "ENTREGADOS"
+        ) {
 
-            documentosVisibles,
-
-        ]);
-
-    const totalEntregados =
-        useMemo(() => {
-
-            return documentosVisibles.filter(
-
+            return documentosFiltradosBase.filter(
                 documento =>
-
                     documento.entregado === true
+            );
 
-            ).length;
+        }
 
-        }, [
+        return documentosFiltradosBase;
 
-            documentosVisibles,
+    }, [
 
-        ]);
+        documentosFiltradosBase,
+
+        filtroEstado,
+
+    ]);
+
+
+// ==================================================
+// CONTADORES
+//
+// IMPORTANTE:
+// Se calculan sobre documentosFiltradosBase,
+// NO sobre documentosVisibles.
+//
+// Así permanecen estables al hacer clic.
+// ==================================================
+
+const totalPendientes =
+    useMemo(() => {
+
+        return documentosFiltradosBase.filter(
+
+            documento =>
+
+                documento.entregado !== true
+
+        ).length;
+
+    }, [
+
+        documentosFiltradosBase,
+
+    ]);
+
+
+const totalEntregados =
+    useMemo(() => {
+
+        return documentosFiltradosBase.filter(
+
+            documento =>
+
+                documento.entregado === true
+
+        ).length;
+
+    }, [
+
+        documentosFiltradosBase,
+
+    ]);
 
     // ==================================================
     // SELECCIONAR MODO
     // ==================================================
 
     function seleccionarModo(
-        modo: ModoBusqueda
-    ) {
+    modo: ModoBusqueda
+) {
 
-        setModoBusqueda(
-            modo
-        );
+    setModoBusqueda(
+        modo
+    );
 
-        setBusqueda("");
+    setBusqueda("");
 
-        setFiltroNombre("");
+    setFiltroNombre("");
 
-        setCategoria(
-            "TODOS"
-        );
+    setCategoria(
+        "TODOS"
+    );
 
-    }
+    setFiltroEstado(
+        "TODOS"
+    );
+
+}
 
     // ==================================================
     // VOLVER A SELECCIÓN
@@ -743,20 +812,42 @@ export default function EntregaPage() {
 
     function volverSeleccionBusqueda() {
 
-        setModoBusqueda(
-            null
-        );
+    setModoBusqueda(
+        null
+    );
 
-        setBusqueda("");
+    setBusqueda("");
 
-        setFiltroNombre("");
+    setFiltroNombre("");
 
-        setCategoria(
-            "TODOS"
-        );
+    setCategoria(
+        "TODOS"
+    );
 
-    }
+    setFiltroEstado(
+        "TODOS"
+    );
 
+}
+// ==================================================
+// ALTERNAR FILTRO DE ESTADO
+// ==================================================
+
+function alternarFiltroEstado(
+    filtro:
+        | "PENDIENTES"
+        | "ENTREGADOS"
+) {
+
+    setFiltroEstado(
+        estadoActual =>
+
+            estadoActual === filtro
+                ? "TODOS"
+                : filtro
+    );
+
+}
     // ==================================================
     // CONFIRMAR ENTREGA
     // ==================================================
@@ -1797,73 +1888,113 @@ export default function EntregaPage() {
                                 PENDIENTES
                             =========================== */}
 
-                            <div className="
-                                bg-white
-                                border
-                                rounded-2xl
-                                shadow-sm
-                                p-5
-                            ">
+                           <button
+    type="button"
+    onClick={() =>
+        alternarFiltroEstado(
+            "PENDIENTES"
+        )
+    }
+    className={`
+        w-full
+        text-left
+        bg-white
+        border
+        rounded-2xl
+        shadow-sm
+        p-5
+        transition-all
+        duration-200
+        cursor-pointer
+        hover:shadow-md
+        ${
+            filtroEstado ===
+            "PENDIENTES"
+                ? "border-blue-600 ring-2 ring-blue-200 bg-blue-50"
+                : "border-slate-200"
+        }
+    `}
+>
 
-                                <div className="
-                                    text-sm
-                                    text-slate-500
-                                ">
+    <div className="
+        text-sm
+        text-slate-500
+    ">
 
-                                    Documentos pendientes por entregar
+        Documentos pendientes por entregar
 
-                                </div>
+    </div>
 
-                                <div className="
-                                    mt-1
-                                    text-3xl
-                                    font-bold
-                                    text-blue-700
-                                ">
+    <div className="
+        mt-1
+        text-3xl
+        font-bold
+        text-blue-700
+    ">
 
-                                    {
-                                        totalPendientes
-                                    }
+        {
+            totalPendientes
+        }
 
-                                </div>
+    </div>
 
-                            </div>
+</button>
 
                             {/* ==========================
                                 ENTREGADOS
                             =========================== */}
 
-                            <div className="
-                                bg-white
-                                border
-                                rounded-2xl
-                                shadow-sm
-                                p-5
-                            ">
+                            <button
+    type="button"
+    onClick={() =>
+        alternarFiltroEstado(
+            "ENTREGADOS"
+        )
+    }
+    className={`
+        w-full
+        text-left
+        bg-white
+        border
+        rounded-2xl
+        shadow-sm
+        p-5
+        transition-all
+        duration-200
+        cursor-pointer
+        hover:shadow-md
+        ${
+            filtroEstado ===
+            "ENTREGADOS"
+                ? "border-emerald-600 ring-2 ring-emerald-200 bg-emerald-50"
+                : "border-slate-200"
+        }
+    `}
+>
 
-                                <div className="
-                                    text-sm
-                                    text-slate-500
-                                ">
+    <div className="
+        text-sm
+        text-slate-500
+    ">
 
-                                    Documentos entregados
+        Documentos entregados
 
-                                </div>
+    </div>
 
-                                <div className="
-                                    mt-1
-                                    text-3xl
-                                    font-bold
-                                    text-emerald-600
-                                ">
+    <div className="
+        mt-1
+        text-3xl
+        font-bold
+        text-emerald-600
+    ">
 
-                                    {
-                                        totalEntregados
-                                    }
+        {
+            totalEntregados
+        }
 
-                                </div>
+    </div>
 
-                            </div>
+</button>
 
                         </div>
 

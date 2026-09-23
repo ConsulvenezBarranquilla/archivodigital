@@ -16,6 +16,7 @@ export async function GET() {
         codigo: row[0],
         actuacion: row[1],
         monto: row[2],
+        abreviacion: row[4] || "",
       }));
 
     return NextResponse.json({
