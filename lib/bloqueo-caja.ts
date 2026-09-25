@@ -117,3 +117,27 @@ export async function liberarCaja(
 
   return Number(resultado) === 1;
 }
+
+export async function obtenerBloqueoCaja(
+  caja: string
+): Promise<BloqueoCaja | null> {
+
+  const cajaNormalizada =
+    caja.trim();
+
+  if (!cajaNormalizada) {
+    return null;
+  }
+
+  const clave =
+    obtenerClaveCaja(
+      cajaNormalizada
+    );
+
+  const bloqueo =
+    await redis.get<BloqueoCaja>(
+      clave
+    );
+
+  return bloqueo ?? null;
+}
