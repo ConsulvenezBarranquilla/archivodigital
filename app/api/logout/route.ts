@@ -11,30 +11,36 @@ export async function POST() {
       await obtenerSesion();
 
     /*
-     * Los usuarios con rol "caja" ocupan
-     * un bloqueo exclusivo en Redis.
-     *
      * Antes de cerrar la sesión debemos
-     * liberar ese bloqueo.
+     * liberar cualquier caja asociada
+     * a la sesión.
      */
     if (
       sesion &&
-      sesion.rol === "caja" &&
       sesion.caja &&
       sesion.sessionId
     ) {
-      await liberarCaja(
-        sesion.caja,
-        sesion.sessionId
+
+      const liberada =
+        await liberarCaja(
+          sesion.caja,
+          sesion.sessionId
+        );
+
+      console.log(
+        "Liberación de caja:",
+        {
+          caja: sesion.caja,
+          sessionId: sesion.sessionId,
+          liberada,
+        }
       );
     }
 
     /*
-     * Los administradores no tienen bloqueo
-     * exclusivo de caja, por lo que no
-     * realizan ninguna operación en Redis.
+     * Cerrar la sesión después de
+     * liberar la caja.
      */
-
     await cerrarSesion();
 
     return NextResponse.json({
@@ -42,7 +48,9 @@ export async function POST() {
       mensaje:
         "Sesión cerrada correctamente.",
     });
+
   } catch (error) {
+
     console.error(
       "Error al cerrar sesión:",
       error
