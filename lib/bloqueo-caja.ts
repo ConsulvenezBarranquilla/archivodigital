@@ -141,3 +141,27 @@ export async function obtenerBloqueoCaja(
 
   return bloqueo ?? null;
 }
+
+export async function liberarCajaAdministrativamente(
+  caja: string
+): Promise<boolean> {
+
+  const cajaNormalizada =
+    caja.trim();
+
+  if (!cajaNormalizada) {
+    return false;
+  }
+
+  const clave =
+    obtenerClaveCaja(
+      cajaNormalizada
+    );
+
+  const resultado =
+    await redis.del(
+      clave
+    );
+
+  return Number(resultado) === 1;
+}
