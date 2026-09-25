@@ -5,7 +5,18 @@ import {
     MODULO_CAJA_SHEET_ID,
 } from "@/lib/googleSheets";
 
+import { exigirPermiso } from "@/lib/autorizacion";
+
+
 export async function GET() {
+
+    const autorizacion =
+        await exigirPermiso("admin");
+
+    if (autorizacion.respuesta) {
+        return autorizacion.respuesta;
+    }
+
     return NextResponse.json({
         ok: true,
         mensaje: "Endpoint de migración disponible. Use POST para ejecutar la migración."
@@ -14,6 +25,13 @@ export async function GET() {
 
 
 export async function POST() {
+
+    const autorizacion =
+        await exigirPermiso("admin");
+
+    if (autorizacion.respuesta) {
+        return autorizacion.respuesta;
+    }
 
     try {
 

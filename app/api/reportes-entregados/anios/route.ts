@@ -23,6 +23,10 @@ import {
     CategoriaDocumento,
 } from "@/types/ReporteEntregado";
 
+import {
+    exigirPermiso,
+} from "@/lib/autorizacion";
+
 // ==========================================
 // Validación de categoría
 // ==========================================
@@ -68,6 +72,13 @@ export async function GET(
     request: NextRequest
 
 ) {
+
+    const autorizacion =
+        await exigirPermiso("reportes");
+
+    if (autorizacion.respuesta) {
+        return autorizacion.respuesta;
+    }
 
     try {
 

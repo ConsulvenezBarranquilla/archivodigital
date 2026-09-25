@@ -3,9 +3,19 @@ import { NextRequest } from "next/server";
 import { generarPdfReporteAdmin }
   from "@/lib/generarPdfReporteAdmin";
 
+import { exigirPermiso }
+  from "@/lib/autorizacion";
+
 export async function POST(
   req: NextRequest
 ) {
+
+  const autorizacion =
+    await exigirPermiso("admin");
+
+  if (autorizacion.respuesta) {
+    return autorizacion.respuesta;
+  }
 
   try {
 

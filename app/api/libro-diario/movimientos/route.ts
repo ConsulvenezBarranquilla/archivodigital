@@ -5,9 +5,20 @@ import {
   registrarMovimientoLibro,
 } from "@/lib/services/LibroDiario/libroDiarioService";
 
+import {
+  exigirPermiso,
+} from "@/lib/autorizacion";
+
 export async function GET() {
 
   try {
+
+    const autorizacion =
+      await exigirPermiso("sgc");
+
+    if (autorizacion.respuesta) {
+      return autorizacion.respuesta;
+    }
 
     const movimientos =
       await obtenerMovimientosManuales();
@@ -51,6 +62,13 @@ export async function POST(
 ) {
 
   try {
+
+    const autorizacion =
+      await exigirPermiso("sgc");
+
+    if (autorizacion.respuesta) {
+      return autorizacion.respuesta;
+    }
 
     const body =
       await request.json();

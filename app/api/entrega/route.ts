@@ -2,6 +2,8 @@ import {
     NextResponse,
 } from "next/server";
 
+import { obtenerSesion } from "@/lib/auth";
+
 import {
     obtenerCaja,
     obtenerGestionConsular,
@@ -86,6 +88,22 @@ interface EstadoEntrega {
 export async function GET() {
 
     try {
+
+        const sesion =
+            await obtenerSesion();
+
+        if (!sesion) {
+            return NextResponse.json(
+                {
+                    ok: false,
+                    error:
+                        "Sesión no válida o expirada.",
+                },
+                {
+                    status: 401,
+                }
+            );
+        }
 
         // ==================================================
         // Leer las hojas

@@ -3,13 +3,21 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   sheets,
   MODULO_CAJA_SHEET_ID,
+  obtenerDocumentosCaja,
 } from "@/lib/googleSheets";
+
+import { exigirPermiso } from "@/lib/autorizacion";
 
 export async function PUT(
   req: NextRequest
 ) {
-
   try {
+
+    const autorizacion = await exigirPermiso("usuarios");
+
+    if (autorizacion.respuesta) {
+      return autorizacion.respuesta;
+    }
 
     const {
       usuario,

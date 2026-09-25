@@ -40,10 +40,7 @@ const [
     });
 
     const data = await response.json();
-console.log(
-  "LOGIN:",
-  data
-);
+
     if (!data.ok) {
   setMensaje(data.mensaje);
   return;
@@ -95,23 +92,64 @@ return;
 
 
   }
-function continuarCaja() {
+async function continuarCaja() {
 
-  localStorage.setItem(
-    "usuarioCaja",
-    JSON.stringify({
+  setMensaje("Verificando disponibilidad de la caja...");
 
-      ...usuarioLogin,
+  try {
 
-      caja:
-        cajaSeleccionada,
+    const response = await fetch(
+      "/api/seleccionar-caja",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          caja:
+            cajaSeleccionada,
+        }),
+      }
+    );
 
-    })
-  );
+    const data =
+      await response.json();
 
-  window.location.href =
-  obtenerPaginaInicio(usuarioLogin.rol);
+    if (!data.ok) {
 
+      setMensaje(
+        data.mensaje ||
+        "La caja no está disponible."
+      );
+
+      return;
+    }
+
+    localStorage.setItem(
+      "usuarioCaja",
+      JSON.stringify({
+        ...usuarioLogin,
+        caja:
+          cajaSeleccionada,
+      })
+    );
+
+    window.location.href =
+      obtenerPaginaInicio(
+        usuarioLogin.rol
+      );
+
+  } catch (error) {
+
+    console.error(
+      "Error seleccionando caja:",
+      error
+    );
+
+    setMensaje(
+      "No fue posible verificar la disponibilidad de la caja."
+    );
+  }
 }
   return (
     <main className="min-h-screen bg-slate-200">

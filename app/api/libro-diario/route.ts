@@ -14,11 +14,22 @@ import {
   construirLibroDiario,
 } from "@/lib/services/LibroDiario/libroDiarioCalculos";
 
+import {
+  exigirPermiso,
+} from "@/lib/autorizacion";
+
 export async function GET(
   req: NextRequest
 ) {
 
   try {
+
+    const autorizacion =
+      await exigirPermiso("sgc");
+
+    if (autorizacion.respuesta) {
+      return autorizacion.respuesta;
+    }
 
     const periodo =
       req.nextUrl.searchParams.get("periodo") ?? "";
@@ -49,7 +60,7 @@ const detalleResponse =
 
 const detalleCaja =
   detalleResponse.data.values || [];
-console.log("DETALLE CAJA:", detalleCaja.length);
+
     const gestionResponse =
       await sheets.spreadsheets.values.get({
 
@@ -64,8 +75,7 @@ console.log("DETALLE CAJA:", detalleCaja.length);
 
     const gestion =
       gestionResponse.data.values || [];
-console.log("GESTION:", gestion.length);
-console.log("CAJA:", caja.length);
+
     const libro =
       construirLibroDiario(
 

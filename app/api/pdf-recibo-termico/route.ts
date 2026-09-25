@@ -1,9 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generarPdfReciboTermico } from "@/lib/generarPdfReciboTermico";
+import { obtenerSesion } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
+
   try {
-    const datos = await req.json();
+
+    const sesion =
+      await obtenerSesion();
+
+    if (!sesion) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Sesión no válida o expirada.",
+        },
+        {
+          status: 401,
+        }
+      );
+    }
+
+    const datos =
+      await req.json();
 
     const pdf =
       await generarPdfReciboTermico(datos);

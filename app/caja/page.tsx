@@ -516,31 +516,105 @@ setTitularesEspeciales([]);
 
   }
 
-function cambiarCaja(nuevaCaja: number) {
+async function cambiarCaja(nuevaCaja: number) {
 
-    const nuevoUsuario = {
-    ...usuario,
-    caja: `Caja ${nuevaCaja}`,
-};
+    const cajaNueva =
+        `Caja ${nuevaCaja}`;
 
-    setUsuario(nuevoUsuario);
-
-    localStorage.setItem(
-        "usuarioCaja",
-        JSON.stringify(nuevoUsuario)
+    setMensaje(
+        "Cambiando de caja..."
     );
 
-    fetch(`/api/resumen-caja?caja=Caja ${nuevaCaja}`)
-    .then(res => res.json())
-    .then(data => {
-        if (data.ok) {
-            setResumenCaja(data);
+    try {
+
+        const response =
+            await fetch(
+                "/api/seleccionar-caja",
+                {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type":
+                            "application/json",
+                    },
+
+                    body:
+                        JSON.stringify({
+                            caja:
+                                cajaNueva,
+                        }),
+                }
+            );
+
+        const data =
+            await response.json();
+
+        if (
+            !response.ok ||
+            !data.ok
+        ) {
+
+            setMensaje(
+                data.mensaje ||
+                "No fue posible cambiar de caja."
+            );
+
+            return;
         }
-    });
+
+        const nuevoUsuario = {
+            ...usuario,
+            caja:
+                cajaNueva,
+        };
+
+        setUsuario(
+            nuevoUsuario
+        );
+
+        localStorage.setItem(
+            "usuarioCaja",
+            JSON.stringify(
+                nuevoUsuario
+            )
+        );
+
+        const resumenResponse =
+            await fetch(
+                `/api/resumen-caja?caja=${encodeURIComponent(cajaNueva)}`
+            );
+
+        const resumenData =
+            await resumenResponse.json();
+
+        if (
+            resumenData.ok
+        ) {
+
+            setResumenCaja(
+                resumenData
+            );
+
+        }
+
+        setMensaje("");
+
+    } catch (error) {
+
+        console.error(
+            "Error cambiando de caja:",
+            error
+        );
+
+        setMensaje(
+            "No fue posible cambiar de caja."
+        );
+
+    }
 }
   function solicitarCambioCaja(nuevaCaja: number) {
 
-    if (nuevaCaja === usuario.caja) return;
+    if (`Caja ${nuevaCaja}` === usuario.caja) return;
 
     const hayFormularioAbierto =
     ciudadano !== null ||

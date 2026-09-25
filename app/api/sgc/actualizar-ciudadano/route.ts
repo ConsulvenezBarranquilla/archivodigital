@@ -15,6 +15,8 @@ import {
   MODULO_CAJA_SHEET_ID,
 } from "@/lib/googleSheets";
 
+import { exigirPermiso } from "@/lib/autorizacion";
+
 export async function POST(
 
   req: NextRequest
@@ -22,6 +24,15 @@ export async function POST(
 ) {
 
   try {
+
+    const autorizacion =
+      await exigirPermiso("sgc");
+
+    if (autorizacion.respuesta) {
+
+      return autorizacion.respuesta;
+
+    }
 
     const body =
       await req.json();

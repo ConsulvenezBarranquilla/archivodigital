@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { obtenerSesion } from "@/lib/auth";
+
 import {
   sheets,
   REGISTRO_CONSULAR_SHEET_ID,
@@ -21,9 +23,27 @@ export async function GET(
 ) {
 
   try {
-        const documento = req.nextUrl.searchParams
-      .get("documento")
-      ?.trim() || "";
+
+    const sesion =
+      await obtenerSesion();
+
+    if (!sesion) {
+      return NextResponse.json(
+        {
+          encontrado: false,
+          error:
+            "Sesión no válida o expirada.",
+        },
+        {
+          status: 401,
+        }
+      );
+    }
+
+    const documento =
+      req.nextUrl.searchParams
+        .get("documento")
+        ?.trim() || "";
 
     if (!documento) {
 

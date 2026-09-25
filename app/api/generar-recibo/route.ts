@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { obtenerSesion } from "@/lib/auth";
 
 import {
   obtenerCorrelativos,
@@ -23,15 +24,42 @@ export async function POST(
   try {
 
     const body =
-      await req.json();
+  await req.json();
 
-    const {
-      ciudadano,
-      actuaciones,
-      totalUSD,
-      usuario,
-      titularesEspeciales,
-    } = body;
+const {
+  ciudadano,
+  actuaciones,
+  totalUSD,
+  titularesEspeciales,
+} = body;
+
+// ======================================================
+// SESIÓN REAL DEL SERVIDOR
+// ======================================================
+
+const sesion = await obtenerSesion();
+
+if (!sesion) {
+  return NextResponse.json(
+    {
+      ok: false,
+      mensaje: "Sesión no válida o expirada.",
+    },
+    {
+      status: 401,
+    }
+  );
+}
+
+// El usuario real viene de la sesión,
+// no de los datos enviados por el navegador.
+
+const usuario = {
+  usuario: sesion.usuario,
+  nombre: sesion.nombre,
+  rol: sesion.rol,
+  caja: sesion.caja,
+};
 
     // ======================================================
     // VALIDACIONES
@@ -75,17 +103,7 @@ export async function POST(
       });
 
     }
-
-    if (!usuario) {
-
-      return NextResponse.json({
-        ok: false,
-        mensaje:
-          "No se recibió la información del usuario de Caja.",
-      });
-
-    }
-
+    
     console.log(
       "CIUDADANO RECIBIDO:"
     );

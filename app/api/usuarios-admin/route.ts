@@ -7,11 +7,24 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   sheets,
   MODULO_CAJA_SHEET_ID,
+  obtenerDocumentosCaja,
 } from "@/lib/googleSheets";
+
+import { exigirPermiso } from "@/lib/autorizacion";
 
 export async function GET() {
 
   try {
+
+    const autorizacion =
+      await exigirPermiso("usuarios");
+
+    if (autorizacion.respuesta) {
+      return autorizacion.respuesta;
+    }
+
+    const sesion =
+      autorizacion.sesion;
 
     const response =
       await sheets.spreadsheets.values.get({
@@ -69,6 +82,16 @@ export async function POST(
 
   try {
 
+    const autorizacion =
+      await exigirPermiso("usuarios");
+
+    if (autorizacion.respuesta) {
+      return autorizacion.respuesta;
+    }
+
+    const sesion =
+      autorizacion.sesion;
+
     const {
       usuario,
       passwordHash,
@@ -95,34 +118,36 @@ export async function POST(
       });
 
     }
-const usuariosResponse =
-  await sheets.spreadsheets.values.get({
-    spreadsheetId:
-      MODULO_CAJA_SHEET_ID,
-    range:
-      "UsuariosCaja!A:A",
-  });
 
-const usuariosExistentes =
-  usuariosResponse.data.values || [];
+    const usuariosResponse =
+      await sheets.spreadsheets.values.get({
+        spreadsheetId:
+          MODULO_CAJA_SHEET_ID,
+        range:
+          "UsuariosCaja!A:A",
+      });
 
-const existe =
-  usuariosExistentes.some(
-    (row, index) =>
-      index > 0 &&
-      row[0]?.toLowerCase() ===
-        usuarioNormalizado
-  );
+    const usuariosExistentes =
+      usuariosResponse.data.values || [];
 
-if (existe) {
+    const existe =
+      usuariosExistentes.some(
+        (row, index) =>
+          index > 0 &&
+          row[0]?.toLowerCase() ===
+            usuarioNormalizado
+      );
 
-  return NextResponse.json({
-    ok: false,
-    error:
-      "El usuario ya existe",
-  });
+    if (existe) {
 
-}
+      return NextResponse.json({
+        ok: false,
+        error:
+          "El usuario ya existe",
+      });
+
+    }
+
     await sheets.spreadsheets.values.append({
       spreadsheetId:
         MODULO_CAJA_SHEET_ID,
@@ -165,21 +190,32 @@ if (existe) {
   }
 
 }
+
 export async function PUT(
   req: NextRequest
 ) {
 
   try {
 
-    const body =
-  await req.json();
+    const autorizacion =
+      await exigirPermiso("usuarios");
 
-const {
-  usuario,
-  activo,
-  nombre,
-  rol,
-  } = body;
+    if (autorizacion.respuesta) {
+      return autorizacion.respuesta;
+    }
+
+    const sesion =
+      autorizacion.sesion;
+
+    const body =
+      await req.json();
+
+    const {
+      usuario,
+      activo,
+      nombre,
+      rol,
+    } = body;
 
     const response =
       await sheets.spreadsheets.values.get({
@@ -227,103 +263,104 @@ const {
     }
 
     if (
-  activo === "NO"
-) {
+      activo === "NO"
+    ) {
 
-  const adminsActivos =
-    rows.filter(
-      (
-        row,
-        index
-      ) => {
+      const adminsActivos =
+        rows.filter(
+          (
+            row,
+            index
+          ) => {
 
-        if (index === 0)
-          return false;
+            if (index === 0)
+              return false;
 
-        return (
-          row[3] === "admin" &&
-          row[4] === "SI"
+            return (
+              row[3] === "admin" &&
+              row[4] === "SI"
+            );
+
+          }
         );
 
-      }
-    );
+      const usuarioActual =
+        rows.find(
+          (
+            row,
+            index
+          ) => {
 
-  const usuarioActual =
-    rows.find(
-      (
-        row,
-        index
-      ) => {
+            if (index === 0)
+              return false;
 
-        if (index === 0)
-          return false;
+            return (
+              row[0] === usuario
+            );
 
-        return (
-          row[0] === usuario
+          }
         );
 
+      if (
+        usuarioActual &&
+        usuarioActual[3] === "admin" &&
+        adminsActivos.length === 1
+      ) {
+
+        return NextResponse.json({
+          ok: false,
+          error:
+            "No puede desactivar el último administrador",
+        });
+
       }
-    );
 
-  if (
-    usuarioActual &&
-    usuarioActual[3] === "admin" &&
-    adminsActivos.length === 1
-  ) {
+    }
 
-    return NextResponse.json({
-      ok: false,
-      error:
-        "No puede desactivar el último administrador",
-    });
-
-  }
-
-}
     if (
-  activo !== undefined
-) {
+      activo !== undefined
+    ) {
 
-  await sheets.spreadsheets.values.update({
-    spreadsheetId:
-      MODULO_CAJA_SHEET_ID,
+      await sheets.spreadsheets.values.update({
+        spreadsheetId:
+          MODULO_CAJA_SHEET_ID,
 
-    range:
-      `UsuariosCaja!E${fila}`,
+        range:
+          `UsuariosCaja!E${fila}`,
 
-    valueInputOption:
-      "USER_ENTERED",
+        valueInputOption:
+          "USER_ENTERED",
 
-    requestBody: {
-      values: [[
-        activo,
-      ]],
-    },
-  });
+        requestBody: {
+          values: [[
+            activo,
+          ]],
+        },
+      });
 
-} else {
+    } else {
 
-  await sheets.spreadsheets.values.update({
-    spreadsheetId:
-      MODULO_CAJA_SHEET_ID,
+      await sheets.spreadsheets.values.update({
+        spreadsheetId:
+          MODULO_CAJA_SHEET_ID,
 
-    range:
-      `UsuariosCaja!C${fila}:F${fila}`,
+        range:
+          `UsuariosCaja!C${fila}:F${fila}`,
 
-    valueInputOption:
-      "USER_ENTERED",
+        valueInputOption:
+          "USER_ENTERED",
 
-    requestBody: {
-      values: [[
-        nombre,
-        rol,
-        "SI",
-        "",
-      ]],
-    },
-  });
+        requestBody: {
+          values: [[
+            nombre,
+            rol,
+            "SI",
+            "",
+          ]],
+        },
+      });
 
-}
+    }
 
     return NextResponse.json({
       ok: true,
@@ -340,4 +377,3 @@ const {
   }
 
 }
-

@@ -9,6 +9,10 @@ import {
   eliminarMovimientoManual,
 } from "@/lib/services/LibroDiario/libroDiarioService";
 
+import {
+  exigirPermiso,
+} from "@/lib/autorizacion";
+
 interface Params {
 
   params: Promise<{
@@ -30,6 +34,13 @@ export async function GET(
 ) {
 
   try {
+
+    const autorizacion =
+      await exigirPermiso("sgc");
+
+    if (autorizacion.respuesta) {
+      return autorizacion.respuesta;
+    }
 
     const { id } =
       await params;
@@ -123,6 +134,13 @@ export async function PUT(
 ) {
 
   try {
+
+    const autorizacion =
+      await exigirPermiso("sgc");
+
+    if (autorizacion.respuesta) {
+      return autorizacion.respuesta;
+    }
 
     const { id } =
       await params;
@@ -383,6 +401,13 @@ export async function DELETE(
 ) {
 
   try {
+
+    const autorizacion =
+      await exigirPermiso("sgc");
+
+    if (autorizacion.respuesta) {
+      return autorizacion.respuesta;
+    }
 
     const { id } =
       await params;

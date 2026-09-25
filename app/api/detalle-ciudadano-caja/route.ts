@@ -9,6 +9,8 @@ import {
   obtenerDocumentoPrincipal,
 } from "@/lib/googleSheets";
 
+import { obtenerSesion } from "@/lib/auth";
+
 function normalizar(
   texto: string
 ) {
@@ -29,6 +31,27 @@ export async function GET(
 ) {
 
   try {
+
+    // ============================================
+    // AUTENTICACIÓN MEDIANTE SESIÓN DE SERVIDOR
+    // ============================================
+
+    const sesion = await obtenerSesion();
+
+    if (!sesion) {
+
+      return NextResponse.json(
+        {
+          encontrado: false,
+          error:
+            "Sesión no válida o expirada.",
+        },
+        {
+          status: 401,
+        }
+      );
+
+    }
 
     const documento =
       req.nextUrl.searchParams
@@ -74,7 +97,8 @@ export async function GET(
 
     const rows =
       response.data.values || [];
-          const ciudadano =
+
+    const ciudadano =
       rows.find((row, index) => {
 
         if (index === 0) {
@@ -112,7 +136,8 @@ export async function GET(
       });
 
     }
-        const nombreCompleto = [
+
+    const nombreCompleto = [
 
       ciudadano[2],
 
@@ -201,7 +226,8 @@ export async function GET(
         ciudadano[13],
 
     });
-      } catch (error: any) {
+
+  } catch (error: any) {
 
     return NextResponse.json(
 

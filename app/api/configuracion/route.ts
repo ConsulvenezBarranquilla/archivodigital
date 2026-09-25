@@ -6,16 +6,42 @@ import {
 import {
   sheets,
   MODULO_CAJA_SHEET_ID,
+  obtenerDocumentosCaja,
 } from "@/lib/googleSheets";
+
+import { obtenerSesion } from "@/lib/auth";
 
 export async function GET() {
 
   try {
 
+    // ============================================
+    // VALIDAR SESIÓN
+    // ============================================
+
+    const sesion =
+      await obtenerSesion();
+
+    if (!sesion) {
+
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Sesión no válida o expirada.",
+        },
+        {
+          status: 401,
+        }
+      );
+
+    }
+
     const response =
       await sheets.spreadsheets.values.get({
         spreadsheetId:
           MODULO_CAJA_SHEET_ID,
+
         range:
           "Configuracion!A:B",
       });
@@ -42,11 +68,22 @@ export async function GET() {
 
   } catch (error: any) {
 
-    return NextResponse.json({
-      ok: false,
-      error:
-        error.message,
-    });
+    console.error(
+      "Error obteniendo configuración:",
+      error
+    );
+
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          error?.message ??
+          "No fue posible obtener la configuración.",
+      },
+      {
+        status: 500,
+      }
+    );
 
   }
 
@@ -57,6 +94,28 @@ export async function POST(
 ) {
 
   try {
+
+    // ============================================
+    // VALIDAR SESIÓN
+    // ============================================
+
+    const sesion =
+      await obtenerSesion();
+
+    if (!sesion) {
+
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Sesión no válida o expirada.",
+        },
+        {
+          status: 401,
+        }
+      );
+
+    }
 
     const {
       guardarPdfDrive,
@@ -87,11 +146,22 @@ export async function POST(
 
   } catch (error: any) {
 
-    return NextResponse.json({
-      ok: false,
-      error:
-        error.message,
-    });
+    console.error(
+      "Error guardando configuración:",
+      error
+    );
+
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          error?.message ??
+          "No fue posible guardar la configuración.",
+      },
+      {
+        status: 500,
+      }
+    );
 
   }
 

@@ -1,4 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
+import {
+  NextRequest,
+  NextResponse,
+} from "next/server";
 
 import {
   sheets,
@@ -12,11 +15,35 @@ import {
   finDelDia,
 } from "@/lib/fechas";
 
+import { obtenerSesion } from "@/lib/auth";
+
 export async function POST(
   req: NextRequest
 ) {
 
   try {
+
+    // ============================================
+    // VALIDAR SESIÓN
+    // ============================================
+
+    const sesion =
+      await obtenerSesion();
+
+    if (!sesion) {
+
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Sesión no válida o expirada.",
+        },
+        {
+          status: 401,
+        }
+      );
+
+    }
 
     const {
       desde,
@@ -24,7 +51,12 @@ export async function POST(
       documento,
       tipo,
     } = await req.json();
-        const response =
+
+    // ============================================
+    // LEER BITÁCORA DE VISITAS
+    // ============================================
+
+    const response =
       await sheets.spreadsheets.values.get({
 
         spreadsheetId:
@@ -39,10 +71,14 @@ export async function POST(
       response.data.values || [];
 
     const filasSinEncabezado =
-  filas.slice(1);
+      filas.slice(1);
 
-const resultado =
-  filasSinEncabezado.filter((row) => {
+    // ============================================
+    // FILTRAR REGISTROS
+    // ============================================
+
+    const resultado =
+      filasSinEncabezado.filter((row) => {
 
         const fecha =
           convertirFecha(row[0]);
@@ -77,6 +113,10 @@ const resultado =
 
         }
 
+        // ========================================
+        // FILTRO POR DOCUMENTO
+        // ========================================
+
         if (documento) {
 
           const buscado =
@@ -85,16 +125,16 @@ const resultado =
               .toUpperCase();
 
           const cedula =
-  (row[2] || "")
-    .toString()
-    .trim()
-    .toUpperCase();
+            (row[2] || "")
+              .toString()
+              .trim()
+              .toUpperCase();
 
-const pasaporte =
-  (row[3] || "")
-    .toString()
-    .trim()
-    .toUpperCase();
+          const pasaporte =
+            (row[3] || "")
+              .toString()
+              .trim()
+              .toUpperCase();
 
           if (
 
@@ -108,6 +148,10 @@ const pasaporte =
           }
 
         }
+
+        // ========================================
+        // FILTRO POR TIPO
+        // ========================================
 
         if (
 
@@ -124,106 +168,146 @@ const pasaporte =
         return true;
 
       });
-      const registros = resultado.map((row) => {
 
-  const cedula =
-    row[2] || "";
+    // ============================================
+    // PREPARAR REGISTROS
+    // ============================================
 
-  const pasaporte =
-    row[3] || "";
+    const registros =
+      resultado.map((row) => {
 
-  const nacionalidad =
-    row[6] || "";
+        const cedula =
+          row[2] || "";
 
-  const documentoPrincipal =
-    obtenerDocumentoPrincipal(
-      cedula,
-      pasaporte,
-      nacionalidad
-    );
+        const pasaporte =
+          row[3] || "";
 
-  return [
+        const nacionalidad =
+          row[6] || "";
 
-    row[0],                // 0 Fecha
+        const documentoPrincipal =
+          obtenerDocumentoPrincipal(
+            cedula,
+            pasaporte,
+            nacionalidad
+          );
 
-    documentoPrincipal,    // 1 Documento
+        return [
 
-    row[4] || "",          // 2 Nombre
+          row[0],             // 0 Fecha
 
-    row[5] || "",          // 3 Tipo
+          documentoPrincipal, // 1 Documento
 
-    row[1] || "",          // 4 Observación
+          row[4] || "",       // 2 Nombre
 
-  ];
+          row[5] || "",       // 3 Tipo
 
-});
-const tramite =
-  registros.filter(
-    (r) => r[3] === "Trámite"
-  ).length;
+          row[1] || "",       // 4 Observación
 
-const informacion =
-  registros.filter(
-    (r) => r[3] === "Información"
-  ).length;
+        ];
 
-const acompanante =
-  registros.filter(
-    (r) => r[3] === "Acompañante"
-  ).length;
+      });
 
-const institucional =
-  registros.filter(
-    (r) =>
-      r[3] === "Cita Institucional"
-  ).length;
-  registros.sort((a, b) => {
+    // ============================================
+    // ESTADÍSTICAS
+    // ============================================
 
-  const fechaA =
-    convertirFecha(a[0]);
+    const tramite =
+      registros.filter(
+        (r) =>
+          r[3] === "Trámite"
+      ).length;
 
-  const fechaB =
-    convertirFecha(b[0]);
+    const informacion =
+      registros.filter(
+        (r) =>
+          r[3] === "Información"
+      ).length;
 
-  if (!fechaA || !fechaB) {
+    const acompanante =
+      registros.filter(
+        (r) =>
+          r[3] === "Acompañante"
+      ).length;
 
-    return 0;
+    const institucional =
+      registros.filter(
+        (r) =>
+          r[3] === "Cita Institucional"
+      ).length;
 
-  }
+    // ============================================
+    // ORDENAR POR FECHA DESCENDENTE
+    // ============================================
 
-  return (
-    fechaB.getTime() -
-    fechaA.getTime()
-  );
+    registros.sort((a, b) => {
 
-});
-return NextResponse.json({
+      const fechaA =
+        convertirFecha(a[0]);
 
-  ok: true,
+      const fechaB =
+        convertirFecha(b[0]);
 
-  registros,
+      if (
+        !fechaA ||
+        !fechaB
+      ) {
 
-  total:
-    registros.length,
+        return 0;
 
-  tramite,
+      }
 
-  informacion,
+      return (
+        fechaB.getTime() -
+        fechaA.getTime()
+      );
 
-  acompanante,
+    });
 
-  institucional,
-
-});
- } catch (error: any) {
+    // ============================================
+    // RESPUESTA
+    // ============================================
 
     return NextResponse.json({
 
-      ok: false,
+      ok: true,
 
-      error: error.message,
+      registros,
+
+      total:
+        registros.length,
+
+      tramite,
+
+      informacion,
+
+      acompanante,
+
+      institucional,
 
     });
+
+  } catch (
+    error: any
+  ) {
+
+    console.error(
+      "Error generando reporte de visitas:",
+      error
+    );
+
+    return NextResponse.json(
+      {
+        ok: false,
+
+        error:
+          error?.message ??
+          "No fue posible generar el reporte.",
+      },
+      {
+        status: 500,
+      }
+    );
 
   }
 

@@ -13,6 +13,8 @@ import {
 
 } from "@/lib/googleSheets";
 
+import { exigirPermiso } from "@/lib/autorizacion";
+
 // ======================================================
 // Obtener año de una fecha
 // ======================================================
@@ -91,6 +93,15 @@ export async function GET(
 ) {
 
   try {
+
+    const autorizacion =
+      await exigirPermiso("sgc");
+
+    if (autorizacion.respuesta) {
+
+      return autorizacion.respuesta;
+
+    }
 
     // ==================================================
     // Año seleccionado
@@ -377,7 +388,9 @@ export async function GET(
             ) || 0;
 
           if (
+
             restantes > 0
+
           ) {
 
             actuacionesProcesadas.set(
@@ -431,48 +444,10 @@ export async function GET(
             documento;
 
           // ==========================================
-          // Pasaporte NNA
-          // ==========================================
-
-          if (
-            codigo === "P-NNA"
-          ) {
-
-            if (
-              titularesEspeciales.length > 0
-            ) {
-
-              nombreMostrar =
-                titularesEspeciales.shift()!;
-
-            }
-
-          }
-
-          // ==========================================
-          // Apostilla NNA
-          // ==========================================
-
-          else if (
-            codigo === "A-NNA"
-          ) {
-
-            if (
-              titularesEspeciales.length > 0
-            ) {
-
-              nombreMostrar =
-                titularesEspeciales.shift()!;
-
-            }
-
-          }
-
-          // ==========================================
           // Visas
           // ==========================================
 
-          else if (
+          if (
 
             (detalle[2] || "")
               .toUpperCase()
@@ -481,7 +456,9 @@ export async function GET(
           ) {
 
             if (
+
               titularesEspeciales.length > 0
+
             ) {
 
               nombreMostrar =
@@ -490,7 +467,9 @@ export async function GET(
             }
 
             if (
+
               pasaportesVisa.length > 0
+
             ) {
 
               documentoMostrar =

@@ -3,6 +3,8 @@ import {
   NextResponse,
 } from "next/server";
 
+import { obtenerSesion } from "@/lib/auth";
+
 import {
   sheets,
   REGISTRO_CONSULAR_SHEET_ID,
@@ -14,7 +16,24 @@ export async function POST(
 ) {
   try {
 
-    const body = await req.json();
+    const sesion =
+      await obtenerSesion();
+
+    if (!sesion) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Sesión no válida o expirada.",
+        },
+        {
+          status: 401,
+        }
+      );
+    }
+
+    const body =
+      await req.json();
 
     // Debe existir al menos un documento
 

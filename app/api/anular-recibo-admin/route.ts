@@ -8,11 +8,35 @@ import {
   MODULO_CAJA_SHEET_ID,
 } from "@/lib/googleSheets";
 
+import { obtenerSesion } from "@/lib/auth";
+
 export async function POST(
   req: NextRequest
 ) {
 
   try {
+
+    // ===============================
+    // VALIDAR SESIÓN
+    // ===============================
+
+    const sesion =
+      await obtenerSesion();
+
+    if (!sesion) {
+
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Sesión no válida o expirada.",
+        },
+        {
+          status: 401,
+        }
+      );
+
+    }
 
     const {
       correlativo,

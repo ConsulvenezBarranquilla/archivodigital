@@ -4,6 +4,10 @@ import {
   obtenerDetalleOperacion,
 } from "@/lib/services/LibroDiario/libroDiarioService";
 
+import {
+  exigirPermiso,
+} from "@/lib/autorizacion";
+
 interface Params {
 
   params: Promise<{
@@ -23,6 +27,13 @@ export async function GET(
 ) {
 
   try {
+
+    const autorizacion =
+      await exigirPermiso("sgc");
+
+    if (autorizacion.respuesta) {
+      return autorizacion.respuesta;
+    }
 
     const { referencia } = await params;
 

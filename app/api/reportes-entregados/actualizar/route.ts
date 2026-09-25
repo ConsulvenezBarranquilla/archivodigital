@@ -23,31 +23,38 @@ import {
 
 } from "@/types/ReporteEntregado";
 
+import {
+
+    exigirPermiso,
+
+} from "@/lib/autorizacion";
+
 export async function POST(
 
     request: NextRequest
 
 ) {
 
+    const autorizacion =
+        await exigirPermiso("reportes");
+
+    if (autorizacion.respuesta) {
+        return autorizacion.respuesta;
+    }
+
     try {
 
         const {
 
-            usuario,
-
             documento,
 
         }: {
-
-            usuario: string;
 
             documento: ReporteEntregado;
 
         } = await request.json();
 
         if (
-
-            !usuario ||
 
             !documento
 
@@ -74,6 +81,9 @@ export async function POST(
             );
 
         }
+
+        const usuario =
+            autorizacion.sesion.usuario;
 
         await actualizarDocumento(
 

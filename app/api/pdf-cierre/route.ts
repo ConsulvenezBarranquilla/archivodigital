@@ -1,5 +1,8 @@
 import { NextRequest } from "next/server";
 
+import { exigirPermiso }
+  from "@/lib/autorizacion";
+
 import { generarPdfCierre }
   from "@/lib/generarPdfCierre";
 
@@ -8,6 +11,13 @@ export async function POST(
 ) {
 
   try {
+
+    const autorizacion =
+      await exigirPermiso("caja");
+
+    if (autorizacion.respuesta) {
+      return autorizacion.respuesta;
+    }
 
     const datos =
       await req.json();

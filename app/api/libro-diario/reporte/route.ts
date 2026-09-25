@@ -18,11 +18,22 @@ import {
     generarExcelLibroDiario,
 } from "@/lib/reportes/excelLibroDiario";
 
+import {
+    exigirPermiso,
+} from "@/lib/autorizacion";
+
 export async function POST(
     req: NextRequest
 ) {
 
     try {
+
+        const autorizacion =
+            await exigirPermiso("sgc");
+
+        if (autorizacion.respuesta) {
+            return autorizacion.respuesta;
+        }
 
         const {
 

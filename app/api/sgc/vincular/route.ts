@@ -6,6 +6,9 @@ import {
   fechaHoraActual,
 } from "@/lib/fechas";
 import {
+  exigirPermiso,
+} from "@/lib/autorizacion";
+import {
 
   sheets,
 
@@ -21,6 +24,13 @@ export async function POST(
 
   try {
 
+    const autorizacion =
+      await exigirPermiso("sgc");
+
+    if (autorizacion.respuesta) {
+      return autorizacion.respuesta;
+    }
+
     const {
 
       actuaciones,
@@ -29,11 +39,12 @@ export async function POST(
 
       fechaPlanilla,
 
-      usuario,
-
       observaciones,
 
     } = await req.json();
+
+    const usuario =
+      autorizacion.sesion.nombre;
 
     if (
 

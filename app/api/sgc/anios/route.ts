@@ -7,6 +7,8 @@ import {
   MODULO_CAJA_SHEET_ID,
 } from "@/lib/googleSheets";
 
+import { exigirPermiso } from "@/lib/autorizacion";
+
 // ======================================================
 // Obtener año de una fecha
 // ======================================================
@@ -85,6 +87,15 @@ function obtenerAnio(
 export async function GET() {
 
   try {
+
+    const autorizacion =
+      await exigirPermiso("sgc");
+
+    if (autorizacion.respuesta) {
+
+      return autorizacion.respuesta;
+
+    }
 
     const response =
       await sheets.spreadsheets.values.get({

@@ -2,6 +2,7 @@ import {
   NextRequest,
   NextResponse,
 } from "next/server";
+import { obtenerSesion } from "@/lib/auth";
 
 import {
   sheets,
@@ -56,27 +57,43 @@ export async function POST(
   try {
 
     const body =
-      await request.json();
+  await request.json();
 
-    const caja =
+const sesion =
+  await obtenerSesion();
+
+if (!sesion) {
+  return NextResponse.json(
+    {
+      ok: false,
+      error:
+        "Sesión no válida o expirada.",
+    },
+    {
+      status: 401,
+    }
+  );
+}
+
+const caja =
   String(
-    body.caja || ""
+    sesion.caja || ""
   ).trim();
 
 const usuario =
   String(
-    body.usuario || ""
+    sesion.nombre || ""
   ).trim();
 
 const rol =
   String(
-    body.rol || ""
+    sesion.rol || ""
   ).trim();
 
 const esAdmin =
   rol.toLowerCase() === "admin";
 
-    if (!caja) {
+if (!caja) {
 
       return NextResponse.json(
         {

@@ -18,6 +18,8 @@ import {
     NextResponse,
 } from "next/server";
 
+import { obtenerSesion } from "@/lib/auth";
+
 import {
     sheets,
     MODULO_CAJA_SHEET_ID,
@@ -41,9 +43,32 @@ export async function POST(
         const body =
             await request.json();
 
+
+        // ==================================================
+        // SESIÓN
+        // ==================================================
+
+        const sesion =
+            await obtenerSesion();
+
+        if (!sesion) {
+
+            return NextResponse.json(
+                {
+                    ok: false,
+                    error:
+                        "Sesión no válida o expirada.",
+                },
+                {
+                    status: 401,
+                }
+            );
+
+        }
+
+
         const {
             documento,
-            usuario,
             fechaEntrega,
             observaciones,
         } = body;
@@ -97,9 +122,13 @@ export async function POST(
             ).trim();
 
 
+        // ==================================================
+        // USUARIO DESDE LA SESIÓN
+        // ==================================================
+
         const usuarioEntrega =
             String(
-                usuario ?? ""
+                sesion.nombre || ""
             ).trim();
 
 
@@ -112,7 +141,7 @@ export async function POST(
                         "Usuario no identificado.",
                 },
                 {
-                    status: 400,
+                    status: 401,
                 }
             );
 
@@ -168,16 +197,6 @@ export async function POST(
 
         // ==================================================
         // BUSCAR POR ID
-        //
-        // El ID de ReportesEntregados!A identifica
-        // individualmente cada documento.
-        //
-        // Esto permite:
-        //
-        // - entregar varios documentos del mismo recibo
-        // - entregar documentos sin recibo
-        // - evitar confundir dos documentos con el mismo
-        //   número de recibo
         // ==================================================
 
         let fila =
@@ -240,8 +259,6 @@ export async function POST(
 
         // ==================================================
         // VERIFICAR SI YA ESTÁ ENTREGADO
-        //
-        // Se verifica la fila correspondiente al ID exacto.
         // ==================================================
 
         const estadoActual =

@@ -10,9 +10,33 @@ import {
   hoyISO,
 } from "@/lib/fechas";
 
+import { obtenerSesion } from "@/lib/auth";
+
 export async function GET(req: Request) {
 
   try {
+
+    // ============================================
+    // VALIDAR SESIÓN
+    // ============================================
+
+    const sesion =
+      await obtenerSesion();
+
+    if (!sesion) {
+
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Sesión no válida o expirada.",
+        },
+        {
+          status: 401,
+        }
+      );
+
+    }
 
     const cajaResponse =
       await sheets.spreadsheets.values.get({
@@ -30,16 +54,16 @@ export async function GET(req: Request) {
           "DetalleCaja!A:D",
       });
 
-const gestionResponse =
-  await sheets.spreadsheets.values.get({
-    spreadsheetId:
-      MODULO_CAJA_SHEET_ID,
-    range:
-      "GestionConsular!A:L",
-  });
+    const gestionResponse =
+      await sheets.spreadsheets.values.get({
+        spreadsheetId:
+          MODULO_CAJA_SHEET_ID,
+        range:
+          "GestionConsular!A:L",
+      });
 
-const gestionRows =
-  gestionResponse.data.values || [];
+    const gestionRows =
+      gestionResponse.data.values || [];
 
     const usuariosResponse =
       await sheets.spreadsheets.values.get({
@@ -49,21 +73,21 @@ const gestionRows =
           "UsuariosCaja!A:F",
       });
 
-      const visitasResponse =
-  await sheets.spreadsheets.values.get({
-    spreadsheetId:
-      MODULO_CAJA_SHEET_ID,
-    range:
-      "BitacoraVisitas!A:G",
-  });
+    const visitasResponse =
+      await sheets.spreadsheets.values.get({
+        spreadsheetId:
+          MODULO_CAJA_SHEET_ID,
+        range:
+          "BitacoraVisitas!A:G",
+      });
 
-const registroResponse =
-  await sheets.spreadsheets.values.get({
-    spreadsheetId:
-      REGISTRO_CONSULAR_SHEET_ID,
-    range:
-      "Respuestas de formulario 1!B:G",
-  });
+    const registroResponse =
+      await sheets.spreadsheets.values.get({
+        spreadsheetId:
+          REGISTRO_CONSULAR_SHEET_ID,
+        range:
+          "Respuestas de formulario 1!B:G",
+      });
 
     const cajaRows =
       cajaResponse.data.values || [];
@@ -74,42 +98,44 @@ const registroResponse =
     const usuariosRows =
       usuariosResponse.data.values || [];
 
-      const visitasRows =
-  visitasResponse.data.values || [];
+    const visitasRows =
+      visitasResponse.data.values || [];
 
-const registroRows =
-  registroResponse.data.values || [];
+    const registroRows =
+      registroResponse.data.values || [];
 
-    const hoy = hoyISO();
+    const hoy =
+      hoyISO();
 
-    const url = new URL(req.url);
+    const url =
+      new URL(req.url);
 
-const anioFiltro =
-  url.searchParams.get("anio");
+    const anioFiltro =
+      url.searchParams.get("anio");
 
-const mesFiltro =
-  url.searchParams.get("mes");
+    const mesFiltro =
+      url.searchParams.get("mes");
 
-const aniosDisponibles =
-  new Set<string>();
+    const aniosDisponibles =
+      new Set<string>();
 
-const mesesDisponibles =
-  new Map<string, string>();
+    const mesesDisponibles =
+      new Map<string, string>();
 
-const nombresMeses = [
-  "Enero",
-  "Febrero",
-  "Marzo",
-  "Abril",
-  "Mayo",
-  "Junio",
-  "Julio",
-  "Agosto",
-  "Septiembre",
-  "Octubre",
-  "Noviembre",
-  "Diciembre",
-];
+    const nombresMeses = [
+      "Enero",
+      "Febrero",
+      "Marzo",
+      "Abril",
+      "Mayo",
+      "Junio",
+      "Julio",
+      "Agosto",
+      "Septiembre",
+      "Octubre",
+      "Noviembre",
+      "Diciembre",
+    ];
 
     const mesActual =
       new Date().getMonth() + 1;
@@ -127,33 +153,39 @@ const nombresMeses = [
     let actuacionesMes = 0;
 
     let planillasHoy = 0;
-let planillasMes = 0;
+    let planillasMes = 0;
 
-let actuacionesSGCHoy = 0;
-let actuacionesSGCMes = 0;
+    let actuacionesSGCHoy = 0;
+    let actuacionesSGCMes = 0;
 
-let rentaSGCHoy = 0;
-let rentaSGCMes = 0;
+    let rentaSGCHoy = 0;
+    let rentaSGCMes = 0;
 
-const planillasHoySet = new Set<string>();
-const planillasMesSet = new Set<string>();
+    const planillasHoySet =
+      new Set<string>();
 
-const recibosRentaHoy = new Set<string>();
-const recibosRentaMes = new Set<string>();
+    const planillasMesSet =
+      new Set<string>();
+
+    const recibosRentaHoy =
+      new Set<string>();
+
+    const recibosRentaMes =
+      new Set<string>();
 
     let visitasHoy = 0;
 
-let visitasMes = 0;
+    let visitasMes = 0;
 
-let visitasAcumuladas = 0;
+    let visitasAcumuladas = 0;
 
-let ciudadanosRegistrados = 0;
+    let ciudadanosRegistrados = 0;
 
-let venezolanos = 0;
+    let venezolanos = 0;
 
-let extranjeros = 0;
+    let extranjeros = 0;
 
-const ultimasVisitas: any[] = [];
+    const ultimasVisitas: any[] = [];
 
     let caja1Recibos = 0;
     let caja1Usd = 0;
@@ -183,448 +215,518 @@ const ultimasVisitas: any[] = [];
           row[10] || "";
 
         const fechaSolo =
-  fecha.substring(0, 10);
+          fecha.substring(0, 10);
 
-const anio =
-  Number(
-    fechaSolo.substring(0, 4)
-  );
+        const anio =
+          Number(
+            fechaSolo.substring(0, 4)
+          );
 
-const mes =
-  Number(
-    fechaSolo.substring(5, 7)
-  );
-
-
-        if (
-  fechaSolo === hoy
-) {
-
-  if (
-    estado ===
-    "ANULADO"
-  ) {
-
-    anuladosHoy++;
-
-  }
-
-  if (
-    estado ===
-    "GENERADO"
-  ) {
-
-    recibosHoy++;
-
-    usdHoy +=
-      totalUsd;
-
-    if (
-      caja ===
-      "Caja 1"
-    ) {
-
-      caja1Recibos++;
-
-      caja1Usd +=
-        totalUsd;
-
-    }
-
-    if (
-      caja ===
-      "Caja 2"
-    ) {
-
-      caja2Recibos++;
-
-      caja2Usd +=
-        totalUsd;
-
-    }
-
-  }
-
-}
+        const mes =
+          Number(
+            fechaSolo.substring(5, 7)
+          );
 
         if (
-  mes === mesActual &&
-  anio === anioActual
-) {
+          fechaSolo === hoy
+        ) {
 
-  if (
-    estado === "ANULADO"
-  ) {
+          if (
+            estado ===
+            "ANULADO"
+          ) {
 
-    anuladosMes++;
+            anuladosHoy++;
 
-  }
+          }
 
-  if (
-    estado === "GENERADO"
-  ) {
+          if (
+            estado ===
+            "GENERADO"
+          ) {
 
-    recibosMes++;
+            recibosHoy++;
 
-    usdMes += totalUsd;
+            usdHoy +=
+              totalUsd;
 
-    const actuacionesTexto =
-      row[5] || "";
+            if (
+              caja ===
+              "Caja 1"
+            ) {
 
-    actuacionesMes +=
-      actuacionesTexto
-        .split(";")
-        .filter(
-          (x: string) =>
-            x.trim() !== ""
-        ).length;
+              caja1Recibos++;
 
-  }
+              caja1Usd +=
+                totalUsd;
 
-}
-const correlativo =
-  row[1] || "";
+            }
 
-const primerDetalle =
-  detalleRows
-    .slice(1)
-    .find(
-      (d) =>
-        d[0] === correlativo
-    );
+            if (
+              caja ===
+              "Caja 2"
+            ) {
 
-const codigoActuacion =
-  primerDetalle?.[1] || "";
+              caja2Recibos++;
+
+              caja2Usd +=
+                totalUsd;
+
+            }
+
+          }
+
+        }
+
+        if (
+          mes === mesActual &&
+          anio === anioActual
+        ) {
+
+          if (
+            estado === "ANULADO"
+          ) {
+
+            anuladosMes++;
+
+          }
+
+          if (
+            estado === "GENERADO"
+          ) {
+
+            recibosMes++;
+
+            usdMes +=
+              totalUsd;
+
+            const actuacionesTexto =
+              row[5] || "";
+
+            actuacionesMes +=
+              actuacionesTexto
+                .split(";")
+                .filter(
+                  (x: string) =>
+                    x.trim() !== ""
+                ).length;
+
+          }
+
+        }
+
+        const correlativo =
+          row[1] || "";
+
+        const primerDetalle =
+          detalleRows
+            .slice(1)
+            .find(
+              (d) =>
+                d[0] === correlativo
+            );
+
+        const codigoActuacion =
+          primerDetalle?.[1] || "";
+
         ultimosMovimientos.push({
 
-  correlativo,
+          correlativo,
 
-  nombre:
-    row[3] || "",
+          nombre:
+            row[3] || "",
 
-  codigo:
-    codigoActuacion,
+          codigo:
+            codigoActuacion,
 
-  usd:
-    totalUsd,
+          usd:
+            totalUsd,
 
-  caja,
+          caja,
 
-  estado,
+          estado,
 
-});
-});
+        });
 
-gestionRows
-  .slice(1)
-  .forEach((row) => {
+      });
 
-    const correlativo =
-      row[0] || "";
+    gestionRows
+      .slice(1)
+      .forEach((row) => {
 
-    const planilla =
-      row[3] || "";
+        const correlativo =
+          row[0] || "";
 
-    const fechaPlanilla =
-      row[4] || "";
+        const planilla =
+          row[3] || "";
 
-    const estado =
-      (row[6] || "")
-        .toString()
-        .trim()
-        .toUpperCase();
+        const fechaPlanilla =
+          row[4] || "";
 
-    if (
-      estado !== "VINCULADO" ||
-      !planilla
-    ) {
-      return;
-    }
+        const estado =
+          (row[6] || "")
+            .toString()
+            .trim()
+            .toUpperCase();
 
-    const fechaSolo =
-      fechaPlanilla.substring(0,10);
+        if (
+          estado !== "VINCULADO" ||
+          !planilla
+        ) {
 
-    const anio =
-      Number(
-        fechaSolo.substring(0,4)
-      );
+          return;
 
-    const mes =
-      Number(
-        fechaSolo.substring(5,7)
-      );
+        }
 
-    const caja =
-      cajaRows
-        .slice(1)
-        .find(
-          r => r[1] === correlativo
+        const fechaSolo =
+          fechaPlanilla.substring(0, 10);
+
+        const anio =
+          Number(
+            fechaSolo.substring(0, 4)
+          );
+
+        const mes =
+          Number(
+            fechaSolo.substring(5, 7)
+          );
+
+        const caja =
+          cajaRows
+            .slice(1)
+            .find(
+              r => r[1] === correlativo
+            );
+
+        const usd =
+          Number(
+            caja?.[6] || 0
+          );
+
+        // Hoy
+        if (
+          fechaSolo === hoy
+        ) {
+
+          actuacionesSGCHoy++;
+
+          if (
+            !recibosRentaHoy.has(
+              correlativo
+            )
+          ) {
+
+            recibosRentaHoy.add(
+              correlativo
+            );
+
+            rentaSGCHoy +=
+              usd;
+
+          }
+
+          planillasHoySet.add(
+            planilla
+          );
+
+        }
+
+        // Mes actual
+        if (
+          mes === mesActual &&
+          anio === anioActual
+        ) {
+
+          actuacionesSGCMes++;
+
+          if (
+            !recibosRentaMes.has(
+              correlativo
+            )
+          ) {
+
+            recibosRentaMes.add(
+              correlativo
+            );
+
+            rentaSGCMes +=
+              usd;
+
+          }
+
+          planillasMesSet.add(
+            planilla
+          );
+
+        }
+
+      });
+
+    planillasHoy =
+      planillasHoySet.size;
+
+    planillasMes =
+      planillasMesSet.size;
+
+    const actuacionesMap =
+      new Map<string, number>();
+
+    detalleRows
+      .slice(1)
+      .forEach((detalle) => {
+
+        const correlativo =
+          detalle[0] || "";
+
+        const recibo =
+          cajaRows
+            .slice(1)
+            .find(
+              r => r[1] === correlativo
+            );
+
+        if (!recibo)
+          return;
+
+        // No contabilizar actuaciones
+        // de recibos anulados
+        const estado =
+          (recibo[10] || "")
+            .toString()
+            .trim()
+            .toUpperCase();
+
+        if (
+          estado !== "GENERADO"
+        ) {
+
+          return;
+
+        }
+
+        const fecha =
+          recibo[0] || "";
+
+        const fechaSolo =
+          fecha.substring(0, 10);
+
+        const anio =
+          fechaSolo.substring(0, 4);
+
+        const mes =
+          fechaSolo.substring(5, 7);
+
+        aniosDisponibles.add(
+          anio
         );
 
-    const usd =
-      Number(
-        caja?.[6] || 0
-      );
+        if (
+          !anioFiltro ||
+          anio === anioFiltro
+        ) {
 
-    // Hoy
-if (
-  fechaSolo === hoy
-) {
+          mesesDisponibles.set(
+            mes,
+            nombresMeses[
+              Number(mes) - 1
+            ]
+          );
 
-  actuacionesSGCHoy++;
+        }
 
-  if (
-    !recibosRentaHoy.has(correlativo)
-  ) {
+        if (
+          anioFiltro &&
+          anio !== anioFiltro
+        ) {
 
-    recibosRentaHoy.add(correlativo);
+          return;
 
-    rentaSGCHoy += usd;
+        }
 
-  }
+        if (
+          mesFiltro &&
+          mes !== mesFiltro
+        ) {
 
-  planillasHoySet.add(
-    planilla
-  );
+          return;
 
-}
+        }
 
-    // Mes actual
-if (
-  mes === mesActual &&
-  anio === anioActual
-) {
+        const actuacion =
+          detalle[2] || "";
 
-  actuacionesSGCMes++;
+        if (!actuacion)
+          return;
 
-  if (
-    !recibosRentaMes.has(correlativo)
-  ) {
+        actuacionesMap.set(
+          actuacion,
+          (
+            actuacionesMap.get(
+              actuacion
+            ) || 0
+          ) + 1
+        );
 
-    recibosRentaMes.add(correlativo);
+      });
 
-    rentaSGCMes += usd;
+    const topActuaciones =
+      Array.from(
+        actuacionesMap.entries()
+      )
+        .map(
+          ([nombre, cantidad]) => ({
+            nombre,
+            cantidad,
+          })
+        )
+        .sort(
+          (a, b) =>
+            b.cantidad -
+            a.cantidad
+        )
+        .slice(
+          0,
+          10
+        );
 
-  }
+    const anios =
+      Array.from(
+        aniosDisponibles
+      )
+        .sort(
+          (a, b) =>
+            b.localeCompare(a)
+        );
 
-  planillasMesSet.add(
-    planilla
-  );
+    const meses =
+      Array.from(
+        mesesDisponibles.entries()
+      )
+        .sort(
+          (a, b) =>
+            b[0].localeCompare(
+              a[0]
+            )
+        )
+        .map(
+          ([value, label]) => ({
 
-}
+            value,
 
-  });
+            label,
 
-planillasHoy =
-  planillasHoySet.size;
+          })
+        );
 
-planillasMes =
-  planillasMesSet.size;
+    visitasRows
+      .slice(1)
+      .forEach((row) => {
 
-    const actuacionesMap = new Map<string, number>();
+        const fechaTexto =
+          row[0] || "";
 
-detalleRows
-  .slice(1)
-  .forEach((detalle) => {
+        if (!fechaTexto)
+          return;
 
-    const correlativo = detalle[0] || "";
-
-    const recibo = cajaRows
-  .slice(1)
-  .find(r => r[1] === correlativo);
-
-if (!recibo) return;
-
-// No contabilizar actuaciones de recibos anulados
-const estado = (recibo[10] || "").toString().trim().toUpperCase();
-
-if (estado !== "GENERADO") {
-  return;
-}
-
-    const fecha = recibo[0] || "";
-
-    const fechaSolo =
-      fecha.substring(0, 10);
-
-    const anio =
-  fechaSolo.substring(0,4);
-
-const mes =
-  fechaSolo.substring(5,7);
-
-aniosDisponibles.add(anio);
-
-if (
-  !anioFiltro ||
-  anio === anioFiltro
-) {
-
-  mesesDisponibles.set(
-    mes,
-    nombresMeses[
-      Number(mes)-1
-    ]
-  );
-
-}
-
-if (
-  anioFiltro &&
-  anio !== anioFiltro
-) {
-  return;
-}
-
-if (
-  mesFiltro &&
-  mes !== mesFiltro
-) {
-  return;
-}
-
-    const actuacion =
-      detalle[2] || "";
-
-    if (!actuacion) return;
-
-    actuacionesMap.set(
-      actuacion,
-      (actuacionesMap.get(actuacion) || 0) + 1
-    );
-
-  });
-
-const topActuaciones =
-  Array.from(actuacionesMap.entries())
-    .map(([nombre, cantidad]) => ({
-      nombre,
-      cantidad,
-    }))
-    .sort((a,b)=>b.cantidad-a.cantidad)
-    .slice(0,10);
-
-const anios =
-  Array.from(aniosDisponibles)
-    .sort((a,b)=>b.localeCompare(a));
-
-const meses =
-  Array.from(mesesDisponibles.entries())
-    .sort((a,b)=>b[0].localeCompare(a[0]))
-    .map(([value,label])=>({
-
-      value,
-
-      label,
-
-    }));
-visitasRows
-  .slice(1)
-  .forEach((row) => {
-
-    const fechaTexto =
-      row[0] || "";
-
-    if (!fechaTexto)
-      return;
-
-    const fechaSolo =
-      fechaTexto.substring(0, 10);
+        const fechaSolo =
+          fechaTexto.substring(0, 10);
 
         const mesVisita =
-      Number(
-        fechaSolo.substring(
-          5,
-          7
-        )
-      );
+          Number(
+            fechaSolo.substring(
+              5,
+              7
+            )
+          );
 
-    const anioVisita =
-      Number(
-        fechaSolo.substring(
-          0,
-          4
-        )
-      );
+        const anioVisita =
+          Number(
+            fechaSolo.substring(
+              0,
+              4
+            )
+          );
 
-    visitasAcumuladas++;
+        visitasAcumuladas++;
 
-    if (
-      fechaSolo ===
-      hoy
-    ) {
+        if (
+          fechaSolo ===
+          hoy
+        ) {
 
-      visitasHoy++;
+          visitasHoy++;
 
-    }
+        }
 
-    if (
+        if (
 
-      mesVisita ===
-        mesActual &&
+          mesVisita ===
+            mesActual &&
 
-      anioVisita ===
-        anioActual
+          anioVisita ===
+            anioActual
 
-    ) {
+        ) {
 
-      visitasMes++;
+          visitasMes++;
 
-    }
+        }
 
-    ultimasVisitas.push({
+        ultimasVisitas.push({
 
-      fecha:
-        fechaTexto,
+          fecha:
+            fechaTexto,
 
-      documento:
-        row[1] || "",
+          documento:
+            row[1] || "",
 
-      nombre:
-        row[4] || "",
+          nombre:
+            row[4] || "",
 
-      tipo:
-        row[5] || "",
+          tipo:
+            row[5] || "",
 
-    });
+        });
 
-  });
+      });
 
-ultimasVisitas.reverse();
-registroRows
-  .slice(1)
-  .forEach((row) => {
+    ultimasVisitas.reverse();
 
-    const documento =
-      row[0];
+    registroRows
+      .slice(1)
+      .forEach((row) => {
 
-    if (!documento)
-      return;
+        const documento =
+          row[0];
 
-    ciudadanosRegistrados++;
+        if (!documento)
+          return;
 
-    const nacionalidad =
-      (
-        row[5] || ""
-      )
-        .toString()
-        .trim()
-        .toUpperCase();
+        ciudadanosRegistrados++;
 
-    if (
-      nacionalidad ===
-      "VENEZOLANO"
-    ) {
+        const nacionalidad =
+          (
+            row[5] || ""
+          )
+            .toString()
+            .trim()
+            .toUpperCase();
 
-      venezolanos++;
+        if (
+          nacionalidad ===
+          "VENEZOLANO"
+        ) {
 
-    } else {
+          venezolanos++;
 
-      extranjeros++;
+        } else {
 
-    }
+          extranjeros++;
 
-  });
+        }
+
+      });
+
     const usuariosActivos =
       usuariosRows
         .slice(1)
@@ -644,7 +746,7 @@ registroRows
 
       usdHoy,
 
-            caja1: {
+      caja1: {
 
         recibos:
           caja1Recibos,
@@ -667,54 +769,77 @@ registroRows
       recibosMes,
 
       usdMes,
+
       rentaSGCHoy,
-rentaSGCMes,
 
-planillasHoy,
-planillasMes,
+      rentaSGCMes,
 
-actuacionesSGCHoy,
-actuacionesSGCMes,
+      planillasHoy,
+
+      planillasMes,
+
+      actuacionesSGCHoy,
+
+      actuacionesSGCMes,
 
       anuladosMes,
+
       actuacionesMes,
 
       topActuaciones,
-      aniosDisponibles: anios,
-      mesesDisponibles: meses,
+
+      aniosDisponibles:
+        anios,
+
+      mesesDisponibles:
+        meses,
 
       visitasHoy,
-visitasMes,
-visitasAcumuladas,
 
-ciudadanosRegistrados,
-venezolanos,
-extranjeros,
+      visitasMes,
 
-ultimosMovimientos:
-  ultimosMovimientos.slice(
-    0,
-    10
-  ),
+      visitasAcumuladas,
 
-ultimasVisitas:
-  ultimasVisitas.slice(
-    0,
-    10
-  ),
+      ciudadanosRegistrados,
 
-});
+      venezolanos,
 
-  } catch (error: any) {
+      extranjeros,
 
-    return NextResponse.json({
+      ultimosMovimientos:
+        ultimosMovimientos.slice(
+          0,
+          10
+        ),
 
-      ok: false,
-
-      error:
-        error.message,
+      ultimasVisitas:
+        ultimasVisitas.slice(
+          0,
+          10
+        ),
 
     });
+
+  } catch (
+    error: any
+  ) {
+
+    console.error(
+      "Error generando dashboard:",
+      error
+    );
+
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          error?.message ??
+          "No fue posible obtener los datos del dashboard.",
+      },
+      {
+        status: 500,
+      }
+    );
 
   }
 

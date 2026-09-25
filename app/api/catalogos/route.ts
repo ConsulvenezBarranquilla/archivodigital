@@ -5,9 +5,33 @@ import {
   REGISTRO_CONSULAR_SHEET_ID,
 } from "@/lib/googleSheets";
 
+import { obtenerSesion } from "@/lib/auth";
+
 export async function GET() {
 
   try {
+
+    // ============================================
+    // VALIDAR SESIÓN
+    // ============================================
+
+    const sesion =
+      await obtenerSesion();
+
+    if (!sesion) {
+
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Sesión no válida o expirada.",
+        },
+        {
+          status: 401,
+        }
+      );
+
+    }
 
     const response =
       await sheets.spreadsheets.values.get({
@@ -60,10 +84,22 @@ export async function GET() {
 
   } catch (error: any) {
 
-    return NextResponse.json({
-      ok: false,
-      error: error.message,
-    });
+    console.error(
+      "Error obteniendo catálogos:",
+      error
+    );
+
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          error?.message ??
+          "No fue posible obtener los catálogos.",
+      },
+      {
+        status: 500,
+      }
+    );
 
   }
 

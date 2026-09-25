@@ -13,6 +13,8 @@ import {
 
 } from "@/lib/googleSheets";
 
+import { exigirPermiso } from "@/lib/autorizacion";
+
 export async function GET(
 
   req: NextRequest
@@ -20,6 +22,15 @@ export async function GET(
 ) {
 
   try {
+
+    const autorizacion =
+      await exigirPermiso("sgc");
+
+    if (autorizacion.respuesta) {
+
+      return autorizacion.respuesta;
+
+    }
 
     const documento =
       req.nextUrl.searchParams

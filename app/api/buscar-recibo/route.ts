@@ -1,16 +1,43 @@
-import { NextRequest, NextResponse } from "next/server";
+import {
+  NextRequest,
+  NextResponse,
+} from "next/server";
 
 import {
-    sheets,
+  sheets,
   MODULO_CAJA_SHEET_ID,
   obtenerDocumentoPrincipal,
-  } from "@/lib/googleSheets";
+} from "@/lib/googleSheets";
+
+import { obtenerSesion } from "@/lib/auth";
 
 export async function GET(
   req: NextRequest
 ) {
 
   try {
+
+    // ============================================
+    // VALIDAR SESIÓN
+    // ============================================
+
+    const sesion =
+      await obtenerSesion();
+
+    if (!sesion) {
+
+      return NextResponse.json(
+        {
+          ok: false,
+          mensaje:
+            "Sesión no válida o expirada.",
+        },
+        {
+          status: 401,
+        }
+      );
+
+    }
 
     const correlativo =
       req.nextUrl.searchParams
@@ -34,74 +61,113 @@ export async function GET(
         .get({
           spreadsheetId:
             MODULO_CAJA_SHEET_ID,
-          range: "Caja!A:N",
+
+          range:
+            "Caja!A:N",
         });
 
     const rows =
       response.data.values || [];
 
     const recibo =
-  rows.find((row, index) => {
+      rows.find((row, index) => {
 
-    if (index === 0)
-      return false;
+        if (index === 0)
+          return false;
 
-    return row[1] === correlativo;
+        return row[1] === correlativo;
 
-  });
+      });
 
-if (!recibo) {
+    if (!recibo) {
 
-  return NextResponse.json({
-    ok: false,
-    mensaje: "Recibo no encontrado",
-  });
+      return NextResponse.json({
 
-}
+        ok: false,
 
-const cedula =
-  recibo[11] || recibo[2];
+        mensaje:
+          "Recibo no encontrado",
 
-const pasaporte =
-  recibo[12] || "";
+      });
 
-const nacionalidad =
-  recibo[13] || "";
+    }
 
-const documento =
-  obtenerDocumentoPrincipal(
-    cedula,
-    pasaporte,
-    nacionalidad
-  );
+    const cedula =
+      recibo[11] ||
+      recibo[2];
 
-return NextResponse.json({
-  ok: true,
+    const pasaporte =
+      recibo[12] ||
+      "";
 
-  fecha: recibo[0],
-  correlativo: recibo[1],
+    const nacionalidad =
+      recibo[13] ||
+      "";
 
-  documento,
-  cedula,
-  pasaporte,
-
-  nombre: recibo[3],
-  correo: recibo[4],
-  actuaciones: recibo[5],
-  totalUSD: recibo[6],
-  usuario: recibo[7],
-  caja: recibo[8],
-  pdfUrl: recibo[9],
-  estado: recibo[10],
-});
-
-  } catch (error: any) {
+    const documento =
+      obtenerDocumentoPrincipal(
+        cedula,
+        pasaporte,
+        nacionalidad
+      );
 
     return NextResponse.json({
-      ok: false,
-      error:
-        error.message,
+
+      ok: true,
+
+      fecha:
+        recibo[0],
+
+      correlativo:
+        recibo[1],
+
+      documento,
+
+      cedula,
+
+      pasaporte,
+
+      nombre:
+        recibo[3],
+
+      correo:
+        recibo[4],
+
+      actuaciones:
+        recibo[5],
+
+      totalUSD:
+        recibo[6],
+
+      usuario:
+        recibo[7],
+
+      caja:
+        recibo[8],
+
+      pdfUrl:
+        recibo[9],
+
+      estado:
+        recibo[10],
+
     });
+
+  } catch (
+    error: any
+  ) {
+
+    return NextResponse.json(
+      {
+        ok: false,
+
+        error:
+          error.message,
+      },
+      {
+        status: 500,
+      }
+    );
 
   }
 

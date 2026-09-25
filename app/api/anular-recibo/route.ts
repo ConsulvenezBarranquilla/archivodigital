@@ -1,4 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
+import {
+  NextRequest,
+  NextResponse,
+} from "next/server";
 
 import {
   sheets,
@@ -6,11 +9,38 @@ import {
   actualizarEstadoRecibo,
 } from "@/lib/googleSheets";
 
+import { obtenerSesion } from "@/lib/auth";
+
 export async function POST(
   req: NextRequest
 ) {
 
   try {
+
+    // ======================================================
+    // VALIDAR SESIÓN
+    // ======================================================
+
+    const sesion =
+      await obtenerSesion();
+
+    if (!sesion) {
+
+      return NextResponse.json(
+
+        {
+          ok: false,
+          mensaje:
+            "Sesión no válida o expirada.",
+        },
+
+        {
+          status: 401,
+        }
+
+      );
+
+    }
 
     const {
       correlativo,

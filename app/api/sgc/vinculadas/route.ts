@@ -3,6 +3,8 @@ import {
   NextResponse,
 } from "next/server";
 
+import { exigirPermiso } from "@/lib/autorizacion";
+
 import {
   sheets,
 
@@ -90,6 +92,13 @@ export async function GET(
 ) {
 
   try {
+
+    const autorizacion =
+      await exigirPermiso("sgc");
+
+    if (autorizacion.respuesta) {
+      return autorizacion.respuesta;
+    }
 
     // ==================================================
     // Año seleccionado

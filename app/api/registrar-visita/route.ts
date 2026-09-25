@@ -8,15 +8,26 @@ import {
   MODULO_CAJA_SHEET_ID,
   } from "@/lib/googleSheets";
 
-  import {
+import {
   fechaHoraActual,
 } from "@/lib/fechas";
+
+import {
+  exigirPermiso,
+} from "@/lib/autorizacion";
 
 export async function POST(
   req: NextRequest
 ) {
 
  try {
+
+  const autorizacion =
+    await exigirPermiso("recepcion");
+
+  if (autorizacion.respuesta) {
+    return autorizacion.respuesta;
+  }
 
   const {
     documento,

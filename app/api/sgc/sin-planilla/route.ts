@@ -2,9 +2,11 @@ import {
   NextRequest,
   NextResponse,
 } from "next/server";
+
 import {
   fechaHoraActual,
 } from "@/lib/fechas";
+
 import {
 
   sheets,
@@ -12,6 +14,8 @@ import {
   MODULO_CAJA_SHEET_ID,
 
 } from "@/lib/googleSheets";
+
+import { exigirPermiso } from "@/lib/autorizacion";
 
 export async function POST(
 
@@ -21,15 +25,28 @@ export async function POST(
 
   try {
 
+    const autorizacion =
+      await exigirPermiso("sgc");
+
+    if (autorizacion.respuesta) {
+
+      return autorizacion.respuesta;
+
+    }
+
+    const usuarioSesion =
+      autorizacion.sesion;
+
     const {
 
       actuaciones,
 
-      usuario,
-
       observaciones,
 
     } = await req.json();
+
+    const usuario =
+      usuarioSesion.nombre;
 
     if (
 

@@ -8,11 +8,22 @@ import {
   MODULO_CAJA_SHEET_ID,
   } from "@/lib/googleSheets";
 
+import {
+  exigirPermiso,
+} from "@/lib/autorizacion";
+
 export async function GET(
   req: NextRequest
 ) {
 
   try {
+
+    const autorizacion =
+      await exigirPermiso("recepcion");
+
+    if (autorizacion.respuesta) {
+      return autorizacion.respuesta;
+    }
 
     const documento =
       req.nextUrl.searchParams.get(
