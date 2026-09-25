@@ -78,11 +78,23 @@ export async function POST(req: NextRequest) {
      * la pantalla de ingreso.
      */
 
-    await crearSesion({
-      usuario,
-      nombre,
-      rol,
-    });
+    const sesionCreada =
+      await crearSesion({
+        usuario,
+        nombre,
+        rol,
+      });
+
+    if (!sesionCreada) {
+      return NextResponse.json(
+        {
+          ok: false,
+          mensaje:
+            "Este usuario ya tiene una sesión activa. Debe cerrar la sesión anterior antes de iniciar una nueva.",
+        },
+        { status: 409 }
+      );
+    }
 
     return NextResponse.json({
       ok: true,

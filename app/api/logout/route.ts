@@ -1,45 +1,50 @@
 import { NextResponse } from "next/server";
+
 import {
   cerrarSesion,
   obtenerSesion,
 } from "@/lib/auth";
-import { liberarCaja } from "@/lib/bloqueo-caja";
+
+import {
+  liberarCajasUsuario,
+} from "@/lib/bloqueo-caja";
 
 export async function POST() {
   try {
+
     const sesion =
       await obtenerSesion();
 
     /*
      * Antes de cerrar la sesión debemos
-     * liberar cualquier caja asociada
-     * a la sesión.
+     * liberar ambas cajas asociadas
+     * al usuario.
      */
     if (
       sesion &&
-      sesion.caja &&
-      sesion.sessionId
+      sesion.usuario
     ) {
 
-      const liberada =
-        await liberarCaja(
-          sesion.caja,
-          sesion.sessionId
+      const resultado =
+        await liberarCajasUsuario(
+          sesion.usuario
         );
 
       console.log(
-        "Liberación de caja:",
+        "Liberación de cajas del usuario:",
         {
-          caja: sesion.caja,
-          sessionId: sesion.sessionId,
-          liberada,
+          usuario:
+            sesion.usuario,
+          liberadas:
+            resultado.liberadas,
         }
       );
+
     }
 
     /*
      * Cerrar la sesión después de
-     * liberar la caja.
+     * liberar las cajas.
      */
     await cerrarSesion();
 
@@ -64,5 +69,6 @@ export async function POST() {
       },
       { status: 500 }
     );
+
   }
 }

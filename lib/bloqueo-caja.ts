@@ -165,3 +165,54 @@ export async function liberarCajaAdministrativamente(
 
   return Number(resultado) === 1;
 }
+
+export async function liberarCajasUsuario(
+  usuario: string
+): Promise<{
+  liberadas: string[];
+}> {
+
+  const usuarioNormalizado =
+    usuario.trim();
+
+  if (!usuarioNormalizado) {
+    return {
+      liberadas: [],
+    };
+  }
+
+  const cajas = [
+    "Caja 1",
+    "Caja 2",
+  ];
+
+  const liberadas: string[] = [];
+
+  for (const caja of cajas) {
+
+    const bloqueo =
+      await obtenerBloqueoCaja(
+        caja
+      );
+
+    if (
+      bloqueo &&
+      bloqueo.usuario === usuarioNormalizado
+    ) {
+
+      const liberada =
+        await liberarCaja(
+          caja,
+          bloqueo.sessionId
+        );
+
+      if (liberada) {
+        liberadas.push(caja);
+      }
+    }
+  }
+
+  return {
+    liberadas,
+  };
+}
