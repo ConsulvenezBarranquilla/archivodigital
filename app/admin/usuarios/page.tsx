@@ -75,7 +75,7 @@ const [
   setRolEditar,
 ] = useState("caja");
   
-  async function cargarUsuarios() {
+   async function cargarUsuarios() {
 
     try {
 
@@ -110,6 +110,10 @@ const [
     }
 
   }
+
+  useEffect(() => {
+    cargarUsuarios();
+  }, []);
 async function cambiarEstado(
   usuario: string,
   activo: string
