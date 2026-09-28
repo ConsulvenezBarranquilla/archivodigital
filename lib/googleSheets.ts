@@ -1064,9 +1064,9 @@ export async function actualizarPasaporteAdultoRegistro(
 ) {
 
   const filas =
-    await leerHojaRegistro(
-      "B:O"
-    );
+  await leerHojaRegistro(
+    "Respuestas de formulario 1!B:O"
+  );
 
   const cedulaBuscada =
     String(cedula ?? "")
