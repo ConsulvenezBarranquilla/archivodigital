@@ -60,6 +60,11 @@ const [
   setLimpiandoSesiones,
 ] = useState(false);
 
+const [
+  mostrarNuevoUsuario,
+  setMostrarNuevoUsuario,
+] = useState(false);
+
   const [
   usuarioEditar,
   setUsuarioEditar,
@@ -433,56 +438,127 @@ setNuevoRol("caja");
 
         <div
     style={{
-        display: "flex",
-        alignItems: "flex-start",
-        gap: "12px",
-        flexWrap: "wrap",
+        width: "100%",
+        marginBottom: "22px",
     }}
 >
 
-    <NuevoUsuarioCard
-        nuevoUsuario={nuevoUsuario}
-        setNuevoUsuario={setNuevoUsuario}
-        nuevoPassword={nuevoPassword}
-        setNuevoPassword={setNuevoPassword}
-        nuevoNombre={nuevoNombre}
-        setNuevoNombre={setNuevoNombre}
-        nuevoRol={nuevoRol}
-        setNuevoRol={setNuevoRol}
-        crearUsuario={crearUsuario}
-    />
-
-    <button
-        type="button"
-        onClick={
-            cerrarSesionesYLiberarCajas
-        }
-        disabled={
-            limpiandoSesiones
-        }
+    <div
         style={{
-            padding: "10px 16px",
-            borderRadius: "8px",
-            border: "1px solid #dc2626",
-            background:
-                limpiandoSesiones
-                    ? "#9ca3af"
-                    : "#dc2626",
-            color: "white",
-            fontWeight: 600,
-            cursor:
-                limpiandoSesiones
-                    ? "not-allowed"
-                    : "pointer",
-            marginTop: "4px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "16px",
+            flexWrap: "wrap",
+            marginBottom: mostrarNuevoUsuario
+                ? "14px"
+                : "22px",
         }}
     >
-        {
-            limpiandoSesiones
-                ? "Cerrando sesiones..."
-                : "Cerrar sesiones y liberar cajas"
-        }
-    </button>
+
+        <div
+            style={{
+                fontSize: "18px",
+                fontWeight: 700,
+                color: "#172554",
+            }}
+        >
+            Acciones administrativas
+        </div>
+
+        <div
+            style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
+                flexWrap: "wrap",
+            }}
+        >
+
+            <button
+                type="button"
+                onClick={() =>
+                    setMostrarNuevoUsuario(
+                        !mostrarNuevoUsuario
+                    )
+                }
+                style={{
+                    padding: "10px 18px",
+                    borderRadius: "8px",
+                    border: "none",
+                    background:
+                        mostrarNuevoUsuario
+                            ? "#64748b"
+                            : "#008c45",
+                    color: "white",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                }}
+            >
+                {mostrarNuevoUsuario
+                    ? "Ocultar Nuevo Usuario"
+                    : "＋ Nuevo Usuario"}
+            </button>
+
+            <button
+                type="button"
+                onClick={
+                    cerrarSesionesYLiberarCajas
+                }
+                disabled={
+                    limpiandoSesiones
+                }
+                style={{
+                    padding: "10px 18px",
+                    borderRadius: "8px",
+                    border:
+                        "1px solid #dc2626",
+                    background:
+                        limpiandoSesiones
+                            ? "#9ca3af"
+                            : "#dc2626",
+                    color: "white",
+                    fontWeight: 600,
+                    cursor:
+                        limpiandoSesiones
+                            ? "not-allowed"
+                            : "pointer",
+                }}
+            >
+                {limpiandoSesiones
+                    ? "Cerrando sesiones..."
+                    : "⚠ Cerrar sesiones y liberar cajas"}
+            </button>
+
+        </div>
+
+    </div>
+
+    {mostrarNuevoUsuario && (
+
+        <div
+            style={{
+                width: "100%",
+                display: "flex",
+                justifyContent: "flex-start",
+            }}
+        >
+
+            <NuevoUsuarioCard
+                nuevoUsuario={nuevoUsuario}
+                setNuevoUsuario={setNuevoUsuario}
+                nuevoPassword={nuevoPassword}
+                setNuevoPassword={setNuevoPassword}
+                nuevoNombre={nuevoNombre}
+                setNuevoNombre={setNuevoNombre}
+                nuevoRol={nuevoRol}
+                setNuevoRol={setNuevoRol}
+                crearUsuario={crearUsuario}
+            />
+
+        </div>
+
+    )}
 
 </div>
 
