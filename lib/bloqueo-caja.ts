@@ -216,3 +216,34 @@ export async function liberarCajasUsuario(
     liberadas,
   };
 }
+
+export async function liberarTodasLasCajasAdministrativamente(): Promise<string[]> {
+
+  const cajas = [
+    "Caja 1",
+    "Caja 2",
+  ];
+
+  const liberadas: string[] = [];
+
+  for (const caja of cajas) {
+
+    const resultado =
+      await redis.del(
+        obtenerClaveCaja(caja)
+      );
+
+    if (
+      Number(resultado) === 1
+    ) {
+
+      liberadas.push(
+        caja
+      );
+
+    }
+
+  }
+
+  return liberadas;
+}

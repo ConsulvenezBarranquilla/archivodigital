@@ -1,5 +1,4 @@
 import {
-  NextRequest,
   NextResponse,
 } from "next/server";
 
@@ -8,12 +7,15 @@ import {
 } from "@/lib/autorizacion";
 
 import {
-  liberarCajaAdministrativamente,
+  cerrarTodasLasSesiones,
+} from "@/lib/auth";
+
+import {
+  liberarTodasLasCajasAdministrativamente,
 } from "@/lib/bloqueo-caja";
 
-export async function POST(
-  request: NextRequest
-) {
+export async function POST() {
+
   const autorizacion =
     await exigirPermiso("admin");
 
@@ -22,59 +24,42 @@ export async function POST(
   }
 
   try {
-    const body =
-      await request.json();
 
-    const caja = String(
-      body?.caja ?? ""
-    ).trim();
+    const sesionesCerradas =
+      await cerrarTodasLasSesiones();
 
-    if (
-      caja !== "Caja 1" &&
-      caja !== "Caja 2"
-    ) {
-      return NextResponse.json(
-        {
-          ok: false,
-          mensaje:
-            "Caja no válida.",
-        },
-        {
-          status: 400,
-        }
-      );
-    }
-
-    const liberada =
-      await liberarCajaAdministrativamente(
-        caja
-      );
+    const cajasLiberadas =
+      await liberarTodasLasCajasAdministrativamente();
 
     return NextResponse.json({
       ok: true,
-      caja,
-      liberada,
+
+      sesionesCerradas,
+
+      cajasLiberadas,
+
       mensaje:
-        liberada
-          ? `El bloqueo de ${caja} fue liberado correctamente.`
-          : `No existía un bloqueo activo para ${caja}.`,
+        "Se cerraron todas las sesiones activas y se liberaron las cajas ocupadas.",
     });
 
   } catch (error) {
+
     console.error(
-      "Error liberando caja administrativamente:",
+      "Error realizando limpieza administrativa de sesiones y cajas:",
       error
     );
 
     return NextResponse.json(
       {
         ok: false,
+
         mensaje:
-          "No fue posible liberar la caja.",
+          "No fue posible completar la limpieza administrativa.",
       },
       {
         status: 500,
       }
     );
+
   }
 }

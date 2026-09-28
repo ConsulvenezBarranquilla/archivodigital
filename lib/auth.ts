@@ -887,3 +887,48 @@ export async function actualizarCajaSesion(
   };
 
 }
+
+export async function cerrarTodasLasSesiones(): Promise<number> {
+
+  let cursor = "0";
+
+  let sesionesEliminadas = 0;
+
+  do {
+
+    const resultado =
+      await redis.scan(
+        cursor,
+        {
+          match:
+            "registro-consular:usuario:*:sesion",
+          count: 100,
+        }
+      );
+
+    cursor =
+      String(resultado[0]);
+
+    const claves =
+      resultado[1];
+
+    if (
+      claves &&
+      claves.length > 0
+    ) {
+
+      await redis.del(
+        ...claves
+      );
+
+      sesionesEliminadas +=
+        claves.length;
+
+    }
+
+  } while (
+    cursor !== "0"
+  );
+
+  return sesionesEliminadas;
+}

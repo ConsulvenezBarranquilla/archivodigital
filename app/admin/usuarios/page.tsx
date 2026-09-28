@@ -56,6 +56,11 @@ const [
   ] = useState(true);
 
   const [
+  limpiandoSesiones,
+  setLimpiandoSesiones,
+] = useState(false);
+
+  const [
   usuarioEditar,
   setUsuarioEditar,
 ] = useState<any>(null);
@@ -69,41 +74,7 @@ const [
   rolEditar,
   setRolEditar,
 ] = useState("caja");
-
-  useEffect(() => {
-
-    const data =
-      localStorage.getItem(
-        "usuarioCaja"
-      );
-
-    if (!data) {
-
-      window.location.href =
-        "/";
-
-      return;
-
-    }
-
-    const user =
-      JSON.parse(data);
-
-    if (
-      user.rol !== "admin"
-    ) {
-
-      window.location.href =
-        "/caja";
-
-      return;
-
-    }
-
-    cargarUsuarios();
-
-  }, []);
-
+  
   async function cargarUsuarios() {
 
     try {
@@ -302,6 +273,76 @@ async function guardarEdicion() {
 
 }
 
+async function cerrarSesionesYLiberarCajas() {
+
+  const confirmar =
+    window.confirm(
+      "ADVERTENCIA:\n\n" +
+      "Esta acción cerrará la sesión de TODOS los usuarios actualmente conectados y liberará Caja 1 y Caja 2.\n\n" +
+      "Debe utilizarse únicamente para solucionar cierres de sesión o bloqueos de caja huérfanos.\n\n" +
+      "¿Desea continuar?"
+    );
+
+  if (!confirmar) {
+    return;
+  }
+
+  setLimpiandoSesiones(true);
+
+  try {
+
+    const response =
+      await fetch(
+        "/api/admin/liberar-caja",
+        {
+          method: "POST",
+          credentials: "include",
+        }
+      );
+
+    const data =
+      await response.json();
+
+    if (!response.ok || !data.ok) {
+
+      alert(
+        data.mensaje ||
+        "No fue posible realizar la limpieza."
+      );
+
+      return;
+
+    }
+
+    const cajas =
+      data.cajasLiberadas &&
+      data.cajasLiberadas.length > 0
+        ? data.cajasLiberadas.join(", ")
+        : "Ninguna";
+
+    alert(
+      "Limpieza administrativa completada.\n\n" +
+      "Sesiones cerradas: " +
+      data.sesionesCerradas +
+      "\n" +
+      "Cajas liberadas: " +
+      cajas
+    );
+
+  } catch {
+
+    alert(
+      "No fue posible comunicarse con el servidor."
+    );
+
+  } finally {
+
+    setLimpiandoSesiones(false);
+
+  }
+
+}
+
 async function crearUsuario() {
 if (
   !nuevoUsuario.trim() ||
@@ -386,17 +427,60 @@ setNuevoRol("caja");
         permiso={MODULOS.USUARIOS}
     >
 
-        <NuevoUsuarioCard
-            nuevoUsuario={nuevoUsuario}
-            setNuevoUsuario={setNuevoUsuario}
-            nuevoPassword={nuevoPassword}
-            setNuevoPassword={setNuevoPassword}
-            nuevoNombre={nuevoNombre}
-            setNuevoNombre={setNuevoNombre}
-            nuevoRol={nuevoRol}
-            setNuevoRol={setNuevoRol}
-            crearUsuario={crearUsuario}
-        />
+        <div
+    style={{
+        display: "flex",
+        alignItems: "flex-start",
+        gap: "12px",
+        flexWrap: "wrap",
+    }}
+>
+
+    <NuevoUsuarioCard
+        nuevoUsuario={nuevoUsuario}
+        setNuevoUsuario={setNuevoUsuario}
+        nuevoPassword={nuevoPassword}
+        setNuevoPassword={setNuevoPassword}
+        nuevoNombre={nuevoNombre}
+        setNuevoNombre={setNuevoNombre}
+        nuevoRol={nuevoRol}
+        setNuevoRol={setNuevoRol}
+        crearUsuario={crearUsuario}
+    />
+
+    <button
+        type="button"
+        onClick={
+            cerrarSesionesYLiberarCajas
+        }
+        disabled={
+            limpiandoSesiones
+        }
+        style={{
+            padding: "10px 16px",
+            borderRadius: "8px",
+            border: "1px solid #dc2626",
+            background:
+                limpiandoSesiones
+                    ? "#9ca3af"
+                    : "#dc2626",
+            color: "white",
+            fontWeight: 600,
+            cursor:
+                limpiandoSesiones
+                    ? "not-allowed"
+                    : "pointer",
+            marginTop: "4px",
+        }}
+    >
+        {
+            limpiandoSesiones
+                ? "Cerrando sesiones..."
+                : "Cerrar sesiones y liberar cajas"
+        }
+    </button>
+
+</div>
 
         {usuarioEditar && (
 
