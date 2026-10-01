@@ -1,43 +1,10 @@
-import { google } from "googleapis";
+import { Resend } from "resend";
 
-const GMAIL_FROM = "info.consulvenez@gmail.com";
+const resend = new Resend(process.env.RESEND_API_KEY);
 
-function obtenerClienteGmail() {
-  const clientId = process.env.GMAIL_CLIENT_ID;
-  const clientSecret = process.env.GMAIL_CLIENT_SECRET;
-  const refreshToken = process.env.GMAIL_REFRESH_TOKEN;
-
-  if (!clientId) {
-    throw new Error("Falta GMAIL_CLIENT_ID.");
-  }
-
-  if (!clientSecret) {
-    throw new Error("Falta GMAIL_CLIENT_SECRET.");
-  }
-
-  if (!refreshToken) {
-    throw new Error("Falta GMAIL_REFRESH_TOKEN.");
-  }
-
-  const oauth2Client = new google.auth.OAuth2(
-    clientId,
-    clientSecret
-  );
-
-  oauth2Client.setCredentials({
-    refresh_token: refreshToken,
-  });
-
-  return oauth2Client;
-}
-
-function convertirBase64Url(buffer: Buffer): string {
-  return buffer
-    .toString("base64")
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/, "");
-}
+const RESEND_FROM =
+  process.env.RESEND_FROM_EMAIL ||
+  "Consulado General de la República Bolivariana de Venezuela en Barranquilla <no-reply@consultaconsulvenezbarranquilla.app>";
 
 export async function enviarReciboPorCorreo({
   destinatario,
@@ -58,12 +25,9 @@ export async function enviarReciboPorCorreo({
     );
   }
 
-  const auth = obtenerClienteGmail();
-
-  const gmail = google.gmail({
-    version: "v1",
-    auth,
-  });
+  if (!process.env.RESEND_API_KEY) {
+    throw new Error("Falta RESEND_API_KEY.");
+  }
 
   const asunto =
     `Recibo de pago ${correlativo} - Consulado de Venezuela en Barranquilla`;
@@ -77,58 +41,59 @@ Recibo N°: ${correlativo}
 
 Este correo ha sido generado automáticamente por el sistema de Registro Consular.
 
+Por favor, no responda a este correo.
+
+Puede verificar el estado o autenticidad de su documento mediante el siguiente enlace:
+
+https://consultaconsulvenezbarranquilla.app
+
 Atentamente,
 
 Consulado General de la República Bolivariana de Venezuela en Barranquilla
-info.consulvenez@gmail.com
 `.trim();
 
   const pdfBuffer = Buffer.from(pdfBytes);
-  const pdfBase64 = pdfBuffer.toString("base64");
 
   const nombreArchivo =
     `RECIBO_${correlativo.replace(/\//g, "-")}.pdf`;
 
-  const boundary =
-    "----=_RegistroConsular_" + Date.now();
-
-  const mensaje = [
-    `From: ${GMAIL_FROM}`,
-    `To: ${correo}`,
-    `Subject: ${asunto}`,
-    "MIME-Version: 1.0",
-    `Content-Type: multipart/mixed; boundary="${boundary}"`,
-    "",
-    `--${boundary}`,
-    "Content-Type: text/plain; charset=UTF-8",
-    "Content-Transfer-Encoding: 8bit",
-    "",
-    cuerpo,
-    "",
-    `--${boundary}`,
-    `Content-Type: application/pdf; name="${nombreArchivo}"`,
-    "Content-Transfer-Encoding: base64",
-    `Content-Disposition: attachment; filename="${nombreArchivo}"`,
-    "",
-    pdfBase64,
-    "",
-    `--${boundary}--`,
-  ].join("\r\n");
-
-  const raw = convertirBase64Url(
-    Buffer.from(mensaje, "utf8")
-  );
-
-  const respuesta = await gmail.users.messages.send({
-    userId: "me",
-    requestBody: {
-      raw,
-    },
+  const respuesta = await resend.emails.send({
+    from: RESEND_FROM,
+    to: [correo],
+    subject: asunto,
+    text: cuerpo,
+    attachments: [
+      {
+        filename: nombreArchivo,
+        content: pdfBuffer,
+      },
+    ],
   });
+
+  if (respuesta.error) {
+    console.error(
+      "Error enviando correo con Resend:",
+      respuesta.error
+    );
+
+    throw new Error(
+      respuesta.error.message ||
+        "No fue posible enviar el correo."
+    );
+  }
+
+  console.log(
+    "Correo enviado correctamente con Resend:",
+    {
+      messageId: respuesta.data?.id,
+      destinatario: correo,
+      correlativo,
+    }
+  );
 
   return {
     ok: true,
-    messageId: respuesta.data.id || null,
+    messageId: respuesta.data?.id || null,
     destinatario: correo,
   };
 }
