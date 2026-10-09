@@ -499,7 +499,12 @@ const [
 
     async function guardarDocumento(
 
-        documento: ReporteEntregado
+        documento: ReporteEntregado,
+
+        archivos?: {
+            pdfConstancia?: File | null;
+            fotoCarnet?: File | null;
+        }
 
     ) {
 
@@ -509,7 +514,9 @@ const [
 
                 documento,
 
-                usuario
+                usuario,
+
+                archivos
 
             );
 

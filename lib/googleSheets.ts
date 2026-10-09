@@ -40,6 +40,12 @@ export const sheets =
     auth,
   });
 
+export const drive =
+  google.drive({
+    version: "v3",
+    auth,
+  });
+
 export const REGISTRO_CONSULAR_SHEET_ID =
   process.env.REGISTRO_CONSULAR_SHEET_ID || "";
 
@@ -164,7 +170,7 @@ export async function agregarFila(
       MODULO_CAJA_SHEET_ID,
 
     range:
-      `${hoja}!A:AZ`,
+      `${hoja}!A:BC`,
 
     valueInputOption:
       "USER_ENTERED",
@@ -764,6 +770,27 @@ documentosApoderados,
 
     usuario,
 
+    // ==================================================
+    // BA
+    // ESTADO PROCESAMIENTO
+    // ==================================================
+
+    documento.estadoProcesamiento ?? "",
+
+    // ==================================================
+    // BB
+    // PDF CONSTANCIA REGISTRO
+    // ==================================================
+
+    documento.pdfConstanciaRegistro ?? "",
+
+    // ==================================================
+    // BC
+    // FOTO CARNET
+    // ==================================================
+
+    documento.fotoCarnet ?? "",
+
   ];
 }
 
@@ -781,7 +808,7 @@ export async function actualizarFila(
       MODULO_CAJA_SHEET_ID,
 
     range:
-      `${hoja}!A${fila}:AZ${fila}`,
+      `${hoja}!A${fila}:BC${fila}`,
 
     valueInputOption:
       "USER_ENTERED",

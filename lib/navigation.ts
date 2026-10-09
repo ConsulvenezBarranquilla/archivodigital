@@ -61,6 +61,11 @@ export const navigation: NavigationItem[] = [
   href: "/reportesentregados",
   permiso: MODULOS.GESTION_CONSULAR,
 },
+{
+  label: "Firmar Documentos",
+  href: "/docfirmar",
+  permiso: MODULOS.ADMIN,
+},
     ],
   },
 

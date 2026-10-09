@@ -32,6 +32,18 @@ interface Props {
         | "editar"
         | "valija"
         | "entrega";
+
+    // ==========================================
+    // ARCHIVOS
+    // Solo utilizados por CONSTANCIA_REGISTRO
+    // ==========================================
+
+    onArchivosChange?: (
+        archivos: {
+            pdfConstancia?: File | null;
+            fotoCarnet?: File | null;
+        }
+    ) => void;
 }
 
 // ======================================================
@@ -117,6 +129,8 @@ export default function DocumentoForm({
 
     modo,
 
+    onArchivosChange,
+
 }: Props) {
 
     const campos =
@@ -130,8 +144,23 @@ export default function DocumentoForm({
                 campo.editableEn === modo
 
         );
+
 const [nacionalidades, setNacionalidades] =
     useState<string[]>([]);
+
+// ==========================================
+// ARCHIVOS DE CONSTANCIA DE REGISTRO
+// ==========================================
+
+const [
+    pdfConstancia,
+    setPdfConstancia,
+] = useState<File | null>(null);
+
+const [
+    fotoCarnet,
+    setFotoCarnet,
+] = useState<File | null>(null);
 
     useEffect(() => {
 
@@ -158,12 +187,14 @@ const [nacionalidades, setNacionalidades] =
             );
 
             setNacionalidades([]);
+
         });
 
 }, [
     categoria,
     modo,
 ]);
+
     // ==================================================
     // ¿Es un pasaporte?
     // ==================================================
@@ -179,6 +210,7 @@ const [nacionalidades, setNacionalidades] =
             documento.tipoDocumento ===
                 "PASAPORTE_NNA"
         );
+
 // ==================================================
 // ¿Es una VISA NEGADA?
 // ==================================================
@@ -197,6 +229,7 @@ const esVisaRechazada =
     )
         .trim()
         .toUpperCase() === "RECHAZADA";
+
     // ==================================================
     // Cambio de campo
     // ==================================================
@@ -208,6 +241,7 @@ const esVisaRechazada =
         valor: string
 
     ) {
+
 // ----------------------------------------------
 // Tipo de certificado automático
 // ----------------------------------------------
@@ -220,6 +254,7 @@ if (
     return;
 
 }
+
         // ----------------------------------------------
         // Número de pasaporte
         // ----------------------------------------------
@@ -283,6 +318,7 @@ if (
             return;
 
         }
+
         // ----------------------------------------------
         // N° Etiqueta de VISA
         // ----------------------------------------------
@@ -309,7 +345,8 @@ if (
 
             return;
         }
-        // ----------------------------------------------
+
+// ----------------------------------------------
 // Estado de VISA
 // ----------------------------------------------
 
@@ -344,6 +381,7 @@ if (
 
     return;
 }
+
         // ----------------------------------------------
         // Cualquier otro campo
         // ----------------------------------------------
@@ -355,6 +393,89 @@ if (
         });
 
     }
+
+// ======================================================
+// ARCHIVO PDF DE CONSTANCIA
+// ======================================================
+
+function cambiarPdfConstancia(
+    archivo: File | null
+) {
+
+    if (
+        archivo &&
+        archivo.type !== "application/pdf"
+    ) {
+
+        alert(
+            "El archivo de la constancia debe ser un PDF."
+        );
+
+        return;
+
+    }
+
+    setPdfConstancia(
+        archivo
+    );
+
+    if (onArchivosChange) {
+
+        onArchivosChange({
+
+            pdfConstancia:
+                archivo,
+
+            fotoCarnet:
+                fotoCarnet,
+
+        });
+
+    }
+
+}
+
+// ======================================================
+// FOTO DEL CARNET
+// ======================================================
+
+function cambiarFotoCarnet(
+    archivo: File | null
+) {
+
+    if (
+        archivo &&
+        !archivo.type.startsWith("image/")
+    ) {
+
+        alert(
+            "La foto del carnet debe ser una imagen."
+        );
+
+        return;
+
+    }
+
+    setFotoCarnet(
+        archivo
+    );
+
+    if (onArchivosChange) {
+
+        onArchivosChange({
+
+            pdfConstancia:
+                pdfConstancia,
+
+            fotoCarnet:
+                archivo,
+
+        });
+
+    }
+
+}
+
 // ======================================================
 // PODERES
 // ======================================================
@@ -398,14 +519,18 @@ const solicitantesAutorizacion =
                     documento: "",
                 },
             ];
-    function actualizarSolicitantesAutorizacion(
+
+function actualizarSolicitantesAutorizacion(
     valores: {
         nombre: string;
         documento: string;
     }[]
 ) {
+
     onChange({
-        solicitantesAutorizacion: valores,
+
+        solicitantesAutorizacion:
+            valores,
 
         // Compatibilidad con los campos comunes
         solicitante:
@@ -413,7 +538,9 @@ const solicitantesAutorizacion =
 
         documento:
             valores[0]?.documento ?? "",
+
     });
+
 }
 
 function agregarSolicitanteAutorizacion() {
@@ -425,17 +552,22 @@ function agregarSolicitanteAutorizacion() {
     }
 
     actualizarSolicitantesAutorizacion([
+
         ...solicitantesAutorizacion,
+
         {
             nombre: "",
             documento: "",
         },
+
     ]);
+
 }
 
 function eliminarSolicitanteAutorizacion(
     indice: number
 ) {
+
     if (
         solicitantesAutorizacion.length <= 1
     ) {
@@ -443,10 +575,13 @@ function eliminarSolicitanteAutorizacion(
     }
 
     actualizarSolicitantesAutorizacion(
+
         solicitantesAutorizacion.filter(
             (_, i) => i !== indice
         )
+
     );
+
 }
 
 function cambiarSolicitanteAutorizacion(
@@ -456,17 +591,22 @@ function cambiarSolicitanteAutorizacion(
         | "documento",
     valor: string
 ) {
+
     const nuevos =
         [...solicitantesAutorizacion];
 
     nuevos[indice] = {
+
         ...nuevos[indice],
+
         [campo]: valor,
+
     };
 
     actualizarSolicitantesAutorizacion(
         nuevos
     );
+
 }
 
 const solicitantesPoder =
@@ -517,8 +657,11 @@ function actualizarSolicitantes(
         documento: string;
     }[]
 ) {
+
     onChange({
-        solicitantesPoder: valores,
+
+        solicitantesPoder:
+            valores,
 
         // Compatibilidad con el campo antiguo.
         solicitante:
@@ -526,22 +669,30 @@ function actualizarSolicitantes(
 
         documento:
             valores[0]?.documento ?? "",
+
     });
+
 }
 
 function agregarSolicitante() {
+
     actualizarSolicitantes([
+
         ...solicitantesPoder,
+
         {
             nombre: "",
             documento: "",
         },
+
     ]);
+
 }
 
 function eliminarSolicitante(
     indice: number
 ) {
+
     if (
         solicitantesPoder.length <= 1
     ) {
@@ -549,11 +700,14 @@ function eliminarSolicitante(
     }
 
     actualizarSolicitantes(
+
         solicitantesPoder.filter(
             (_, i) =>
                 i !== indice
         )
+
     );
+
 }
 
 function cambiarSolicitante(
@@ -563,17 +717,22 @@ function cambiarSolicitante(
         | "documento",
     valor: string
 ) {
+
     const nuevos =
         [...solicitantesPoder];
 
     nuevos[indice] = {
+
         ...nuevos[indice],
+
         [campo]: valor,
+
     };
 
     actualizarSolicitantes(
         nuevos
     );
+
 }
 
 function actualizarApoderados(
@@ -584,7 +743,10 @@ function actualizarApoderados(
 ) {
 
     onChange({
-        apoderadosPoder: valores,
+
+        apoderadosPoder:
+            valores,
+
     });
 
 }
@@ -592,12 +754,14 @@ function actualizarApoderados(
 function agregarApoderado() {
 
     actualizarApoderados([
+
         ...apoderadosPoder,
 
         {
             nombre: "",
             documento: "",
         },
+
     ]);
 
 }
@@ -615,9 +779,12 @@ function eliminarApoderado(
     }
 
     actualizarApoderados(
+
         apoderadosPoder.filter(
-            (_, i) => i !== indice
+            (_, i) =>
+                i !== indice
         )
+
     );
 
 }
@@ -646,7 +813,9 @@ function cambiarApoderado(
     );
 
 }
+
     return (
+
     <div className="space-y-5">
 
         {/* ==========================================
@@ -699,6 +868,209 @@ function cambiarApoderado(
                 </div>
 
             )}
+
+{/* ==========================================
+    CONSTANCIA DE REGISTRO
+    ARCHIVOS
+========================================== */}
+
+{categoria === "CONSTANCIA_REGISTRO" &&
+    modo === "editar" && (
+
+    <div className="
+        space-y-4
+        rounded-xl
+        border
+        border-slate-200
+        bg-slate-50
+        p-4
+    ">
+
+        <div>
+
+            <h3 className="
+                text-sm
+                font-semibold
+                text-slate-800
+            ">
+                Archivos de la Constancia de Registro
+            </h3>
+
+            <p className="
+                mt-1
+                text-xs
+                text-slate-500
+            ">
+                Seleccione el PDF de la constancia y la
+                fotografía del carnet. Los archivos se
+                guardarán en Google Drive al guardar el
+                documento.
+            </p>
+
+        </div>
+
+        {/* ======================================
+            PDF CONSTANCIA
+        ====================================== */}
+
+        <div className="space-y-1">
+
+            <label
+                className="
+                    block
+                    text-sm
+                    font-medium
+                    text-slate-700
+                "
+            >
+                PDF de la Constancia
+
+                <span className="ml-1 text-red-500">
+                    *
+                </span>
+
+            </label>
+
+            <input
+                type="file"
+                accept="application/pdf,.pdf"
+                onChange={e =>
+                    cambiarPdfConstancia(
+                        e.target.files?.[0] ?? null
+                    )
+                }
+                className="
+                    block
+                    w-full
+                    rounded-lg
+                    border
+                    border-slate-300
+                    bg-white
+                    px-3
+                    py-2
+                    text-sm
+                    text-slate-700
+                    file:mr-4
+                    file:rounded-md
+                    file:border-0
+                    file:bg-slate-100
+                    file:px-3
+                    file:py-2
+                    file:text-sm
+                    file:font-medium
+                    file:text-slate-700
+                    hover:file:bg-slate-200
+                "
+            />
+
+            {pdfConstancia && (
+
+                <p className="
+                    text-xs
+                    text-green-700
+                ">
+                    Archivo seleccionado:{" "}
+                    {pdfConstancia.name}
+                </p>
+
+            )}
+
+            {documento.pdfConstanciaRegistro && (
+                <p className="
+                    text-xs
+                    text-slate-500
+                ">
+                    Ya existe una constancia almacenada.
+                    Seleccione otro PDF solamente si desea
+                    reemplazarla.
+                </p>
+            )}
+
+        </div>
+
+        {/* ======================================
+            FOTO CARNET
+        ====================================== */}
+
+        <div className="space-y-1">
+
+            <label
+                className="
+                    block
+                    text-sm
+                    font-medium
+                    text-slate-700
+                "
+            >
+                Foto del Carnet
+
+                <span className="ml-1 text-red-500">
+                    *
+                </span>
+
+            </label>
+
+            <input
+                type="file"
+                accept="image/*"
+                onChange={e =>
+                    cambiarFotoCarnet(
+                        e.target.files?.[0] ?? null
+                    )
+                }
+                className="
+                    block
+                    w-full
+                    rounded-lg
+                    border
+                    border-slate-300
+                    bg-white
+                    px-3
+                    py-2
+                    text-sm
+                    text-slate-700
+                    file:mr-4
+                    file:rounded-md
+                    file:border-0
+                    file:bg-slate-100
+                    file:px-3
+                    file:py-2
+                    file:text-sm
+                    file:font-medium
+                    file:text-slate-700
+                    hover:file:bg-slate-200
+                "
+            />
+
+            {fotoCarnet && (
+
+                <p className="
+                    text-xs
+                    text-green-700
+                ">
+                    Archivo seleccionado:{" "}
+                    {fotoCarnet.name}
+                </p>
+
+            )}
+
+            {documento.fotoCarnet && (
+                <p className="
+                    text-xs
+                    text-slate-500
+                ">
+                    Ya existe una fotografía de carnet
+                    almacenada. Seleccione otra solamente
+                    si desea reemplazarla.
+                </p>
+            )}
+
+        </div>
+
+    </div>
+
+)}
+
 {/* ==========================================
     PODER
 ========================================== */}
@@ -1161,6 +1533,7 @@ function cambiarApoderado(
         {/* ==========================================
             CAMPOS CONFIGURADOS
         ========================================== */}
+
 {/* ==========================================
     AUTORIZACIÓN DE VIAJE
     SOLICITANTES
@@ -1319,6 +1692,7 @@ function cambiarApoderado(
     </div>
 
 )}
+
 {/* ==========================================
     TIPO DE DOCUMENTO - APOSTILLA
     Se guarda como OBSERVACIONES (columna M)
@@ -1364,6 +1738,7 @@ function cambiarApoderado(
 
     </div>
 )}
+
         {campos.map(campo => {
 
             const valor =
@@ -1412,16 +1787,20 @@ function cambiarApoderado(
 )}
 
                     </label>
+
 {esVisaRechazada &&
     categoria === "VISA" &&
     (
         campo.key === "numeroVisa" ||
         campo.key === "fechaVencimiento"
     ) && (
+
         <p className="mt-1 text-xs text-slate-500">
             No requerido para visas rechazadas.
         </p>
+
     )}
+
                     {/* ==================================
                         TIPO CERTIFICADO
                         Solo lectura
@@ -1646,5 +2025,7 @@ function cambiarApoderado(
         })}
 
     </div>
+
 );
+
 }

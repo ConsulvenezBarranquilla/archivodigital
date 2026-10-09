@@ -705,31 +705,45 @@ function determinarEstadoProcesamiento(
     }
 
     // --------------------------------------
-    // CONSTANCIA DE REGISTRO CONSULAR
-    // --------------------------------------
+// CONSTANCIA DE REGISTRO CONSULAR
+// --------------------------------------
+
+if (
+    documento.categoria ===
+    "CONSTANCIA_REGISTRO"
+) {
+
+    // ----------------------------------
+    // Si ya está pendiente de firma,
+    // conservar ese estado
+    // ----------------------------------
 
     if (
-        documento.categoria ===
-        "CONSTANCIA_REGISTRO"
+        documento.estadoProcesamiento ===
+        "PENDIENTE_FIRMA"
     ) {
 
-        const completo =
-
-            texto(
-                documento.fechaRegistroConsular
-            ) !== ""
-
-            &&
-
-            texto(
-                documento.numeroRegistro
-            ) !== "";
-
-        return completo
-            ? "PROCESADO"
-            : "EN_PROCESO";
+        return "PENDIENTE_FIRMA";
 
     }
+
+    const completo =
+
+        texto(
+            documento.fechaRegistroConsular
+        ) !== ""
+
+        &&
+
+        texto(
+            documento.numeroRegistro
+        ) !== "";
+
+    return completo
+        ? "PROCESADO"
+        : "EN_PROCESO";
+
+}
 
     // --------------------------------------
     // CONSTANCIA CONSULAR
@@ -937,6 +951,45 @@ function aplicarDatosReporte(
 
     documento.observaciones =
         texto(reporte[12]);
+    
+        // ======================================
+    // PROCESAMIENTO
+    // ======================================
+
+    const estadoProcesamiento =
+    texto(reporte[52]);
+
+if (
+    estadoProcesamiento ===
+        "EN_PROCESO" ||
+    estadoProcesamiento ===
+        "PENDIENTE_FIRMA" ||
+    estadoProcesamiento ===
+        "PROCESADO" ||
+    estadoProcesamiento ===
+        "ENTREGADO" ||
+    estadoProcesamiento ===
+        "RECHAZADA"
+) {
+
+    documento.estadoProcesamiento =
+        estadoProcesamiento;
+
+}
+
+    // ======================================
+    // CONSTANCIA REGISTRO - PDF
+    // ======================================
+
+    documento.pdfConstanciaRegistro =
+        texto(reporte[53]);
+
+    // ======================================
+    // CONSTANCIA REGISTRO - FOTO CARNET
+    // ======================================
+
+    documento.fotoCarnet =
+        texto(reporte[54]);
 
     // ======================================
     // ESTADO INTERNO

@@ -57,6 +57,7 @@ export type TipoDocumento =
 
 export type EstadoProcesamiento =
     | "EN_PROCESO"
+    | "PENDIENTE_FIRMA"
     | "PROCESADO"
     | "ENTREGADO"
     | "RECHAZADA";
@@ -98,6 +99,14 @@ export interface ReporteEntregado {
     // --------------------------------------
 
     estadoProcesamiento: EstadoProcesamiento;
+
+    // --------------------------------------
+    // Archivos de CONSTANCIA REGISTRO CONSULAR
+    // --------------------------------------
+
+    pdfConstanciaRegistro?: string;
+
+    fotoCarnet?: string;
 
     // --------------------------------------
     // Entrega

@@ -17,6 +17,10 @@ import CambiarPasswordCard from "./components/CambiarPasswordCard";
 import UsuariosTable from "./components/UsuariosTable";
 import SistemaLayout from "@/components/layout/SistemaLayout";
 import { MODULOS } from "@/lib/modulos";
+import FirmasUsuarioCard from "./components/FirmasUsuarioCard";
+import SellosInstitucionalesCard from "./components/SellosInstitucionalesCard";
+import TotpUsuarioCard from "./components/TotpUsuarioCard";
+
 
 export default function UsuariosPage() {
 const [nuevoUsuario,
@@ -64,6 +68,17 @@ const [
   mostrarNuevoUsuario,
   setMostrarNuevoUsuario,
 ] = useState(false);
+
+const [
+  mostrarFirmas,
+  setMostrarFirmas,
+] = useState(false);
+
+const [mostrarSellos, setMostrarSellos] =
+  useState(false);
+
+const [mostrarTotp, setMostrarTotp] =
+  useState(false);
 
   const [
   usuarioEditar,
@@ -474,6 +489,59 @@ setNuevoRol("caja");
                 flexWrap: "wrap",
             }}
         >
+<button
+  type="button"
+  onClick={() =>
+    setMostrarFirmas(true)
+  }
+  style={{
+    padding: "10px 18px",
+    borderRadius: "8px",
+    border: "none",
+    background: "#2563eb",
+    color: "white",
+    fontWeight: 600,
+    cursor: "pointer",
+  }}
+>
+  ✍ Firmas
+</button>
+
+<button
+  type="button"
+  onClick={() =>
+    setMostrarSellos(true)
+  }
+  style={{
+    padding: "10px 18px",
+    borderRadius: "8px",
+    border: "none",
+    background: "#7c3aed",
+    color: "white",
+    fontWeight: 600,
+    cursor: "pointer",
+  }}
+>
+  🔏 Sellos
+</button>
+
+<button
+  type="button"
+  onClick={() =>
+    setMostrarTotp(true)
+  }
+  style={{
+    padding: "10px 18px",
+    borderRadius: "8px",
+    border: "none",
+    background: "#0f766e",
+    color: "white",
+    fontWeight: 600,
+    cursor: "pointer",
+  }}
+>
+  🔐 Authenticator
+</button>
 
             <button
                 type="button"
@@ -561,7 +629,26 @@ setNuevoRol("caja");
     )}
 
 </div>
+<FirmasUsuarioCard
+  mostrar={mostrarFirmas}
+  onCerrar={() =>
+    setMostrarFirmas(false)
+  }
+/>
 
+<SellosInstitucionalesCard
+  mostrar={mostrarSellos}
+  onCerrar={() =>
+    setMostrarSellos(false)
+  }
+/>
+
+<TotpUsuarioCard
+  mostrar={mostrarTotp}
+  onCerrar={() =>
+    setMostrarTotp(false)
+  }
+/>
         {usuarioEditar && (
 
             <EditarUsuarioCard

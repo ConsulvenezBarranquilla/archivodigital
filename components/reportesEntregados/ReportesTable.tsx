@@ -74,15 +74,18 @@ export default function ReportesTable({
     // ==========================================
 
     const cantidadEnProceso =
-        useMemo(() => {
+    useMemo(() => {
 
-            return documentos.filter(
-                documento =>
-                    documento.estadoProcesamiento ===
+        return documentos.filter(
+            documento =>
+                documento.estadoProcesamiento ===
                     "EN_PROCESO"
-            ).length;
+                ||
+                documento.estadoProcesamiento ===
+                    "PENDIENTE_FIRMA"
+        ).length;
 
-        }, [documentos]);
+    }, [documentos]);
 
     // ==========================================
     // Cantidad de documentos procesados
@@ -302,6 +305,83 @@ if (categoria === "AUTORIZACION_VIAJE") {
                     );
 
                 }
+
+// ==================================
+// PENDIENTE DE FIRMA
+// ==================================
+
+if (
+    row.estadoProcesamiento ===
+    "PENDIENTE_FIRMA"
+) {
+
+    return (
+
+        <div className="
+            flex
+            items-center
+            justify-center
+            gap-2
+        ">
+
+            {/* Editar */}
+
+            <button
+
+                type="button"
+
+                onClick={() =>
+                    onEditar(row)
+                }
+
+                className="
+                    rounded-lg
+                    border
+                    border-blue-200
+                    bg-blue-50
+                    px-3
+                    py-1.5
+                    text-sm
+                    font-medium
+                    text-blue-700
+                    transition
+                    hover:bg-blue-100
+                "
+
+                title="Editar documento"
+
+            >
+
+                Editar
+
+            </button>
+
+            {/* Estado */}
+
+            <span className="
+                inline-flex
+                items-center
+                rounded-full
+                border
+                border-yellow-200
+                bg-yellow-100
+                px-3
+                py-1
+                text-xs
+                font-semibold
+                text-yellow-700
+            ">
+
+                ⚠ Pendiente de Firma
+
+            </span>
+
+        </div>
+
+    );
+
+}
+
 
                 // ==================================
                 // PROCESADO
@@ -608,16 +688,20 @@ const anchoMinimoTabla =
                         // --------------------------
 
                         if (
-                            filtroProcesamiento ===
-                            "EN_PROCESO"
-                        ) {
+    filtroProcesamiento ===
+    "EN_PROCESO"
+) {
 
-                            return (
-                                documento.estadoProcesamiento ===
-                                "EN_PROCESO"
-                            );
+    return (
+        documento.estadoProcesamiento ===
+            "EN_PROCESO"
+        ||
+        documento.estadoProcesamiento ===
+            "PENDIENTE_FIRMA"
+    );
 
-                        }
+}
+
 
                         // --------------------------
 // Procesados

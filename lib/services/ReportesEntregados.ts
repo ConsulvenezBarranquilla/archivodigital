@@ -17,6 +17,20 @@ const BASE_URL = "/api/reportes-entregados";
 
 
 // ======================================================
+// Tipos de archivos
+// ======================================================
+
+export interface ArchivosConstancia {
+
+    pdfConstancia?: File | null;
+
+    fotoCarnet?: File | null;
+
+}
+
+
+
+// ======================================================
 // Tipos de respuesta
 // ======================================================
 
@@ -207,9 +221,145 @@ export async function actualizarDocumento(
 
     documento: ReporteEntregado,
 
-    usuario: string
+    usuario: string,
+
+    archivos?: ArchivosConstancia
 
 ): Promise<void> {
+
+
+    // ==================================================
+    // Si hay archivos, usamos FormData
+    // ==================================================
+
+    const tienePdf =
+        archivos?.pdfConstancia instanceof File;
+
+    const tieneFoto =
+        archivos?.fotoCarnet instanceof File;
+
+
+    if (
+        tienePdf ||
+        tieneFoto
+    ) {
+
+        const formData =
+            new FormData();
+
+
+        // ----------------------------------------------
+        // Documento
+        // ----------------------------------------------
+
+        formData.append(
+
+            "documento",
+
+            JSON.stringify(
+                documento
+            )
+
+        );
+
+
+        // ----------------------------------------------
+        // Usuario
+        // ----------------------------------------------
+
+        formData.append(
+
+            "usuario",
+
+            usuario
+
+        );
+
+
+        // ----------------------------------------------
+        // PDF de la constancia
+        // ----------------------------------------------
+
+        if (
+            tienePdf &&
+            archivos?.pdfConstancia
+        ) {
+
+            formData.append(
+
+                "pdfConstancia",
+
+                archivos.pdfConstancia
+
+            );
+
+        }
+
+
+        // ----------------------------------------------
+        // Foto del carnet
+        // ----------------------------------------------
+
+        if (
+            tieneFoto &&
+            archivos?.fotoCarnet
+        ) {
+
+            formData.append(
+
+                "fotoCarnet",
+
+                archivos.fotoCarnet
+
+            );
+
+        }
+
+
+        const response =
+            await fetch(
+
+                `${BASE_URL}/guardar`,
+
+                {
+
+                    method: "POST",
+
+                    body: formData,
+
+                    cache: "no-store",
+
+                }
+
+            );
+
+
+        const json =
+            await response.json();
+
+
+        if (!response.ok) {
+
+            throw new Error(
+
+                json.error ||
+
+                response.statusText
+
+            );
+
+        }
+
+
+        return;
+
+    }
+
+
+    // ==================================================
+    // Sin archivos:
+    // conservar el comportamiento actual
+    // ==================================================
 
     await request(
 
@@ -288,6 +438,7 @@ export async function exportarExcel(
     return await response.blob();
 
 }
+
 export async function obtenerNacionalidades(): Promise<string[]> {
 
     const response = await fetch(

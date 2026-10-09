@@ -9,6 +9,21 @@ import {
     ReporteEntregado,
 } from "@/types/ReporteEntregado";
 
+
+// ======================================================
+// ARCHIVOS DE CONSTANCIA
+// ======================================================
+
+interface ArchivosConstancia {
+    pdfConstancia?: File | null;
+    fotoCarnet?: File | null;
+}
+
+
+// ======================================================
+// PROPS
+// ======================================================
+
 interface Props {
 
     open: boolean;
@@ -18,10 +33,16 @@ interface Props {
     onClose: () => void;
 
     onGuardar: (
-        documento: ReporteEntregado
+        documento: ReporteEntregado,
+        archivos?: ArchivosConstancia
     ) => Promise<void>;
 
 }
+
+
+// ======================================================
+// COMPONENTE
+// ======================================================
 
 export default function DrawerEditar({
 
@@ -40,15 +61,28 @@ export default function DrawerEditar({
         setEditando,
     ] = useState<ReporteEntregado | null>(null);
 
+
     const [
         guardando,
         setGuardando,
     ] = useState(false);
 
+
     const [
         errorValidacion,
         setErrorValidacion,
     ] = useState("");
+
+
+    // ======================================================
+    // ARCHIVOS DE CONSTANCIA
+    // ======================================================
+
+    const [
+        archivosConstancia,
+        setArchivosConstancia,
+    ] = useState<ArchivosConstancia>({});
+
 
     // ======================================================
     // Cargar documento
@@ -60,9 +94,12 @@ export default function DrawerEditar({
 
             setEditando(null);
 
+            setArchivosConstancia({});
+
             return;
 
         }
+
 
         setEditando({
 
@@ -70,9 +107,13 @@ export default function DrawerEditar({
 
         });
 
+
+        setArchivosConstancia({});
+
         setErrorValidacion("");
 
     }, [documento]);
+
 
     // ======================================================
     // Validación
@@ -82,101 +123,112 @@ export default function DrawerEditar({
         documento: ReporteEntregado
     ): string | null {
 
-// ==================================================
-// VISA
-// ==================================================
 
-if (
-    documento.categoria ===
-    "VISA"
-) {
+        // ==================================================
+        // VISA
+        // ==================================================
 
-    const estado =
-        (
-            documento.estado
-            ?? ""
-        ).trim().toUpperCase();
+        if (
+            documento.categoria ===
+            "VISA"
+        ) {
 
-    // ----------------------------------------------
-    // El estado siempre es obligatorio
-    // ----------------------------------------------
+            const estado =
+                (
+                    documento.estado
+                    ?? ""
+                ).trim().toUpperCase();
 
-    if (!estado) {
 
-        return (
-            "Debe seleccionar el estado de la visa."
-        );
+            // ----------------------------------------------
+            // El estado siempre es obligatorio
+            // ----------------------------------------------
 
-    }
+            if (!estado) {
 
-    // ----------------------------------------------
-    // VISA NEGADA
-    //
-    // Una visa rechazada/negada NO requiere:
-    // - N° Etiqueta
-    // - Fecha de Vencimiento
-    // ----------------------------------------------
+                return (
+                    "Debe seleccionar el estado de la visa."
+                );
 
-    if (
-        estado === "RECHAZADA" ||
-        estado === "NEGADA"
-    ) {
+            }
 
-        return null;
 
-    }
+            // ----------------------------------------------
+            // VISA NEGADA
+            //
+            // Una visa rechazada/negada NO requiere:
+            // - N° Etiqueta
+            // - Fecha de Vencimiento
+            // ----------------------------------------------
 
-    // ----------------------------------------------
-    // VISA EN PROCESO / APROBADA
-    //
-    // Requiere etiqueta y vencimiento.
-    // ----------------------------------------------
+            if (
+                estado === "RECHAZADA" ||
+                estado === "NEGADA"
+            ) {
 
-    const numeroVisa =
-        (
-            documento.numeroVisa
-            ?? ""
-        ).trim();
+                return null;
 
-    const fechaVencimiento =
-        (
-            documento.fechaVencimiento
-            ?? ""
-        ).trim();
+            }
 
-    const faltantes: string[] = [];
 
-    if (!numeroVisa) {
+            // ----------------------------------------------
+            // VISA EN PROCESO / APROBADA
+            //
+            // Requiere etiqueta y vencimiento.
+            // ----------------------------------------------
 
-        faltantes.push(
-            "N° Etiqueta"
-        );
+            const numeroVisa =
+                (
+                    documento.numeroVisa
+                    ?? ""
+                ).trim();
 
-    }
 
-    if (!fechaVencimiento) {
+            const fechaVencimiento =
+                (
+                    documento.fechaVencimiento
+                    ?? ""
+                ).trim();
 
-        faltantes.push(
-            "Fecha de Vencimiento"
-        );
 
-    }
+            const faltantes: string[] = [];
 
-    if (
-        faltantes.length > 0
-    ) {
 
-        return (
-            "Debe completar los siguientes campos: " +
-            faltantes.join(", ") +
-            "."
-        );
+            if (!numeroVisa) {
 
-    }
+                faltantes.push(
+                    "N° Etiqueta"
+                );
 
-    return null;
+            }
 
-}
+
+            if (!fechaVencimiento) {
+
+                faltantes.push(
+                    "Fecha de Vencimiento"
+                );
+
+            }
+
+
+            if (
+                faltantes.length > 0
+            ) {
+
+                return (
+                    "Debe completar los siguientes campos: " +
+                    faltantes.join(", ") +
+                    "."
+                );
+
+            }
+
+
+            return null;
+
+        }
+
 
         // ==================================================
         // PASAPORTES
@@ -191,11 +243,13 @@ if (
 
         }
 
+
         const titular =
             (
                 documento.titularPasaporte
                 ?? ""
             ).trim();
+
 
         const numeroPasaporte =
             (
@@ -203,11 +257,13 @@ if (
                 ?? ""
             ).trim();
 
+
         const fechaValija =
             (
                 documento.fechaValija
                 ?? ""
             ).trim();
+
 
         const fechaEmision =
             (
@@ -215,13 +271,16 @@ if (
                 ?? ""
             ).trim();
 
+
         const fechaVencimiento =
             (
                 documento.fechaVencimiento
                 ?? ""
             ).trim();
 
+
         const faltantes: string[] = [];
+
 
         // ==================================================
         // Campos obligatorios
@@ -235,6 +294,7 @@ if (
 
         }
 
+
         if (!numeroPasaporte) {
 
             faltantes.push(
@@ -242,6 +302,7 @@ if (
             );
 
         }
+
 
         if (!fechaValija) {
 
@@ -251,6 +312,7 @@ if (
 
         }
 
+
         if (!fechaEmision) {
 
             faltantes.push(
@@ -259,6 +321,7 @@ if (
 
         }
 
+
         if (!fechaVencimiento) {
 
             faltantes.push(
@@ -266,6 +329,7 @@ if (
             );
 
         }
+
 
         // ==================================================
         // Mostrar campos faltantes
@@ -283,6 +347,7 @@ if (
 
         }
 
+
         // ==================================================
         // Número de pasaporte
         // ==================================================
@@ -299,9 +364,11 @@ if (
 
         }
 
+
         return null;
 
     }
+
 
     // ======================================================
     // Guardar
@@ -316,11 +383,13 @@ if (
         const documentoActual =
             editando;
 
+
         if (!documentoActual) {
 
             return;
 
         }
+
 
         // --------------------------------------------------
         // Validar
@@ -330,6 +399,7 @@ if (
             validarDocumento(
                 documentoActual
             );
+
 
         if (error) {
 
@@ -341,19 +411,28 @@ if (
 
         }
 
+
         try {
 
             setErrorValidacion("");
 
             setGuardando(true);
 
+
+            // ------------------------------------------------
+            // Guardar documento + archivos seleccionados
+            // ------------------------------------------------
+
             await onGuardar(
-                documentoActual
+                documentoActual,
+                archivosConstancia
             );
+
 
             onClose();
 
         }
+
 
         catch (error) {
 
@@ -361,6 +440,7 @@ if (
                 "Error guardando documento:",
                 error
             );
+
 
             setErrorValidacion(
 
@@ -374,6 +454,7 @@ if (
 
         }
 
+
         finally {
 
             setGuardando(false);
@@ -381,6 +462,7 @@ if (
         }
 
     }
+
 
     // ======================================================
     // No hay documento
@@ -391,6 +473,7 @@ if (
         return null;
 
     }
+
 
     // ======================================================
     // Render
@@ -411,6 +494,8 @@ if (
             onClose={() => {
 
                 setErrorValidacion("");
+
+                setArchivosConstancia({});
 
                 onClose();
 
@@ -457,6 +542,7 @@ if (
 
                         </div>
 
+
                         <div>
 
                             {errorValidacion}
@@ -468,6 +554,7 @@ if (
                 )
 
             }
+
 
             {/* ==========================================
                 FORMULARIO
@@ -498,6 +585,21 @@ if (
                         ...cambios,
 
                     });
+
+                }}
+
+
+                // ==================================================
+                // ARCHIVOS DE CONSTANCIA
+                // ==================================================
+
+                onArchivosChange={(
+                    archivos
+                ) => {
+
+                    setArchivosConstancia(
+                        archivos
+                    );
 
                 }}
 
