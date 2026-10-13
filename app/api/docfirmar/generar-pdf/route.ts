@@ -40,6 +40,23 @@ import type { ReporteEntregado } from "@/types/ReporteEntregado";
 import { descifrarSecretoTOTP, verificarCodigoTOTP } from "@/lib/totp";
 import { obtenerSeguridadUsuario } from "@/lib/seguridadUsuarios";
 
+function registrarErrorSeguro(contexto: string, error: unknown) {
+  const detalle = error as {
+    name?: unknown;
+    code?: unknown;
+    status?: unknown;
+  } | null;
+
+  console.error(contexto, {
+    name: typeof detalle?.name === "string" ? detalle.name : undefined,
+    code:
+      typeof detalle?.code === "string" || typeof detalle?.code === "number"
+        ? detalle.code
+        : undefined,
+    status: typeof detalle?.status === "number" ? detalle.status : undefined,
+  });
+}
+
 
 /*------------------------------------------
 CONFIGURACIÓN
@@ -703,7 +720,10 @@ export async function POST(
         const secretoTOTP = descifrarSecretoTOTP(seguridad.totpSecretCifrado);
         codigoValido = await verificarCodigoTOTP(secretoTOTP, codigoTOTP);
       } catch (error) {
-        console.error("No fue posible validar el autenticador asociado a la firma.", error);
+        registrarErrorSeguro(
+          "No fue posible validar el autenticador asociado a la firma.",
+          error
+        );
         return NextResponse.json(
           { ok: false, error: "No fue posible validar Google Authenticator. Revise la configuración del usuario." },
           { status: 500 }
@@ -853,7 +873,7 @@ export async function POST(
         errorFoto
       ) {
 
-        console.error(
+        registrarErrorSeguro(
           "No fue posible insertar la foto de carnet:",
           errorFoto
         );
@@ -1088,7 +1108,7 @@ const selloY =
         errorSelloArchivo
       ) {
 
-        console.error(
+        registrarErrorSeguro(
           "No fue posible insertar el sello institucional:",
           errorSelloArchivo
         );
@@ -1358,7 +1378,7 @@ const selloY =
 
   } catch (error) {
 
-    console.error(
+    registrarErrorSeguro(
       "Error POST /api/docfirmar/generar-pdf:",
       error
     );
