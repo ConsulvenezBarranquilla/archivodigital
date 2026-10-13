@@ -99,7 +99,7 @@ export default function TotpUsuarioCard({
         );
       }
 
-      setQr(data.uri);
+      setQr(data.qrDataUrl);
       setSecreto(data.secreto);
       setSecretoCifrado(data.secretoCifrado);
       setCodigo("");
@@ -426,9 +426,7 @@ export default function TotpUsuarioCard({
                 }}
               >
                 <img
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(
-                    qr
-                  )}`}
+                  src={qr}
                   alt="Código QR de Google Authenticator"
                   width={220}
                   height={220}

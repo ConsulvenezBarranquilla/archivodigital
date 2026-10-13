@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
+import QRCode from "qrcode";
 
 import { obtenerSesion } from "@/lib/auth";
 
@@ -93,13 +94,20 @@ export async function POST(request: Request) {
         secreto
       );
 
+      const qrPng = await QRCode.toBuffer(uri, {
+        width: 220,
+        margin: 1,
+        errorCorrectionLevel: "M",
+      });
+      const qrDataUrl = `data:image/png;base64,${qrPng.toString("base64")}`;
+
       const secretoTemporal = cifrarSecretoTOTP(
         secreto
       );
 
       return NextResponse.json({
         ok: true,
-        uri,
+        qrDataUrl,
         secreto: secreto,
         secretoCifrado: secretoTemporal,
       });
