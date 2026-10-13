@@ -281,6 +281,133 @@ export async function obtenerReportesEntregados() {
   );
 }
 
+export async function obtenerRegistroConsular() {
+  return await leerHojaRegistro(
+    "Respuestas de formulario 1!A:O"
+  );
+}
+
+async function asegurarColumnasReportesEntregados(
+  cantidadRequerida: number
+) {
+  const resultado = await sheets.spreadsheets.get({
+    spreadsheetId: MODULO_CAJA_SHEET_ID,
+    fields: "sheets.properties(sheetId,title,gridProperties.columnCount)",
+  });
+
+  const hoja = resultado.data.sheets?.find(
+    (item) => item.properties?.title === HOJA_REPORTES_ENTREGADOS
+  );
+  const sheetId = hoja?.properties?.sheetId;
+  const columnasActuales = hoja?.properties?.gridProperties?.columnCount ?? 0;
+
+  if (typeof sheetId !== "number") {
+    throw new Error("No se encontro la hoja ReportesEntregados en Google Sheets.");
+  }
+
+  if (columnasActuales < cantidadRequerida) {
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: MODULO_CAJA_SHEET_ID,
+      requestBody: {
+        requests: [{
+          appendDimension: {
+            sheetId,
+            dimension: "COLUMNS",
+            length: cantidadRequerida - columnasActuales,
+          },
+        }],
+      },
+    });
+  }
+}
+
+export async function actualizarDatosFirmaConstancia(
+  id: string,
+  datos: {
+    estadoProcesamiento: string;
+    entregado: boolean;
+    fechaEntrega?: string;
+    entregadoPor?: string;
+    observaciones?: string;
+    pdfConstanciaFirmada?: string;
+    metodoEntrega?: string;
+    fechaEnvioCorreo?: string;
+    correoDestino?: string;
+    usuarioFirma?: string;
+    idCorreoEnviado?: string;
+    tokenValidacion?: string;
+  }
+) {
+  const reporte = await buscarReportePorId(id);
+
+  if (!reporte) {
+    throw new Error("No se encontró la constancia en Reportes Entregados.");
+  }
+
+  // BJ is column 62; extend the grid when the sheet has fewer columns.
+  await asegurarColumnasReportesEntregados(62);
+
+  const encabezadosExistentes = await sheets.spreadsheets.values.get({
+    spreadsheetId: MODULO_CAJA_SHEET_ID,
+    range: "ReportesEntregados!BD1:BJ1",
+  });
+  const encabezados = encabezadosExistentes.data.values?.[0] ?? [];
+  if (!encabezados.some((valor) => String(valor ?? "").trim())) {
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: MODULO_CAJA_SHEET_ID,
+      range: "ReportesEntregados!BD1:BJ1",
+      valueInputOption: "RAW",
+      requestBody: {
+        values: [[
+          "PDF FIRMADO DRIVE ID",
+          "MÉTODO DE ENTREGA",
+          "FECHA ENVÍO CORREO",
+          "CORREO DESTINO",
+          "USUARIO FIRMA",
+          "ID CORREO",
+          "TOKEN VALIDACIÓN",
+        ]],
+      },
+    });
+  }
+
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: MODULO_CAJA_SHEET_ID,
+    range: `ReportesEntregados!J${reporte.fila}:M${reporte.fila}`,
+    valueInputOption: "RAW",
+    requestBody: {
+      values: [[
+        datos.entregado ? "SI" : "NO",
+        datos.fechaEntrega ?? "",
+        datos.entregadoPor ?? "",
+        datos.observaciones ?? "",
+      ]],
+    },
+  });
+
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: MODULO_CAJA_SHEET_ID,
+    range: `ReportesEntregados!BA${reporte.fila}:BJ${reporte.fila}`,
+    valueInputOption: "RAW",
+    requestBody: {
+      values: [[
+        datos.estadoProcesamiento,
+        reporte.datos[53] ?? "",
+        reporte.datos[54] ?? "",
+        datos.pdfConstanciaFirmada ?? reporte.datos[55] ?? "",
+        datos.metodoEntrega ?? reporte.datos[56] ?? "",
+        datos.fechaEnvioCorreo ?? reporte.datos[57] ?? "",
+        datos.correoDestino ?? reporte.datos[58] ?? "",
+        datos.usuarioFirma ?? reporte.datos[59] ?? "",
+        datos.idCorreoEnviado ?? reporte.datos[60] ?? "",
+        datos.tokenValidacion ?? reporte.datos[61] ?? "",
+      ]],
+    },
+  });
+
+  invalidarCacheHoja(MODULO_CAJA_SHEET_ID, HOJA_REPORTES_ENTREGADOS);
+}
+
 /*------------------------------------------
 ESCRITURA
 ------------------------------------------*/

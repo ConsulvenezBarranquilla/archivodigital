@@ -727,6 +727,13 @@ if (
 
     }
 
+    if (
+        documento.estadoProcesamiento ===
+        "FIRMADO_PENDIENTE_ENVIO"
+    ) {
+        return "FIRMADO_PENDIENTE_ENVIO";
+    }
+
     const completo =
 
         texto(
@@ -965,6 +972,8 @@ if (
     estadoProcesamiento ===
         "PENDIENTE_FIRMA" ||
     estadoProcesamiento ===
+        "FIRMADO_PENDIENTE_ENVIO" ||
+    estadoProcesamiento ===
         "PROCESADO" ||
     estadoProcesamiento ===
         "ENTREGADO" ||
@@ -990,6 +999,21 @@ if (
 
     documento.fotoCarnet =
         texto(reporte[54]);
+
+    documento.pdfConstanciaFirmada =
+        texto(reporte[55]);
+    documento.metodoEntrega =
+        texto(reporte[56]) as ReporteEntregado["metodoEntrega"];
+    documento.fechaEnvioCorreo =
+        texto(reporte[57]);
+    documento.correoDestino =
+        texto(reporte[58]);
+    documento.usuarioFirma =
+        texto(reporte[59]);
+    documento.idCorreoEnviado =
+        texto(reporte[60]);
+    documento.tokenValidacion =
+        texto(reporte[61]);
 
     // ======================================
     // ESTADO INTERNO

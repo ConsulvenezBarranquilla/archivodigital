@@ -58,6 +58,7 @@ export type TipoDocumento =
 export type EstadoProcesamiento =
     | "EN_PROCESO"
     | "PENDIENTE_FIRMA"
+    | "FIRMADO_PENDIENTE_ENVIO"
     | "PROCESADO"
     | "ENTREGADO"
     | "RECHAZADA";
@@ -88,6 +89,8 @@ export interface ReporteEntregado {
 
     planillaGC: string;
 
+    codigoActuacion?: string;
+
     solicitante: string;
 
     documento: string;
@@ -107,6 +110,14 @@ export interface ReporteEntregado {
     pdfConstanciaRegistro?: string;
 
     fotoCarnet?: string;
+
+    pdfConstanciaFirmada?: string;
+    metodoEntrega?: "PRESENCIAL" | "CORREO" | "";
+    fechaEnvioCorreo?: string;
+    correoDestino?: string;
+    usuarioFirma?: string;
+    idCorreoEnviado?: string;
+    tokenValidacion?: string;
 
     // --------------------------------------
     // Entrega

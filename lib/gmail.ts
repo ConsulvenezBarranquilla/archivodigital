@@ -398,3 +398,75 @@ Consulado General de la República Bolivariana de Venezuela en Barranquilla
     destinatario: correo,
   };
 }
+
+export async function enviarDocumentoFirmadoPorCorreo({
+  destinatario,
+  nombre,
+  numeroRegistro,
+  urlValidacion,
+  pdfBytes,
+}: {
+  destinatario: string;
+  nombre: string;
+  numeroRegistro: string;
+  urlValidacion: string;
+  pdfBytes: Uint8Array;
+}) {
+  const correo = String(destinatario || "").trim();
+  if (!correo) throw new Error("El ciudadano no tiene correo electrónico registrado.");
+  if (!process.env.RESEND_DOC_API_KEY) throw new Error("Falta RESEND_DOC_API_KEY.");
+
+  const resend = new Resend(process.env.RESEND_DOC_API_KEY);
+  const nombreSeguro = escaparHtml(nombre);
+  const registroSeguro = escaparHtml(numeroRegistro);
+  const urlSeguro = escaparHtml(urlValidacion);
+  const nombreArchivo = `Constancia_Registro_${numeroRegistro.replace(/[^a-zA-Z0-9_-]/g, "_")}.pdf`;
+  const logoBuffer = await readFile(path.join(process.cwd(), "public", "logo.png"));
+  const texto = `Estimado/a ${nombre},\n\nAdjuntamos su Constancia de Registro Consular firmada. Puede validar su autenticidad en este enlace:\n${urlValidacion}\n\nConsulado General de la República Bolivariana de Venezuela en Barranquilla.\n\nEste mensaje fue generado automáticamente. Por favor, no responda.`;
+  const html = `
+<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0;padding:30px 12px;background:#f3f5f7;font-family:Arial,Helvetica,sans-serif;color:#263238">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:620px;margin:0 auto"><tr><td>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:8px;overflow:hidden;border:1px solid #e5e7eb">
+      <tr><td style="height:5px;background:#cfaa46;font-size:0">&nbsp;</td></tr>
+      <tr><td align="center" style="padding:30px 25px 15px">
+        <img src="cid:logo-consulado" alt="Logo del Consulado General de Venezuela" width="105" style="display:block;max-width:105px;height:auto;border:0;margin:0 auto 18px" />
+        <div style="font-size:17px;font-weight:bold;color:#19385a;line-height:1.5">Consulado General de la República<br>Bolivariana de Venezuela<br>en Barranquilla</div>
+        <div style="width:65px;height:2px;background:#cfaa46;margin:22px auto 0"></div>
+      </td></tr>
+      <tr><td style="padding:15px 35px 35px;font-size:14px;line-height:1.8">
+        <p>Estimado/a <strong>${nombreSeguro}</strong>:</p>
+        <p>Adjuntamos su Constancia de Registro Consular firmada electrónicamente. El documento PDF está incluido en este correo.</p>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f7fa;border-left:3px solid #19385a;margin:25px 0"><tr><td style="padding:15px 20px"><span style="font-size:12px;color:#64748b">NÚMERO DE REGISTRO</span><br><strong style="font-size:19px;color:#19385a">${registroSeguro}</strong></td></tr></table>
+        <p>Para comprobar la autenticidad y el estado de la constancia, use el botón siguiente o escanee el código QR incluido en el PDF:</p>
+        <p style="text-align:center;margin:25px 0"><a href="${urlSeguro}" style="display:inline-block;background:#19385a;color:#fff;text-decoration:none;padding:13px 22px;border-radius:5px;font-size:13px;font-weight:bold">Validar constancia</a></p>
+        <p style="text-align:center;font-size:12px;overflow-wrap:anywhere"><a href="${urlSeguro}" style="color:#19385a">${urlSeguro}</a></p>
+        <p style="color:#64748b">Este mensaje fue generado automáticamente. Por favor, no responda a este correo.</p>
+        <p style="margin-top:30px">Atentamente,</p><p style="color:#19385a;font-weight:bold;line-height:1.6">Consulado General de la República<br>Bolivariana de Venezuela en Barranquilla</p>
+      </td></tr>
+      <tr><td style="background:#f5f7fa;border-top:1px solid #e5e7eb;padding:20px;text-align:center;font-size:11px;line-height:1.7;color:#64748b">Comunicación automática del sistema de Registro Consular.<br>Consulado General de la República Bolivariana de Venezuela en Barranquilla.</td></tr>
+    </table>
+  </td></tr></table>
+</body></html>`.trim();
+  const resultado = await resend.emails.send({
+    from: RESEND_FROM,
+    to: [correo],
+    subject: `Constancia de Registro Consular ${numeroRegistro}`,
+    text: texto,
+    html,
+    attachments: [
+      { filename: nombreArchivo, content: Buffer.from(pdfBytes) },
+      { filename: "logo.png", content: logoBuffer, contentId: "logo-consulado" },
+    ],
+  });
+
+  if (resultado.error) {
+    throw new Error(resultado.error.message || "No fue posible enviar la constancia por correo.");
+  }
+
+  return {
+    ok: true,
+    messageId: resultado.data?.id || null,
+    destinatario: correo,
+  };
+}

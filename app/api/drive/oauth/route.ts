@@ -6,13 +6,19 @@ export async function GET() {
 
   try {
 
+    if (process.env.NODE_ENV !== "development") {
+      return new NextResponse("Este flujo OAuth solo está disponible en desarrollo local.", {
+        status: 403,
+      });
+    }
+
     const clientId =
-      process.env.GMAIL_CLIENT_ID;
+      process.env.GOOGLE_DRIVE_CLIENT_ID;
 
     if (!clientId) {
 
       return new NextResponse(
-        "Falta GMAIL_CLIENT_ID en las variables de entorno.",
+        "Falta GOOGLE_DRIVE_CLIENT_ID en las variables de entorno.",
         {
           status: 500,
         }
@@ -26,7 +32,7 @@ export async function GET() {
     const oauth2Client =
       new google.auth.OAuth2(
         clientId,
-        process.env.GMAIL_CLIENT_SECRET,
+        process.env.GOOGLE_DRIVE_CLIENT_SECRET,
         redirectUri
       );
 
@@ -53,16 +59,20 @@ export async function GET() {
 
       });
 
-    return NextResponse.redirect(
-      authorizationUrl
-    );
+    const response = NextResponse.redirect(authorizationUrl);
+    response.cookies.set("drive_oauth_state", state, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: false,
+      path: "/api/drive/oauth/callback",
+      maxAge: 600,
+    });
+
+    return response;
 
   } catch (error: any) {
 
-    console.error(
-      "ERROR INICIANDO OAUTH DRIVE:",
-      error
-    );
+    console.error("ERROR INICIANDO OAUTH DRIVE");
 
     return new NextResponse(
       "Error iniciando autorización de Google Drive.",

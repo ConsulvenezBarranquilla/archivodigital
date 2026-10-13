@@ -61,6 +61,7 @@ VALIDACIONES
 const TIPOS_PERMITIDOS: Record<string, string[]> = {
   CONSTANCIA_REGISTRO: [
     "PDF_CONSTANCIA",
+    "PDF_FIRMADO",
     "FOTO_CARNET",
   ],
 
@@ -71,6 +72,10 @@ const TIPOS_PERMITIDOS: Record<string, string[]> = {
 
 const MIME_PERMITIDOS: Record<string, string[]> = {
   PDF_CONSTANCIA: [
+    "application/pdf",
+  ],
+
+  PDF_FIRMADO: [
     "application/pdf",
   ],
 
@@ -927,4 +932,47 @@ export async function descargarArchivoDrive(
     response.data as ArrayBuffer
   );
 
+}
+
+/** Guarda un archivo de respaldo en una carpeta dedicada dentro del Drive
+ *  usado por los documentos firmados. */
+export async function subirRespaldoDrive(
+  nombreArchivo: string,
+  contenido: Buffer
+) {
+  if (!GOOGLE_DRIVE_ROOT_FOLDER_ID) {
+    throw new Error("Falta configurar GOOGLE_DRIVE_ROOT_FOLDER_ID.");
+  }
+  if (!nombreArchivo || !contenido.length) {
+    throw new Error("El nombre y el contenido del respaldo son obligatorios.");
+  }
+
+  const carpetaRespaldos = await obtenerOCrearCarpeta(
+    "Respaldos",
+    GOOGLE_DRIVE_ROOT_FOLDER_ID
+  );
+  const nombreSeguroArchivo = nombreSeguro(nombreArchivo);
+  const mimeType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+  const response = await drive.files.create({
+    requestBody: {
+      name: nombreSeguroArchivo,
+      mimeType,
+      parents: [carpetaRespaldos],
+    },
+    media: {
+      mimeType,
+      body: Readable.from(contenido),
+    },
+    fields: "id,name,size,createdTime",
+  });
+
+  if (!response.data.id) {
+    throw new Error(`Drive no devolvió el ID de ${nombreSeguroArchivo}.`);
+  }
+
+  return {
+    id: response.data.id,
+    nombre: response.data.name || nombreSeguroArchivo,
+    creado: response.data.createdTime || new Date().toISOString(),
+  };
 }

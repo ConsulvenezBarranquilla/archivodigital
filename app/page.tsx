@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Image from 'next/image'
 
 export default function Home() {
@@ -40,8 +40,12 @@ export default function Home() {
     setResultado(null)
   }
 
-  async function buscarDocumento() {
-    if (!tipoDocumento || !codigo) {
+  const buscarDocumento = useCallback(async (
+    tipoConsulta: string,
+    codigoConsulta: string,
+    tokenValidacion = ""
+  ) => {
+    if (!tokenValidacion && (!tipoConsulta || !codigoConsulta)) {
       setResultado({
         error: 'Seleccione tipo de documento e ingrese número.'
       })
@@ -58,8 +62,9 @@ export default function Home() {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          tipo: tipoDocumento,
-          codigo: codigo.trim()
+          ...(tokenValidacion
+            ? { token: tokenValidacion }
+            : { tipo: tipoConsulta, codigo: codigoConsulta.trim() })
         })
       })
 
@@ -101,7 +106,26 @@ export default function Home() {
     } finally {
       setCargando(false)
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    const parametros = new URLSearchParams(window.location.search)
+    const token = parametros.get('token') || ''
+    const tipo = parametros.get('tipo') || ''
+    const codigoQR = parametros.get('codigo') || ''
+
+    if (token || (tipo === 'registro' && codigoQR)) {
+      window.history.replaceState({}, '', window.location.pathname)
+      const timer = window.setTimeout(() => {
+        if (!token) {
+          setTipoDocumento(tipo)
+          setCodigo(codigoQR)
+        }
+        void buscarDocumento(tipo, codigoQR, token)
+      }, 0)
+      return () => window.clearTimeout(timer)
+    }
+  }, [buscarDocumento])
 
   return (
     <main className="min-h-screen bg-slate-200">
@@ -197,7 +221,7 @@ export default function Home() {
             />
 
             <button
-              onClick={buscarDocumento}
+              onClick={() => buscarDocumento(tipoDocumento, codigo)}
               className="w-full bg-blue-950 hover:bg-blue-900 text-white font-bold text-xl rounded-2xl p-4"
             >
               {cargando ? 'Buscando...' : 'Buscar Documento'}

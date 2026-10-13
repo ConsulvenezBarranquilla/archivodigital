@@ -33,6 +33,13 @@ export async function GET() {
 
         }
 
+        if (sesion.rol !== "admin") {
+            return NextResponse.json(
+                { ok: false, error: "No tiene permisos para firmar documentos." },
+                { status: 403 }
+            );
+        }
+
         const [
             gestionConsular,
             caja,
@@ -63,12 +70,17 @@ export async function GET() {
                 data
             );
 
-        const pendientes =
+        const documentosFirma =
     documentos
         .filter(
             documento =>
-                documento.estadoProcesamiento ===
-                "PENDIENTE_FIRMA"
+                documento.estadoProcesamiento === "PENDIENTE_FIRMA" ||
+                documento.estadoProcesamiento === "FIRMADO_PENDIENTE_ENVIO" ||
+                documento.estadoProcesamiento === "ENTREGADO" &&
+                documento.categoria === "CONSTANCIA_REGISTRO" &&
+                Boolean(String(documento.pdfConstanciaFirmada || "").trim()) &&
+                Boolean(String(documento.tokenValidacion || "").trim()) &&
+                documento.metodoEntrega === "CORREO"
         )
         .map(documento => {
 
@@ -104,9 +116,9 @@ return NextResponse.json({
 
     ok: true,
 
-    total: pendientes.length,
+    total: documentosFirma.length,
 
-    documentos: pendientes,
+    documentos: documentosFirma,
 
 });
 

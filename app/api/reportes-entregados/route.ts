@@ -244,6 +244,11 @@ export async function GET(
 
                     documento.estadoProcesamiento ===
                     "PROCESADO"
+                    ||
+                    documento.estadoProcesamiento === "RECHAZADA"
+                    ||
+                    (categoria === "CONSTANCIA_REGISTRO" &&
+                        documento.estadoProcesamiento === "FIRMADO_PENDIENTE_ENVIO")
 
             ).length;
 

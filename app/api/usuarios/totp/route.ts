@@ -7,6 +7,7 @@ import {
   generarSecretoTOTP,
   generarURI_TOTP,
   cifrarSecretoTOTP,
+  descifrarSecretoTOTP,
   verificarCodigoTOTP,
 } from "@/lib/totp";
 
@@ -141,6 +142,23 @@ export async function POST(request: Request) {
           {
             ok: false,
             error: "Código de Google Authenticator incorrecto",
+          },
+          { status: 400 }
+        );
+      }
+
+      let secretoCifradoValido = false;
+      try {
+        secretoCifradoValido = descifrarSecretoTOTP(secretoCifrado) === secreto;
+      } catch {
+        secretoCifradoValido = false;
+      }
+
+      if (!secretoCifradoValido) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: "No se pudo confirmar la configuración del autenticador. Iníciela nuevamente.",
           },
           { status: 400 }
         );

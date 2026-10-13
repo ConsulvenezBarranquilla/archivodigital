@@ -13,6 +13,7 @@ import DataTable, {
 } from "@/components/table/DataTable";
 
 import DataTableToolbar from "@/components/table/DataTableToolbar";
+import Link from "next/link";
 
 import {
   obtenerPendientesSGC,
@@ -21,6 +22,17 @@ import {
 import {
   ActuacionPendiente,
 } from "@/types/GestionConsular";
+
+interface DocumentoPendienteFirma {
+  id: string;
+  recibo: string;
+  codigoActuacion?: string;
+  fechaRecibo: string;
+  planillaGC: string;
+  solicitante: string;
+  documento: string;
+  estadoProcesamiento: string;
+}
 
 export default function AdminPage() {
 
@@ -49,6 +61,11 @@ const [
   busquedaPendientes,
   setBusquedaPendientes,
 ] = useState("");
+const [mostrarPendientesFirma, setMostrarPendientesFirma] = useState(false);
+const [cargandoPendientesFirma, setCargandoPendientesFirma] = useState(false);
+const [pendientesFirma, setPendientesFirma] = useState<DocumentoPendienteFirma[]>([]);
+const [busquedaPendientesFirma, setBusquedaPendientesFirma] = useState("");
+const [errorPendientesFirma, setErrorPendientesFirma] = useState("");
 
   const hoy = new Date();
 const [
@@ -156,6 +173,36 @@ useEffect(() => {
 }, [
   cargarPendientes,
 ]);
+
+const cargarPendientesFirma = useCallback(async () => {
+  try {
+    setCargandoPendientesFirma(true);
+    setErrorPendientesFirma("");
+    const respuesta = await fetch("/api/docfirmar", {
+      cache: "no-store",
+      credentials: "include",
+    });
+    const datos = await respuesta.json();
+    if (!respuesta.ok || !datos.ok) {
+      throw new Error(datos.error || "No fue posible cargar los documentos pendientes de firma.");
+    }
+    setPendientesFirma(
+      (Array.isArray(datos.documentos) ? datos.documentos : []).filter(
+        (documento: DocumentoPendienteFirma) => documento.estadoProcesamiento !== "ENTREGADO"
+      )
+    );
+  } catch (error) {
+    console.error("Error cargando documentos pendientes de firma:", error);
+    setErrorPendientesFirma(error instanceof Error ? error.message : "No fue posible cargar los pendientes de firma.");
+  } finally {
+    setCargandoPendientesFirma(false);
+  }
+}, []);
+
+useEffect(() => {
+  cargarPendientesFirma();
+}, [cargarPendientesFirma]);
+
  function togglePendientes() {
 
   setMostrarPendientes(
@@ -163,6 +210,39 @@ useEffect(() => {
   );
 
 }
+const pendientesFirmaFiltrados = useMemo(() => {
+  const texto = busquedaPendientesFirma.trim().toLocaleLowerCase();
+  if (!texto) return pendientesFirma;
+  return pendientesFirma.filter((documento) =>
+    [documento.solicitante, documento.documento, documento.recibo,
+      documento.codigoActuacion, documento.planillaGC, documento.estadoProcesamiento]
+      .some((valor) => String(valor ?? "").toLocaleLowerCase().includes(texto))
+  );
+}, [pendientesFirma, busquedaPendientesFirma]);
+
+const columnasPendientesFirma: TableColumn<DocumentoPendienteFirma>[] = [
+  { field: "codigoActuacion", title: "Actuación", width: "130px" },
+  { field: "fechaRecibo", title: "Fecha", width: "120px" },
+  { field: "solicitante", title: "Ciudadano", width: "250px" },
+  { field: "documento", title: "Documento", width: "150px" },
+  { field: "planillaGC", title: "Planilla", width: "110px" },
+  {
+    field: "estadoProcesamiento",
+    title: "Estado",
+    width: "200px",
+    render: (documento) => (
+      <span className={`rounded-full px-3 py-1 text-xs font-semibold ${documento.estadoProcesamiento === "FIRMADO_PENDIENTE_ENVIO" ? "bg-orange-100 text-orange-800" : "bg-amber-100 text-amber-800"}`}>
+        {documento.estadoProcesamiento === "FIRMADO_PENDIENTE_ENVIO" ? "Firma lista; correo pendiente" : "Pendiente de firma"}
+      </span>
+    ),
+  },
+  {
+    field: "id",
+    title: "Acción",
+    width: "140px",
+    render: () => <Link href="/docfirmar" className="font-semibold text-blue-700 hover:underline">Abrir firma</Link>,
+  },
+];
 const columnasPendientes: TableColumn<ActuacionPendiente>[] = [
 
   {
@@ -566,6 +646,50 @@ const pendientesFiltrados = useMemo(() => {
   )
 }
 
+</div>
+
+<div className="bg-slate-50 rounded-2xl shadow-md p-6 mt-8">
+  <button
+    type="button"
+    onClick={() => setMostrarPendientesFirma((mostrar) => !mostrar)}
+    aria-expanded={mostrarPendientesFirma}
+    className="w-full flex items-center justify-between text-left text-2xl font-bold text-blue-950 hover:text-blue-700"
+  >
+    <span>
+      {mostrarPendientesFirma ? "▼" : "▶"}{" "}
+      Documentos pendientes por firmar
+    </span>
+    <span className="text-lg">({pendientesFirma.length})</span>
+  </button>
+
+  {mostrarPendientesFirma && (
+    <div className="mt-6 space-y-4">
+      <DataTableToolbar
+        busqueda={busquedaPendientesFirma}
+        onBusquedaChange={setBusquedaPendientesFirma}
+        placeholder="Buscar ciudadano, documento, actuación o planilla..."
+      />
+      {cargandoPendientesFirma ? (
+        <div className="bg-white rounded-2xl shadow-md p-8 text-center text-slate-500">
+          Cargando documentos pendientes de firma...
+        </div>
+      ) : errorPendientesFirma ? (
+        <div role="alert" className="bg-red-50 rounded-2xl border border-red-200 p-6 text-center text-red-700">
+          {errorPendientesFirma}
+        </div>
+      ) : pendientesFirmaFiltrados.length === 0 ? (
+        <div className="bg-white rounded-2xl shadow-md p-8 text-center text-slate-500">
+          No hay documentos pendientes por firmar.
+        </div>
+      ) : (
+        <DataTable
+          columns={columnasPendientesFirma}
+          data={pendientesFirmaFiltrados}
+          getRowKey={(row) => row.id}
+        />
+      )}
+    </div>
+  )}
 </div>
 
 <br />

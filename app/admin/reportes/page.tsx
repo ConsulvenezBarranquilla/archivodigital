@@ -11,6 +11,9 @@ import DataTableToolbar from "@/components/table/DataTableToolbar";
 import DataTableActions from "@/components/table/DataTableActions";
 
 export default function ReportesPage() {
+
+  const [reciboEnReenvio, setReciboEnReenvio] = useState("");
+  const [avisoCorreo, setAvisoCorreo] = useState<{ tipo: "ok" | "error"; mensaje: string } | null>(null);
   
   const [periodo, setPeriodo] =
     useState("dia");
@@ -218,6 +221,13 @@ const columnasReportes: TableColumn<any>[] = [
               "/admin/historial";
 
           },
+        },
+
+        {
+          label: reciboEnReenvio === row.recibo ? "Enviando..." : "Reenviar recibo por correo",
+          icon: "✉️",
+          disabled: row.estado !== "GENERADO" || reciboEnReenvio === row.recibo,
+          onClick: () => reenviarReciboPorCorreo(row.recibo),
         },
 
         {
@@ -612,6 +622,37 @@ async function reimprimirRecibo(
 
   }
 
+}
+
+async function reenviarReciboPorCorreo(correlativo: string) {
+  setReciboEnReenvio(correlativo);
+  setAvisoCorreo(null);
+
+  try {
+    const response = await fetch("/api/reenviar-recibo-admin", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ correlativo }),
+    });
+    const data = await response.json();
+
+    if (!response.ok || !data.ok) {
+      throw new Error(data.error || "No fue posible reenviar el recibo.");
+    }
+
+    setAvisoCorreo({
+      tipo: "ok",
+      mensaje: `El recibo ${correlativo} se envió a ${data.destinatario}.`,
+    });
+  } catch (error) {
+    setAvisoCorreo({
+      tipo: "error",
+      mensaje: error instanceof Error ? error.message : "No fue posible reenviar el recibo.",
+    });
+  } finally {
+    setReciboEnReenvio("");
+  }
 }
 return (
 
@@ -1428,6 +1469,15 @@ return (
     data={datosReportes}
     getRowKey={(row, index) => `${row.recibo}-${index}`}
 />
+
+{avisoCorreo && (
+  <div role="status" className={`mt-4 rounded-xl border p-4 text-sm font-medium ${avisoCorreo.tipo === "ok" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-red-200 bg-red-50 text-red-800"}`}>
+    <div className="flex items-start justify-between gap-4">
+      <span>{avisoCorreo.mensaje}</span>
+      <button type="button" onClick={() => setAvisoCorreo(null)} aria-label="Cerrar aviso" className="font-bold">×</button>
+    </div>
+  </div>
+)}
 
       </div>
       

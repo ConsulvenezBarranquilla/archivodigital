@@ -57,6 +57,8 @@ interface EstadoEntrega {
 
     observaciones: string;
 
+    metodoEntrega: NonNullable<ReporteEntregado["metodoEntrega"]>;
+
     fila: number;
 
 }
@@ -202,7 +204,7 @@ export async function GET() {
                     MODULO_CAJA_SHEET_ID,
 
                 range:
-                    "ReportesEntregados!A:BA",
+                    "ReportesEntregados!A:BJ",
 
             });
 
@@ -314,6 +316,9 @@ export async function GET() {
                     row[12] ?? ""
                 );
 
+            const metodoEntrega =
+                String(row[56] ?? "").trim().toUpperCase() as NonNullable<ReporteEntregado["metodoEntrega"]>;
+
             const estado: EstadoEntrega = {
 
                 id,
@@ -327,6 +332,8 @@ export async function GET() {
                 entregadoPor,
 
                 observaciones,
+
+                metodoEntrega,
 
                 fila:
                     i + 1,
@@ -406,6 +413,10 @@ export async function GET() {
 
                 documento => {
 
+                    const filaGestion = gestionConsular.slice(1).find(
+                        fila => String(fila[11] ?? "").trim() === String(documento.id ?? "").trim()
+                    );
+
                     // ------------------------------------------
                     // ID DEL DOCUMENTO
                     // ------------------------------------------
@@ -483,7 +494,10 @@ export async function GET() {
 
                     if (!reporte) {
 
-                        return documento;
+                        return {
+                            ...documento,
+                            codigoActuacion: String(filaGestion?.[1] ?? "").trim().toUpperCase(),
+                        };
 
                     }
 
@@ -494,6 +508,8 @@ export async function GET() {
                     return {
 
                         ...documento,
+
+                        codigoActuacion: String(filaGestion?.[1] ?? "").trim().toUpperCase(),
 
                         entregado:
                             reporte.entregado,
@@ -506,6 +522,9 @@ export async function GET() {
 
                         observaciones:
                             reporte.observaciones,
+
+                        metodoEntrega:
+                            reporte.metodoEntrega,
 
                     };
 

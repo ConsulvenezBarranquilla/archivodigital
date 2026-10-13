@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import {
     validarDocumento,
+    validarDocumentoPorToken,
     TipoValidacion,
 } from "@/lib/validacionDocumentos";
 
@@ -20,6 +21,16 @@ export async function POST(
 
         const body =
             await request.json();
+
+        const token = String(body?.token ?? "").trim();
+
+        if (token) {
+            const resultado = await validarDocumentoPorToken(token);
+            return NextResponse.json({
+                ok: true,
+                ...resultado,
+            });
+        }
 
         const tipo =
             body?.tipo as TipoValidacion;

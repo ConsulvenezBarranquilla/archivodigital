@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { randomUUID } from "node:crypto";
+import QRCode from "qrcode";
 
 import {
   PDFDocument,
@@ -16,6 +18,8 @@ import {
   obtenerGestionConsular,
   obtenerCaja,
   obtenerReportesEntregados,
+  obtenerRegistroConsular,
+  actualizarDatosFirmaConstancia,
 } from "@/lib/googleSheets";
 
 import {
@@ -29,7 +33,12 @@ import {
 
 import {
   descargarArchivoDrive,
+  subirArchivoDrive,
 } from "@/lib/googleDrive";
+import { enviarDocumentoFirmadoPorCorreo } from "@/lib/gmail";
+import type { ReporteEntregado } from "@/types/ReporteEntregado";
+import { descifrarSecretoTOTP, verificarCodigoTOTP } from "@/lib/totp";
+import { obtenerSeguridadUsuario } from "@/lib/seguridadUsuarios";
 
 
 /*------------------------------------------
@@ -41,6 +50,33 @@ const CATEGORIA =
 
 const ESTADO_PENDIENTE =
   "PENDIENTE_FIRMA";
+const ESTADO_FIRMADO_PENDIENTE_ENVIO =
+  "FIRMADO_PENDIENTE_ENVIO";
+
+function normalizarDocumento(valor: unknown) {
+  return String(valor ?? "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
+
+async function obtenerCorreoCiudadano(documento: ReporteEntregado) {
+  const filas = await obtenerRegistroConsular();
+  const clave = normalizarDocumento(documento.documento);
+  const ciudadano = filas.slice(1).find((fila: unknown[]) =>
+    normalizarDocumento(fila[1]) === clave ||
+    normalizarDocumento(fila[14]) === clave
+  );
+
+  if (!ciudadano || !String(ciudadano[11] ?? "").trim()) {
+    throw new Error("No se encontró un correo registrado para el ciudadano.");
+  }
+
+  return {
+    correo: String(ciudadano[11]).trim(),
+    nombre: [ciudadano[2], ciudadano[3], ciudadano[4], ciudadano[5]]
+      .map((valor) => String(valor ?? "").trim())
+      .filter(Boolean)
+      .join(" "),
+  };
+}
 
 
 /*------------------------------------------
@@ -294,6 +330,8 @@ export async function POST(
         ""
       ).trim();
 
+    const accion = String(body?.accion ?? "previsualizar").trim();
+
 
     const idFirma =
       String(
@@ -323,7 +361,7 @@ export async function POST(
     }
 
 
-    if (!idFirma) {
+    if (!['reenviar', 'imprimir'].includes(accion) && !idFirma) {
 
       return NextResponse.json(
         {
@@ -338,7 +376,7 @@ export async function POST(
     }
 
 
-    if (!idSello) {
+    if (!['reenviar', 'imprimir'].includes(accion) && !idSello) {
 
       return NextResponse.json(
         {
@@ -416,6 +454,82 @@ export async function POST(
           status: 404,
         }
       );
+    }
+
+    if (accion === "imprimir") {
+      if (
+        documento.categoria !== CATEGORIA ||
+        documento.estadoProcesamiento !== "ENTREGADO" ||
+        documento.metodoEntrega !== "CORREO" ||
+        !documento.pdfConstanciaFirmada ||
+        !documento.tokenValidacion
+      ) {
+        return NextResponse.json(
+          { ok: false, error: "No se encontró el PDF firmado y enviado." },
+          { status: 404 }
+        );
+      }
+      const pdfFirmado = await descargarArchivoDrive(documento.pdfConstanciaFirmada);
+      return new NextResponse(new Uint8Array(pdfFirmado), {
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `inline; filename="Constancia_Registro_${String(documento.numeroRegistro || documento.id).replace(/[^a-zA-Z0-9_-]/g, "_")}.pdf"`,
+          "Cache-Control": "no-store",
+        },
+      });
+    }
+
+    if (accion === "reenviar") {
+      if (
+        documento.categoria !== CATEGORIA ||
+        ![ESTADO_FIRMADO_PENDIENTE_ENVIO, "ENTREGADO"].includes(documento.estadoProcesamiento) ||
+        !documento.pdfConstanciaFirmada ||
+        !documento.tokenValidacion ||
+        (documento.estadoProcesamiento === "ENTREGADO" && documento.metodoEntrega !== "CORREO")
+      ) {
+        return NextResponse.json(
+          { ok: false, error: "No hay una constancia firmada pendiente de envío." },
+          { status: 409 }
+        );
+      }
+
+      const destinatario = await obtenerCorreoCiudadano(documento);
+      const pdfFirmado = await descargarArchivoDrive(documento.pdfConstanciaFirmada);
+      const tokenReenvio = String(documento.tokenValidacion || "").trim();
+      if (!tokenReenvio) {
+        return NextResponse.json(
+          { ok: false, error: "La constancia no tiene un código de validación. Genere nuevamente el PDF firmado." },
+          { status: 409 }
+        );
+      }
+      const resultadoCorreo = await enviarDocumentoFirmadoPorCorreo({
+        destinatario: destinatario.correo,
+        nombre: destinatario.nombre || documento.solicitante,
+        numeroRegistro: String(documento.numeroRegistro ?? documento.id),
+        urlValidacion: `https://consultaconsulvenezbarranquilla.app/?token=${encodeURIComponent(tokenReenvio)}`,
+        pdfBytes: new Uint8Array(pdfFirmado),
+      });
+      const fechaEnvio = new Date().toISOString();
+
+      await actualizarDatosFirmaConstancia(documento.id, {
+        estadoProcesamiento: "ENTREGADO",
+        entregado: true,
+        fechaEntrega: fechaEnvio,
+        entregadoPor: sesion.usuario,
+        observaciones: "Constancia firmada enviada por correo electrónico.",
+        pdfConstanciaFirmada: documento.pdfConstanciaFirmada,
+        metodoEntrega: "CORREO",
+        fechaEnvioCorreo: fechaEnvio,
+        correoDestino: resultadoCorreo.destinatario,
+        usuarioFirma: documento.usuarioFirma || sesion.usuario,
+        idCorreoEnviado: resultadoCorreo.messageId || "",
+      });
+
+      return NextResponse.json({
+        ok: true,
+        reenvio: true,
+        destinatario: resultadoCorreo.destinatario,
+      });
     }
 
 
@@ -565,6 +679,43 @@ export async function POST(
           status: 400,
         }
       );
+    }
+
+    if (accion === "firmar-enviar") {
+      const codigoTOTP = String(body?.codigoTOTP ?? "").trim();
+      if (!/^\d{6}$/.test(codigoTOTP)) {
+        return NextResponse.json(
+          { ok: false, error: "Ingrese el código vigente de 6 dígitos de Google Authenticator." },
+          { status: 400 }
+        );
+      }
+
+      const seguridad = await obtenerSeguridadUsuario(firma.usuario);
+      if (seguridad?.totpConfigurado !== "SI" || !seguridad.totpSecretCifrado) {
+        return NextResponse.json(
+          { ok: false, error: "Configure Google Authenticator para la cuenta asociada a esta firma desde Usuarios > Authenticator antes de firmar." },
+          { status: 409 }
+        );
+      }
+
+      let codigoValido = false;
+      try {
+        const secretoTOTP = descifrarSecretoTOTP(seguridad.totpSecretCifrado);
+        codigoValido = await verificarCodigoTOTP(secretoTOTP, codigoTOTP);
+      } catch (error) {
+        console.error("No fue posible validar el autenticador asociado a la firma.", error);
+        return NextResponse.json(
+          { ok: false, error: "No fue posible validar Google Authenticator. Revise la configuración del usuario." },
+          { status: 500 }
+        );
+      }
+
+      if (!codigoValido) {
+        return NextResponse.json(
+          { ok: false, error: "El código de Google Authenticator es incorrecto o venció." },
+          { status: 401 }
+        );
+      }
     }
 
 
@@ -970,6 +1121,13 @@ const selloY =
           ""
       ).trim();
 
+    if (accion === "firmar-enviar" && !numeroRegistroConsular) {
+      return NextResponse.json(
+        { ok: false, error: "La constancia no tiene número de registro para generar el QR." },
+        { status: 400 }
+      );
+    }
+
     const textoLegal =
       "Documento firmado electrónicamente con el mismo valor probatorio que la Ley otorga a los documentos escritos, según Gaceta Oficial N° 37.076, del 13 de diciembre de 2000 de la Ley de Mensajes de Datos y Firmas Electrónicas, artículo N° 4.\n" +
       `Para validar la autenticidad de este documento ingrese este código: ${numeroRegistroConsular} en\n` +
@@ -1042,6 +1200,37 @@ const selloY =
 
     }
 
+    const esFirmaFinal = accion === "firmar-enviar";
+    const tokenValidacion = esFirmaFinal
+      ? randomUUID()
+      : "";
+    const urlValidacion = esFirmaFinal
+      ? `https://consultaconsulvenezbarranquilla.app/?token=${encodeURIComponent(tokenValidacion)}`
+      : "";
+
+    if (esFirmaFinal) {
+      const qrPng = await QRCode.toBuffer(urlValidacion, {
+        type: "png",
+        errorCorrectionLevel: "M",
+        margin: 1,
+        width: 240,
+      });
+      const qrImage = await pdf.embedPng(new Uint8Array(qrPng));
+      pagina.drawImage(qrImage, {
+        x: width - 88,
+        y: 78,
+        width: 64,
+        height: 64,
+      });
+      pagina.drawText("Escanee para validar", {
+        x: width - 103,
+        y: 69,
+        size: 5.5,
+        font: fuenteCursiva,
+        color: rgb(0.18, 0.18, 0.18),
+      });
+    }
+
     /*--------------------------------------
     GENERAR IDENTIFICADOR DE PREVISUALIZACIÓN
     --------------------------------------*/
@@ -1077,6 +1266,59 @@ const selloY =
 
     const pdfBytes =
       await pdf.save();
+
+    if (esFirmaFinal) {
+      const destinatario = await obtenerCorreoCiudadano(documento);
+      const archivo = new File(
+        [Buffer.from(pdfBytes) as unknown as BlobPart],
+        `Constancia_Registro_${documento.numeroRegistro || documento.id}.pdf`,
+        { type: "application/pdf" }
+      );
+      const subida = await subirArchivoDrive({
+        archivo,
+        categoria: CATEGORIA,
+        tipoArchivo: "PDF_FIRMADO",
+        documentoId: documento.id,
+      });
+
+      await actualizarDatosFirmaConstancia(documento.id, {
+        estadoProcesamiento: ESTADO_FIRMADO_PENDIENTE_ENVIO,
+        entregado: false,
+        pdfConstanciaFirmada: subida.id,
+        usuarioFirma: sesion.usuario,
+        tokenValidacion,
+      });
+
+      const resultadoCorreo = await enviarDocumentoFirmadoPorCorreo({
+        destinatario: destinatario.correo,
+        nombre: destinatario.nombre || documento.solicitante,
+        numeroRegistro: String(documento.numeroRegistro ?? documento.id),
+        urlValidacion,
+        pdfBytes: new Uint8Array(pdfBytes),
+      });
+      const fechaEnvio = new Date().toISOString();
+
+      await actualizarDatosFirmaConstancia(documento.id, {
+        estadoProcesamiento: "ENTREGADO",
+        entregado: true,
+        fechaEntrega: fechaEnvio,
+        entregadoPor: sesion.usuario,
+        observaciones: "Constancia firmada enviada por correo electrónico.",
+        pdfConstanciaFirmada: subida.id,
+        metodoEntrega: "CORREO",
+        fechaEnvioCorreo: fechaEnvio,
+        correoDestino: resultadoCorreo.destinatario,
+        usuarioFirma: sesion.usuario,
+        idCorreoEnviado: resultadoCorreo.messageId || "",
+        tokenValidacion,
+      });
+
+      return NextResponse.json({
+        ok: true,
+        destinatario: resultadoCorreo.destinatario,
+        messageId: resultadoCorreo.messageId,
+      });
+    }
 
 
     /*--------------------------------------

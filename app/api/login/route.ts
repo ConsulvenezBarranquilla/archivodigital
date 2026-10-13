@@ -70,19 +70,16 @@ export async function POST(req: NextRequest) {
       .trim()
       .toLowerCase();
 
-    /*
-     * La caja no se obtiene de la hoja UsuariosCaja.
-     *
-     * Los usuarios con rol "caja" y "admin"
-     * seleccionan la caja posteriormente desde
-     * la pantalla de ingreso.
-     */
+    // El administrador entra automáticamente por Caja 1.
+    // Puede cambiar de caja más adelante desde el módulo Caja.
+    const caja = rol === "admin" ? "Caja 1" : undefined;
 
     const sesionCreada =
       await crearSesion({
         usuario,
         nombre,
         rol,
+        caja,
       });
 
     if (!sesionCreada) {
@@ -101,6 +98,7 @@ export async function POST(req: NextRequest) {
       usuario,
       nombre,
       rol,
+      ...(caja ? { caja } : {}),
     });
   } catch (error) {
     console.error("Error en login:", error);

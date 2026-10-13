@@ -88,6 +88,18 @@ const ETIQUETAS_CATEGORIA:
 
 };
 
+const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+
+function anioDeFecha(fecha: string | undefined): number | null {
+    const valor = String(fecha ?? "").trim();
+    const iso = valor.match(/^(\d{4})[-/]/);
+    if (iso) return Number(iso[1]);
+    const diaMesAnio = valor.match(/^\d{1,2}[/-]\d{1,2}[/-](\d{4})/);
+    if (diaMesAnio) return Number(diaMesAnio[1]);
+    const parsed = new Date(valor);
+    return Number.isNaN(parsed.getTime()) ? null : parsed.getFullYear();
+}
+
 // ======================================================
 // Página
 // ======================================================
@@ -149,6 +161,13 @@ export default function EntregaPage() {
         filtroNombre,
         setFiltroNombre,
     ] = useState("");
+
+    const [filtroMes, setFiltroMes] = useState("");
+    const [filtroEdad, setFiltroEdad] = useState<"TODOS" | "NNA" | "ADULTO">("TODOS");
+    const [anioFiltro, setAnioFiltro] = useState(String(new Date().getFullYear()));
+    const aniosDisponibles = useMemo(() => Array.from(new Set([new Date().getFullYear(), ...documentos
+        .map(documento => anioDeFecha(documento.fechaRecibo))
+        .filter((anio): anio is number => anio !== null)])).sort((a, b) => b - a), [documentos]);
 
     // ==================================================
     // FILTRO POR CATEGORÍA
@@ -434,6 +453,18 @@ const [
 
     }
 
+    function claveMes(fecha: string | undefined): string {
+        const valor = String(fecha ?? "").trim();
+        const iso = valor.match(/^(\d{4})[-/](\d{1,2})/);
+        if (iso) return `${iso[1]}-${iso[2].padStart(2, "0")}`;
+        const diaMesAnio = valor.match(/^\d{1,2}[/-](\d{1,2})[/-](\d{4})/);
+        if (diaMesAnio) return `${diaMesAnio[2]}-${diaMesAnio[1].padStart(2, "0")}`;
+        const fechaParseada = new Date(valor);
+        return Number.isNaN(fechaParseada.getTime())
+            ? ""
+            : `${fechaParseada.getFullYear()}-${String(fechaParseada.getMonth() + 1).padStart(2, "0")}`;
+    }
+
     // ==================================================
     // OBTENER TITULAR PARA MOSTRAR
     // ==================================================
@@ -551,8 +582,9 @@ const documentosFiltradosBase =
 
         }
 
-        let resultado =
-            [...documentos];
+        let resultado = documentos.filter(documento =>
+            anioDeFecha(documento.fechaRecibo) === Number(anioFiltro)
+        );
 
         // ==================================================
         // BUSCAR POR NOMBRE
@@ -676,6 +708,17 @@ const documentosFiltradosBase =
 
         }
 
+        if (filtroMes) {
+            resultado = resultado.filter(documento => claveMes(documento.fechaRecibo).endsWith(`-${filtroMes}`));
+        }
+
+        if (filtroEdad !== "TODOS") {
+            resultado = resultado.filter(documento => {
+                const esNna = String(documento.codigoActuacion ?? "").toUpperCase().includes("NNA") || documento.tipoDocumento === "PASAPORTE_NNA";
+                return filtroEdad === "NNA" ? esNna : !esNna;
+            });
+        }
+
         return resultado;
 
     }, [
@@ -689,6 +732,12 @@ const documentosFiltradosBase =
         filtroNombre,
 
         categoria,
+
+        anioFiltro,
+
+        filtroMes,
+
+        filtroEdad,
 
     ]);
 
@@ -800,6 +849,9 @@ const totalEntregados =
         "TODOS"
     );
 
+    setFiltroMes("");
+    setFiltroEdad("TODOS");
+
     setFiltroEstado(
         "TODOS"
     );
@@ -823,6 +875,9 @@ const totalEntregados =
     setCategoria(
         "TODOS"
     );
+
+    setFiltroMes("");
+    setFiltroEdad("TODOS");
 
     setFiltroEstado(
         "TODOS"
@@ -1170,9 +1225,16 @@ function alternarFiltroEstado(
                         // ENTREGADO
                         // ==================================
 
-                        if (
-                            documento.entregado
-                        ) {
+                        if (documento.entregado && documento.metodoEntrega === "CORREO") {
+
+                            return (
+                                <span className="inline-flex items-center justify-center px-4 py-2 rounded-xl bg-violet-600 text-white font-semibold whitespace-nowrap">
+                                    Enviado por Correo
+                                </span>
+                            );
+                        }
+
+                        if (documento.entregado) {
 
                             return (
 
@@ -1270,6 +1332,18 @@ function alternarFiltroEstado(
             "-",
 
 },
+{
+    field: "fechaEntrega",
+    title: "Fecha de entrega",
+    render: documento => {
+        const fecha = String(documento.fechaEntrega || documento.fechaEnvioCorreo || "").trim();
+        if (!fecha) return "-";
+        const iso = fecha.match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (iso) return `${iso[3]}/${iso[2]}/${iso[1]}`;
+        const diaMesAnio = fecha.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})/);
+        return diaMesAnio ? `${diaMesAnio[1].padStart(2, "0")}/${diaMesAnio[2].padStart(2, "0")}/${diaMesAnio[3]}` : fecha;
+    },
+},
         ];
 
     // ==================================================
@@ -1298,7 +1372,9 @@ function alternarFiltroEstado(
                     ENCABEZADO
                 ======================================= */}
 
-                <div>
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+
+                    <div>
 
                     <h1 className="
                         text-2xl
@@ -1319,6 +1395,15 @@ function alternarFiltroEstado(
                         de documentos procesados.
 
                     </p>
+
+                    </div>
+
+                    <label className="flex shrink-0 items-center gap-3 text-sm font-semibold text-slate-700">
+                        Año
+                        <select value={anioFiltro} onChange={e => setAnioFiltro(e.target.value)} disabled={cargando} className="min-w-28 rounded-xl border border-slate-300 bg-white px-4 py-2 font-semibold outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-100">
+                            {(aniosDisponibles.length ? aniosDisponibles : [new Date().getFullYear()]).map(anio => <option key={anio} value={anio}>{anio}</option>)}
+                        </select>
+                    </label>
 
                 </div>
 
@@ -1675,7 +1760,7 @@ function alternarFiltroEstado(
                                 mt-5
                                 grid
                                 grid-cols-1
-                                md:grid-cols-3
+                                md:grid-cols-5
                                 gap-4
                             ">
 
@@ -1861,6 +1946,23 @@ function alternarFiltroEstado(
 
                                     </select>
 
+                                </div>
+
+                                <div>
+                                    <label className="mb-2 block text-sm font-semibold">Mes del documento</label>
+                                    <select value={filtroMes} onChange={e => setFiltroMes(e.target.value)} className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500">
+                                        <option value="">Todos los meses</option>
+                                        {MESES.map((mes, indice) => <option key={mes} value={String(indice + 1).padStart(2, "0")}>{mes}</option>)}
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="mb-2 block text-sm font-semibold">Actuación</label>
+                                    <select value={filtroEdad} onChange={e => setFiltroEdad(e.target.value as "TODOS" | "NNA" | "ADULTO")} className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500">
+                                        <option value="TODOS">NNA y Adulto</option>
+                                        <option value="NNA">NNA</option>
+                                        <option value="ADULTO">Adulto</option>
+                                    </select>
                                 </div>
 
                             </div>

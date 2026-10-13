@@ -20,6 +20,8 @@ export default function ConfiguracionPage() {
     cargando,
     setCargando,
   ] = useState(true);
+  const [guardandoRespaldo, setGuardandoRespaldo] = useState(false);
+  const [mensajeRespaldo, setMensajeRespaldo] = useState("");
 
   useEffect(() => {
 
@@ -66,47 +68,37 @@ export default function ConfiguracionPage() {
   }
 
   async function generarBackup() {
-
-  const response =
-    await fetch(
-      "/api/backup-excel"
-    );
-
-  const blob =
-    await response.blob();
-
-  const url =
-    window.URL.createObjectURL(
-      blob
-    );
-
-  const a =
-    document.createElement("a");
-
-  a.href = url;
-
-  const disposition =
-    response.headers.get(
-      "Content-Disposition"
-    );
-
-  const nombreArchivo =
-    disposition
-      ?.match(/filename="?([^"]+)"?/)?.[1] ||
-    "Backup_Sistema_Consular.xlsx";
-
-  a.download =
-    nombreArchivo;
-
-  document.body.appendChild(a);
-
-  a.click();
-
-  a.remove();
-
-  window.URL.revokeObjectURL(url);
-
-}
+    try {
+      setGuardandoRespaldo(true);
+      setMensajeRespaldo("");
+      const response = await fetch("/api/backup-excel", {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        throw new Error(data?.error || "No fue posible guardar el respaldo.");
+      }
+      const archivoZip = await response.blob();
+      const url = window.URL.createObjectURL(archivoZip);
+      const enlace = document.createElement("a");
+      const disposition = response.headers.get("Content-Disposition");
+      enlace.href = url;
+      enlace.download = disposition?.match(/filename="?([^\"]+)"?/)?.[1]
+        || "Backup_Sistema_Consular.zip";
+      document.body.appendChild(enlace);
+      enlace.click();
+      enlace.remove();
+      window.setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+      setMensajeRespaldo("Los dos libros se guardaron en Google Drive y se descargó una copia local en esta computadora.");
+    } catch (error) {
+      setMensajeRespaldo(
+        error instanceof Error ? error.message : "No fue posible guardar el respaldo."
+      );
+    } finally {
+      setGuardandoRespaldo(false);
+    }
+  }
   async function guardarConfiguracion() {
 
     try {
@@ -178,6 +170,8 @@ export default function ConfiguracionPage() {
 />
 <RespaldoCard
     generarBackup={generarBackup}
+    guardando={guardandoRespaldo}
+    mensaje={mensajeRespaldo}
 />
 </SistemaLayout>    
   );

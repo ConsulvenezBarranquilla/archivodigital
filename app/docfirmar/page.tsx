@@ -50,6 +50,8 @@ interface Documento {
 
     fechaRecibo: string;
 
+    fechaEntrega?: string;
+
     planillaGC: string;
 
     solicitante: string;
@@ -60,8 +62,24 @@ interface Documento {
 
     pdfConstanciaRegistro?: string;
 
+    pdfConstanciaFirmada?: string;
+
+    usuarioFirma?: string;
+
     fotoCarnet?: string;
 
+    correoDestino?: string;
+
+}
+
+function anioDeFecha(fecha: string | undefined): number | null {
+    const valor = String(fecha ?? "").trim();
+    const iso = valor.match(/^(\d{4})[-/]/);
+    if (iso) return Number(iso[1]);
+    const diaMesAnio = valor.match(/^\d{1,2}[/-]\d{1,2}[/-](\d{4})/);
+    if (diaMesAnio) return Number(diaMesAnio[1]);
+    const parsed = new Date(valor);
+    return Number.isNaN(parsed.getTime()) ? null : parsed.getFullYear();
 }
 
 export default function DocFirmarPage() {
@@ -120,6 +138,17 @@ export default function DocFirmarPage() {
         pdfPrevisualizacionUrl,
         setPdfPrevisualizacionUrl,
     ] = useState("");
+    const [previsualizacionLista, setPrevisualizacionLista] = useState(false);
+    const [enviandoCorreo, setEnviandoCorreo] = useState(false);
+    const [solicitandoTotp, setSolicitandoTotp] = useState(false);
+    const [codigoTotp, setCodigoTotp] = useState("");
+    const [correoEnviado, setCorreoEnviado] = useState("");
+    const [vistaLista, setVistaLista] = useState<"PENDIENTES" | "FIRMADOS">("PENDIENTES");
+    const [accionDocumentoId, setAccionDocumentoId] = useState("");
+    const [anioFiltro, setAnioFiltro] = useState(String(new Date().getFullYear()));
+    const aniosDisponibles = Array.from(new Set([new Date().getFullYear(), ...documentos
+        .map(documento => anioDeFecha(documento.fechaRecibo))
+        .filter((anio): anio is number => anio !== null)])).sort((a, b) => b - a);
     const ventanaPrevisualizacionRef =
         useRef<Window | null>(null);
 
@@ -337,6 +366,7 @@ export default function DocFirmarPage() {
         }
 
         setPdfPrevisualizacionUrl("");
+        setPrevisualizacionLista(false);
 
         setIdFirmaSeleccionada(
             firmas[0]?.idFirma || ""
@@ -357,8 +387,11 @@ export default function DocFirmarPage() {
         }
 
         setPdfPrevisualizacionUrl("");
+        setPrevisualizacionLista(false);
         setErrorPrevisualizacion("");
         setDocumentoSeleccionado(null);
+        setSolicitandoTotp(false);
+        setCodigoTotp("");
 
     }
 
@@ -507,6 +540,7 @@ export default function DocFirmarPage() {
                 URL.createObjectURL(blob);
 
             setPdfPrevisualizacionUrl(url);
+            setPrevisualizacionLista(true);
 
             /*
              * El PDF se abre directamente en la nueva pestaña.
@@ -547,6 +581,110 @@ export default function DocFirmarPage() {
 
     }
 
+    async function firmarYEnviar(codigoTOTP = "") {
+        if (!documentoSeleccionado) return;
+
+        const reintentar =
+            documentoSeleccionado.estadoProcesamiento === "FIRMADO_PENDIENTE_ENVIO";
+
+        if (!reintentar && !previsualizacionLista) {
+            setErrorPrevisualizacion("Primero genere y revise la previsualización.");
+            return;
+        }
+
+        if (!reintentar && !codigoTOTP) {
+            setSolicitandoTotp(true);
+            setErrorPrevisualizacion("");
+            return;
+        }
+
+        if (!reintentar && !/^\d{6}$/.test(codigoTOTP)) {
+            setErrorPrevisualizacion("Ingrese el código vigente de 6 dígitos de Google Authenticator.");
+            return;
+        }
+
+        setEnviandoCorreo(true);
+        setErrorPrevisualizacion("");
+
+        try {
+            const response = await fetch("/api/docfirmar/generar-pdf", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
+                body: JSON.stringify({
+                    accion: reintentar ? "reenviar" : "firmar-enviar",
+                    documentoId: documentoSeleccionado.id,
+                    idFirma: idFirmaSeleccionada,
+                    idSello: idSelloSeleccionado,
+                    ...(reintentar ? {} : { codigoTOTP }),
+                }),
+            });
+
+            const resultado = await response.json();
+            if (!response.ok || !resultado.ok) {
+                throw new Error(resultado.error || "No fue posible completar el envío.");
+            }
+
+            setCorreoEnviado(String(resultado.destinatario || ""));
+            setSolicitandoTotp(false);
+            setCodigoTotp("");
+            cerrarDocumento();
+            await cargarDocumentos();
+        } catch (error: unknown) {
+            setErrorPrevisualizacion(error instanceof Error ? error.message : "No fue posible enviar la constancia.");
+            await cargarDocumentos();
+        } finally {
+            setEnviandoCorreo(false);
+        }
+    }
+
+    async function abrirPdfFirmado(documento: Documento) {
+        setAccionDocumentoId(documento.id);
+        try {
+            const response = await fetch("/api/docfirmar/generar-pdf", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
+                body: JSON.stringify({ accion: "imprimir", documentoId: documento.id }),
+            });
+            if (!response.ok) {
+                const data = await response.json();
+                throw new Error(data.error || "No fue posible abrir el PDF firmado.");
+            }
+            const url = URL.createObjectURL(await response.blob());
+            const ventana = window.open(url, "_blank");
+            if (!ventana) {
+                URL.revokeObjectURL(url);
+                throw new Error("El navegador bloqueó la ventana del PDF. Permita ventanas emergentes e inténtelo nuevamente.");
+            }
+            window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+        } catch (error) {
+            setErrorPrevisualizacion(error instanceof Error ? error.message : "No fue posible abrir el PDF firmado.");
+        } finally {
+            setAccionDocumentoId("");
+        }
+    }
+
+    async function reenviarPdfFirmado(documento: Documento) {
+        setAccionDocumentoId(documento.id);
+        try {
+            const response = await fetch("/api/docfirmar/generar-pdf", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
+                body: JSON.stringify({ accion: "reenviar", documentoId: documento.id }),
+            });
+            const resultado = await response.json();
+            if (!response.ok || !resultado.ok) throw new Error(resultado.error || "No fue posible reenviar la constancia.");
+            setCorreoEnviado(String(resultado.destinatario || documento.correoDestino || ""));
+            await cargarDocumentos();
+        } catch (error) {
+            setError(error instanceof Error ? error.message : "No fue posible reenviar la constancia.");
+        } finally {
+            setAccionDocumentoId("");
+        }
+    }
+
     // ==================================================
     // RENDER
     // ==================================================
@@ -559,6 +697,27 @@ export default function DocFirmarPage() {
         >
 
             <div className="space-y-6">
+
+                {correoEnviado && (
+                    <div
+                        role="status"
+                        className="fixed bottom-6 right-6 z-[120] w-[min(92vw,440px)] rounded-2xl border border-emerald-200 bg-white p-5 shadow-2xl"
+                    >
+                        <div className="flex items-start gap-4">
+                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-xl text-emerald-700" aria-hidden="true">
+                                ✓
+                            </div>
+                            <div className="min-w-0 flex-1">
+                                <h2 className="font-bold text-slate-900">Constancia enviada</h2>
+                                <p className="mt-1 text-sm leading-6 text-slate-600">
+                                    El documento firmado fue enviado por correo a <strong className="break-all text-slate-800">{correoEnviado}</strong>.
+                                </p>
+                                <p className="mt-2 text-xs text-slate-500">El estado del documento se actualizó a “Entregado”.</p>
+                            </div>
+                            <button type="button" onClick={() => setCorreoEnviado("")} aria-label="Cerrar confirmación" className="rounded-lg px-2 py-1 text-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700">×</button>
+                        </div>
+                    </div>
+                )}
 
                 {/* ==========================================
                     CABECERA DEL MÓDULO
@@ -595,7 +754,7 @@ export default function DocFirmarPage() {
                                     text-blue-950
                                 "
                             >
-                                ✍ Documentos para Firma
+                                {vistaLista === "PENDIENTES" ? "✍ Documentos para Firma" : "Documentos Firmados"}
                             </h2>
 
                             <p
@@ -604,9 +763,9 @@ export default function DocFirmarPage() {
                                     text-slate-600
                                 "
                             >
-                                Revisión y autorización de
-                                documentos
-                                pendientes de firma.
+                                {vistaLista === "PENDIENTES"
+                                    ? "Revise, firme y envíe las constancias pendientes."
+                                    : "Consulte, imprima o reenvíe constancias firmadas."}
                             </p>
 
                         </div>
@@ -633,11 +792,18 @@ export default function DocFirmarPage() {
                                     whitespace-nowrap
                                 "
                             >
-                                ⚠ {documentos.length}{" "}
-                                {documentos.length === 1
-                                    ? "pendiente"
-                                    : "pendientes"}
+                                {vistaLista === "PENDIENTES"
+                                    ? documentos.filter(d => d.estadoProcesamiento !== "ENTREGADO" && anioDeFecha(d.fechaRecibo) === Number(anioFiltro)).length
+                                    : documentos.filter(d => d.estadoProcesamiento === "ENTREGADO" && anioDeFecha(d.fechaRecibo) === Number(anioFiltro)).length}{" "}
+                                {vistaLista === "PENDIENTES" ? "pendientes" : "firmados"}
                             </div>
+
+                            <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                                Año
+                                <select value={anioFiltro} onChange={e => setAnioFiltro(e.target.value)} disabled={cargando} className="min-w-28 rounded-xl border border-slate-300 bg-white px-3 py-2 font-semibold outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-100">
+                                    {(aniosDisponibles.length ? aniosDisponibles : [new Date().getFullYear()]).map(anio => <option key={anio} value={anio}>{anio}</option>)}
+                                </select>
+                            </label>
 
                             <button
                                 type="button"
@@ -713,6 +879,11 @@ export default function DocFirmarPage() {
                     CONTENIDO
                 =========================================== */}
 
+                <div className="flex gap-2 border-b border-slate-200 px-2">
+                    <button type="button" onClick={() => setVistaLista("PENDIENTES")} className={`border-b-2 px-4 py-3 text-sm font-semibold ${vistaLista === "PENDIENTES" ? "border-blue-700 text-blue-800" : "border-transparent text-slate-500"}`}>Pendientes de firma</button>
+                    <button type="button" onClick={() => setVistaLista("FIRMADOS")} className={`border-b-2 px-4 py-3 text-sm font-semibold ${vistaLista === "FIRMADOS" ? "border-emerald-600 text-emerald-700" : "border-transparent text-slate-500"}`}>Firmados y enviados</button>
+                </div>
+
                 <div
                     className="
                         bg-white
@@ -751,7 +922,7 @@ export default function DocFirmarPage() {
 
                         </div>
 
-                    ) : documentos.length === 0 ? (
+                    ) : documentos.filter(d => (vistaLista === "FIRMADOS" ? d.estadoProcesamiento === "ENTREGADO" : d.estadoProcesamiento !== "ENTREGADO") && anioDeFecha(d.fechaRecibo) === Number(anioFiltro)).length === 0 ? (
 
                         <div
                             className="
@@ -777,7 +948,7 @@ export default function DocFirmarPage() {
                                     text-slate-700
                                 "
                             >
-                                No hay documentos pendientes de firma
+                                {vistaLista === "PENDIENTES" ? "No hay documentos pendientes de firma" : "No hay documentos firmados y enviados"}
                             </div>
 
                             <div
@@ -927,7 +1098,7 @@ export default function DocFirmarPage() {
 
                                 <tbody>
 
-                                    {documentos.map(
+                                    {documentos.filter(d => (vistaLista === "FIRMADOS" ? d.estadoProcesamiento === "ENTREGADO" : d.estadoProcesamiento !== "ENTREGADO") && anioDeFecha(d.fechaRecibo) === Number(anioFiltro)).map(
                                         documento => (
 
                                             <tr
@@ -1015,20 +1186,19 @@ export default function DocFirmarPage() {
                                                 >
 
                                                     <span
-                                                        className="
+                                                        className={`
                                                             inline-flex
                                                             items-center
                                                             px-3
                                                             py-1.5
                                                             rounded-full
-                                                            bg-amber-100
-                                                            text-amber-800
+                                                            ${documento.estadoProcesamiento === "ENTREGADO" ? "bg-emerald-100 text-emerald-800" : documento.estadoProcesamiento === "FIRMADO_PENDIENTE_ENVIO" ? "bg-orange-100 text-orange-800" : "bg-amber-100 text-amber-800"}
                                                             text-xs
                                                             font-bold
                                                             whitespace-nowrap
-                                                        "
+                                                        `}
                                                     >
-                                                        ⚠ Pendiente de Firma
+                                                        {documento.estadoProcesamiento === "ENTREGADO" ? "Enviado por correo" : documento.estadoProcesamiento === "FIRMADO_PENDIENTE_ENVIO" ? "Firma lista; correo pendiente" : "⚠ Pendiente de Firma"}
                                                     </span>
 
                                                 </td>
@@ -1041,7 +1211,12 @@ export default function DocFirmarPage() {
                                                     "
                                                 >
 
-                                                    <button
+                                                    {vistaLista === "FIRMADOS" ? (
+                                                        <div className="flex flex-wrap justify-center gap-2">
+                                                            <button type="button" disabled={accionDocumentoId === documento.id} onClick={() => abrirPdfFirmado(documento)} className="rounded-xl bg-blue-600 px-3 py-2 font-semibold text-white hover:bg-blue-700 disabled:opacity-50">{accionDocumentoId === documento.id ? "Abriendo…" : "Imprimir PDF"}</button>
+                                                            <button type="button" disabled={accionDocumentoId === documento.id} onClick={() => reenviarPdfFirmado(documento)} className="rounded-xl bg-violet-600 px-3 py-2 font-semibold text-white hover:bg-violet-700 disabled:opacity-50">Reenviar correo</button>
+                                                        </div>
+                                                    ) : <button
                                                         type="button"
                                                         onClick={() =>
                                                             abrirDocumento(
@@ -1060,8 +1235,8 @@ export default function DocFirmarPage() {
                                                             whitespace-nowrap
                                                         "
                                                     >
-                                                        👁 Revisar
-                                                    </button>
+                                                        {documento.estadoProcesamiento === "FIRMADO_PENDIENTE_ENVIO" ? "Reintentar envío" : "👁 Revisar"}
+                                                    </button>}
 
                                                 </td>
 
@@ -1437,11 +1612,12 @@ export default function DocFirmarPage() {
 
                                                 <select
                                                     value={idFirmaSeleccionada}
-                                                    onChange={(event) =>
+                                                    onChange={(event) => {
                                                         setIdFirmaSeleccionada(
                                                             event.target.value
-                                                        )
-                                                    }
+                                                        );
+                                                        setPrevisualizacionLista(false);
+                                                    }}
                                                     disabled={
                                                         generandoPrevisualizacion ||
                                                         firmas.length === 0
@@ -1498,11 +1674,12 @@ export default function DocFirmarPage() {
 
                                                 <select
                                                     value={idSelloSeleccionado}
-                                                    onChange={(event) =>
+                                                    onChange={(event) => {
                                                         setIdSelloSeleccionado(
                                                             event.target.value
-                                                        )
-                                                    }
+                                                        );
+                                                        setPrevisualizacionLista(false);
+                                                    }}
                                                     disabled={
                                                         generandoPrevisualizacion ||
                                                         sellos.length === 0
@@ -1637,6 +1814,7 @@ export default function DocFirmarPage() {
                                 <div
                                     className="
                                         flex
+                                        flex-wrap
                                         items-center
                                         gap-3
                                     "
@@ -1649,6 +1827,7 @@ export default function DocFirmarPage() {
                                         }
                                         disabled={
                                             generandoPrevisualizacion ||
+                                            documentoSeleccionado.estadoProcesamiento === "FIRMADO_PENDIENTE_ENVIO" ||
                                             !idFirmaSeleccionada ||
                                             !idSelloSeleccionado
                                         }
@@ -1669,6 +1848,34 @@ export default function DocFirmarPage() {
                                             ? "⏳ Generando..."
                                             : "✍ Generar previsualización"}
                                     </button>
+
+                                    {documentoSeleccionado.estadoProcesamiento === "FIRMADO_PENDIENTE_ENVIO" && (
+                                        <button
+                                            type="button"
+                                            onClick={() => firmarYEnviar()}
+                                            disabled={enviandoCorreo || generandoPrevisualizacion}
+                                            className="px-5 py-2.5 rounded-xl bg-emerald-600 text-white font-semibold hover:bg-emerald-700 disabled:opacity-50 transition"
+                                        >
+                                            {enviandoCorreo
+                                                ? "Enviando..."
+                                                : "Reintentar envío"}
+                                        </button>
+                                    )}
+
+                                    {previsualizacionLista && documentoSeleccionado.estadoProcesamiento !== "FIRMADO_PENDIENTE_ENVIO" && !solicitandoTotp && (
+                                        <button type="button" onClick={() => firmarYEnviar()} disabled={enviandoCorreo || generandoPrevisualizacion} className="rounded-xl bg-emerald-600 px-5 py-2.5 font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50">
+                                            Firmar y enviar por correo
+                                        </button>
+                                    )}
+
+                                    {solicitandoTotp && (
+                                        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3">
+                                            <label htmlFor="codigo-totp-firma" className="text-sm font-semibold text-slate-700">Código de Google Authenticator</label>
+                                            <input id="codigo-totp-firma" type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={codigoTotp} onChange={event => setCodigoTotp(event.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="000000" className="w-28 rounded-lg border border-slate-300 bg-white px-3 py-2 text-center font-mono text-lg tracking-widest outline-none focus:ring-2 focus:ring-amber-400" />
+                                            <button type="button" onClick={() => firmarYEnviar(codigoTotp)} disabled={codigoTotp.length !== 6 || enviandoCorreo} className="rounded-lg bg-emerald-600 px-4 py-2 font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">{enviandoCorreo ? "Validando…" : "Confirmar firma"}</button>
+                                            <button type="button" onClick={() => { setSolicitandoTotp(false); setCodigoTotp(""); }} disabled={enviandoCorreo} className="rounded-lg border border-slate-300 bg-white px-4 py-2 font-semibold text-slate-700">Cancelar</button>
+                                        </div>
+                                    )}
 
                                     <button
                                         type="button"

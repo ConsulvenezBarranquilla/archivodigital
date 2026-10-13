@@ -1554,3 +1554,35 @@ export async function validarDocumento(
         codigoLimpio
     );
 }
+
+export async function validarDocumentoPorToken(
+    token: string
+): Promise<ResultadoValidacion> {
+    const tokenLimpio = texto(token);
+    if (!tokenLimpio) return { encontrado: false };
+
+    const reportes = await obtenerReportesEntregados();
+    const reporte = reportes.slice(1).find((fila) =>
+        texto(fila[61]) === tokenLimpio
+    );
+
+    if (
+        !reporte ||
+        texto(reporte[9]).toUpperCase() !== "SI" ||
+        texto(reporte[52]).toUpperCase() !== "ENTREGADO" ||
+        texto(reporte[56]).toUpperCase() !== "CORREO"
+    ) {
+        return { encontrado: false };
+    }
+
+    return {
+        encontrado: true,
+        datos: {
+            "Documento": "Constancia de Registro Consular",
+            "Número de Registro": texto(reporte[30]),
+            "Titular": capitalizarNombre(reporte[6]),
+            "Fecha de envío": texto(reporte[57]),
+            "Estado": "Firmado y enviado por correo",
+        },
+    };
+}

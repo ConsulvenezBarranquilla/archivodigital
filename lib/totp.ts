@@ -35,13 +35,15 @@ export async function verificarCodigoTOTP(
   secreto: string,
   codigo: string
 ): Promise<boolean> {
-  if (!secreto || !codigo) {
+  const codigoLimpio = String(codigo ?? "").replace(/\s/g, "");
+
+  if (!secreto || !/^\d{6}$/.test(codigoLimpio)) {
     return false;
   }
 
   const resultado = await verify({
     secret: secreto,
-    token: codigo.replace(/\s/g, ""),
+    token: codigoLimpio,
   });
 
   return resultado.valid;

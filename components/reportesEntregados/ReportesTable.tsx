@@ -101,9 +101,12 @@ export default function ReportesTable({
                 ||
                 documento.estadoProcesamiento ===
                     "RECHAZADA"
+                ||
+                (categoria === "CONSTANCIA_REGISTRO" &&
+                    documento.estadoProcesamiento === "FIRMADO_PENDIENTE_ENVIO")
         ).length;
 
-    }, [documentos]);
+    }, [documentos, categoria]);
 
     // ==========================================
     // Columnas
@@ -461,6 +464,19 @@ if (
 
                 }
 
+                if (
+                    row.estadoProcesamiento ===
+                    "FIRMADO_PENDIENTE_ENVIO"
+                ) {
+                    return (
+                        <div className="flex items-center justify-center">
+                            <span className="inline-flex items-center rounded-full border border-orange-200 bg-orange-100 px-3 py-1 text-xs font-semibold text-orange-800">
+                                Firma lista; correo pendiente
+                            </span>
+                        </div>
+                    );
+                }
+
                 // ==================================
                 // ENTREGADO
                 // ==================================
@@ -721,6 +737,9 @@ return (
     ||
     documento.estadoProcesamiento ===
         "RECHAZADA"
+    ||
+    (categoria === "CONSTANCIA_REGISTRO" &&
+        documento.estadoProcesamiento === "FIRMADO_PENDIENTE_ENVIO")
 );
 
                     }
@@ -734,61 +753,6 @@ return (
                 busqueda
                     .trim()
                     .toLowerCase();
-
-            if (texto) {
-
-    resultado =
-        resultado.filter(
-            item => {
-
-                return (
-
-                    item.recibo
-                        ?.toLowerCase()
-                        .includes(texto)
-
-                    ||
-
-                    item.planillaGC
-                        ?.toLowerCase()
-                        .includes(texto)
-
-                    ||
-
-                    item.solicitante
-                        ?.toLowerCase()
-                        .includes(texto)
-
-                    ||
-
-                    item.documento
-                        ?.toLowerCase()
-                        .includes(texto)
-
-                    ||
-
-                    item.titularPasaporte
-                        ?.toLowerCase()
-                        .includes(texto)
-
-                    ||
-
-                    item.titularVisa
-                        ?.toLowerCase()
-                        .includes(texto)
-
-                    ||
-
-                    item.titularApostilla
-                        ?.toLowerCase()
-                        .includes(texto)
-
-                );
-
-            }
-        );
-
-}
 
             resultado =
                 resultado.filter(
@@ -928,6 +892,8 @@ return resultado;
             busqueda,
 
             filtroProcesamiento,
+
+            categoria,
 
         ]);
 

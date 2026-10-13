@@ -51,12 +51,16 @@ const rol = data.rol?.toString().trim().toLowerCase();
 if (
   rol === "recepcion" ||
   rol === "consultas" ||
-  rol === "analista"
+  rol === "analista" ||
+  rol === "admin"
 ) {
 
   localStorage.setItem(
     "usuarioCaja",
-    JSON.stringify(data)
+    JSON.stringify({
+      ...data,
+      ...(rol === "admin" ? { caja: data.caja || "Caja 1" } : {}),
+    })
   );
 
   window.location.href =
