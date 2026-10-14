@@ -99,9 +99,6 @@ export default function ReportesTable({
                 documento.estadoProcesamiento ===
                     "PROCESADO"
                 ||
-                documento.estadoProcesamiento ===
-                    "RECHAZADA"
-                ||
                 (categoria === "CONSTANCIA_REGISTRO" &&
                     documento.estadoProcesamiento === "FIRMADO_PENDIENTE_ENVIO")
         ).length;
@@ -723,20 +720,12 @@ const anchoMinimoTabla =
 // Procesados
 // --------------------------
 //
-// Incluye:
-// - Documentos procesados
-// - Documentos rechazados / negados
-//
-// Ambos ya terminaron su proceso
-// y no deben permanecer en
-// "En Proceso".
+// Incluye documentos completados; los rechazados
+// se consultan desde /entrega.
 
 return (
     documento.estadoProcesamiento ===
         "PROCESADO"
-    ||
-    documento.estadoProcesamiento ===
-        "RECHAZADA"
     ||
     (categoria === "CONSTANCIA_REGISTRO" &&
         documento.estadoProcesamiento === "FIRMADO_PENDIENTE_ENVIO")

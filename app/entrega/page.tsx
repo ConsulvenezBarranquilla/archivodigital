@@ -188,7 +188,7 @@ const [
     filtroEstado,
     setFiltroEstado,
 ] = useState<
-    "TODOS" | "PENDIENTES" | "ENTREGADOS"
+    "TODOS" | "PENDIENTES" | "ENTREGADOS" | "CORREO" | "RECHAZADOS"
 >("TODOS");
 
     // ==================================================
@@ -756,7 +756,8 @@ const documentosVisibles =
 
             return documentosFiltradosBase.filter(
                 documento =>
-                    documento.entregado !== true
+                    documento.entregado !== true &&
+                    documento.estadoProcesamiento !== "RECHAZADA"
             );
 
         }
@@ -768,9 +769,22 @@ const documentosVisibles =
 
             return documentosFiltradosBase.filter(
                 documento =>
-                    documento.entregado === true
+                    documento.entregado === true &&
+                    documento.metodoEntrega !== "CORREO"
             );
 
+        }
+
+        if (filtroEstado === "CORREO") {
+            return documentosFiltradosBase.filter(
+                documento => documento.entregado === true && documento.metodoEntrega === "CORREO"
+            );
+        }
+
+        if (filtroEstado === "RECHAZADOS") {
+            return documentosFiltradosBase.filter(
+                documento => documento.estadoProcesamiento === "RECHAZADA"
+            );
         }
 
         return documentosFiltradosBase;
@@ -801,7 +815,8 @@ const totalPendientes =
 
             documento =>
 
-                documento.entregado !== true
+                documento.entregado !== true &&
+                documento.estadoProcesamiento !== "RECHAZADA"
 
         ).length;
 
@@ -819,7 +834,8 @@ const totalEntregados =
 
             documento =>
 
-                documento.entregado === true
+                documento.entregado === true &&
+                documento.metodoEntrega !== "CORREO"
 
         ).length;
 
@@ -828,6 +844,14 @@ const totalEntregados =
         documentosFiltradosBase,
 
     ]);
+
+const totalCorreo = useMemo(() => documentosFiltradosBase.filter(
+    documento => documento.entregado === true && documento.metodoEntrega === "CORREO"
+).length, [documentosFiltradosBase]);
+
+const totalRechazados = useMemo(() => documentosFiltradosBase.filter(
+    documento => documento.estadoProcesamiento === "RECHAZADA"
+).length, [documentosFiltradosBase]);
 
     // ==================================================
     // SELECCIONAR MODO
@@ -892,6 +916,8 @@ function alternarFiltroEstado(
     filtro:
         | "PENDIENTES"
         | "ENTREGADOS"
+        | "CORREO"
+        | "RECHAZADOS"
 ) {
 
     setFiltroEstado(
@@ -1220,6 +1246,14 @@ function alternarFiltroEstado(
                         const procesando =
                             entregandoId ===
                             documento.id;
+
+                        if (documento.estadoProcesamiento === "RECHAZADA") {
+                            return (
+                                <span className="inline-flex items-center justify-center rounded-xl bg-red-100 px-4 py-2 font-semibold text-red-800 whitespace-nowrap">
+                                    Rechazado
+                                </span>
+                            );
+                        }
 
                         // ==================================
                         // ENTREGADO
@@ -1983,6 +2017,7 @@ function alternarFiltroEstado(
                             grid
                             grid-cols-1
                             md:grid-cols-2
+                            xl:grid-cols-4
                             gap-4
                         ">
 
@@ -2097,6 +2132,24 @@ function alternarFiltroEstado(
     </div>
 
 </button>
+
+                            <button
+                                type="button"
+                                onClick={() => alternarFiltroEstado("CORREO")}
+                                className={`w-full text-left bg-white border rounded-2xl shadow-sm p-5 transition-all duration-200 cursor-pointer hover:shadow-md ${filtroEstado === "CORREO" ? "border-violet-600 ring-2 ring-violet-200 bg-violet-50" : "border-slate-200"}`}
+                            >
+                                <div className="text-sm text-slate-500">Enviados por correo</div>
+                                <div className="mt-1 text-3xl font-bold text-violet-600">{totalCorreo}</div>
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => alternarFiltroEstado("RECHAZADOS")}
+                                className={`w-full text-left bg-white border rounded-2xl shadow-sm p-5 transition-all duration-200 cursor-pointer hover:shadow-md ${filtroEstado === "RECHAZADOS" ? "border-red-600 ring-2 ring-red-200 bg-red-50" : "border-slate-200"}`}
+                            >
+                                <div className="text-sm text-slate-500">Rechazados</div>
+                                <div className="mt-1 text-3xl font-bold text-red-600">{totalRechazados}</div>
+                            </button>
 
                         </div>
 

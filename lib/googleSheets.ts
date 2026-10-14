@@ -283,7 +283,7 @@ export async function obtenerReportesEntregados() {
 
 export async function obtenerRegistroConsular() {
   return await leerHojaRegistro(
-    "Respuestas de formulario 1!A:O"
+    "Respuestas de formulario 1!A:S"
   );
 }
 
@@ -344,8 +344,8 @@ export async function actualizarDatosFirmaConstancia(
     throw new Error("No se encontró la constancia en Reportes Entregados.");
   }
 
-  // BJ is column 62; extend the grid when the sheet has fewer columns.
-  await asegurarColumnasReportesEntregados(62);
+  // BK stores the source PDF for variable-format consular certificates.
+  await asegurarColumnasReportesEntregados(63);
 
   const encabezadosExistentes = await sheets.spreadsheets.values.get({
     spreadsheetId: MODULO_CAJA_SHEET_ID,
@@ -368,6 +368,19 @@ export async function actualizarDatosFirmaConstancia(
           "TOKEN VALIDACIÓN",
         ]],
       },
+    });
+  }
+
+  const encabezadoPdfConsular = await sheets.spreadsheets.values.get({
+    spreadsheetId: MODULO_CAJA_SHEET_ID,
+    range: "ReportesEntregados!BK1",
+  });
+  if (!String(encabezadoPdfConsular.data.values?.[0]?.[0] ?? "").trim()) {
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: MODULO_CAJA_SHEET_ID,
+      range: "ReportesEntregados!BK1",
+      valueInputOption: "RAW",
+      requestBody: { values: [["PDF CONSTANCIA CONSULAR DRIVE ID"]] },
     });
   }
 
@@ -405,6 +418,87 @@ export async function actualizarDatosFirmaConstancia(
     },
   });
 
+  invalidarCacheHoja(MODULO_CAJA_SHEET_ID, HOJA_REPORTES_ENTREGADOS);
+}
+
+export async function actualizarPdfConstanciaConsular(id: string, driveId: string) {
+  const reporte = await buscarReportePorId(id);
+  if (!reporte) throw new Error("No se encontró la constancia consular en Reportes Entregados.");
+
+  await asegurarColumnasReportesEntregados(63);
+  const encabezado = await sheets.spreadsheets.values.get({
+    spreadsheetId: MODULO_CAJA_SHEET_ID,
+    range: "ReportesEntregados!BK1",
+  });
+  if (!String(encabezado.data.values?.[0]?.[0] ?? "").trim()) {
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: MODULO_CAJA_SHEET_ID,
+      range: "ReportesEntregados!BK1",
+      valueInputOption: "RAW",
+      requestBody: { values: [["PDF CONSTANCIA CONSULAR DRIVE ID"]] },
+    });
+  }
+
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: MODULO_CAJA_SHEET_ID,
+    range: `ReportesEntregados!BK${reporte.fila}`,
+    valueInputOption: "RAW",
+    requestBody: { values: [[driveId]] },
+  });
+  invalidarCacheHoja(MODULO_CAJA_SHEET_ID, HOJA_REPORTES_ENTREGADOS);
+}
+
+export async function actualizarCorreoConstanciaConsular(id: string, correo: string) {
+  const reporte = await buscarReportePorId(id);
+  if (!reporte) throw new Error("No se encontrÃ³ la constancia consular en Reportes Entregados.");
+
+  await asegurarColumnasReportesEntregados(64);
+  const encabezado = await sheets.spreadsheets.values.get({
+    spreadsheetId: MODULO_CAJA_SHEET_ID,
+    range: "ReportesEntregados!BL1",
+  });
+  if (!String(encabezado.data.values?.[0]?.[0] ?? "").trim()) {
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: MODULO_CAJA_SHEET_ID,
+      range: "ReportesEntregados!BL1",
+      valueInputOption: "RAW",
+      requestBody: { values: [["CORREO SOLICITANTE CONSTANCIA CONSULAR"]] },
+    });
+  }
+
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: MODULO_CAJA_SHEET_ID,
+    range: `ReportesEntregados!BL${reporte.fila}`,
+    valueInputOption: "RAW",
+    requestBody: { values: [[correo.trim()]] },
+  });
+  invalidarCacheHoja(MODULO_CAJA_SHEET_ID, HOJA_REPORTES_ENTREGADOS);
+}
+
+export async function actualizarPdfFichaIdentidadSaime(id: string, driveId: string) {
+  const reporte = await buscarReportePorId(id);
+  if (!reporte) throw new Error("No se encontro el reporte de Verificacion de Identidad.");
+
+  await asegurarColumnasReportesEntregados(65);
+  const encabezado = await sheets.spreadsheets.values.get({
+    spreadsheetId: MODULO_CAJA_SHEET_ID,
+    range: "ReportesEntregados!BM1",
+  });
+  if (!String(encabezado.data.values?.[0]?.[0] ?? "").trim()) {
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: MODULO_CAJA_SHEET_ID,
+      range: "ReportesEntregados!BM1",
+      valueInputOption: "RAW",
+      requestBody: { values: [["PDF FICHA IDENTIDAD SAIME DRIVE ID"]] },
+    });
+  }
+
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: MODULO_CAJA_SHEET_ID,
+    range: `ReportesEntregados!BM${reporte.fila}`,
+    valueInputOption: "RAW",
+    requestBody: { values: [[driveId]] },
+  });
   invalidarCacheHoja(MODULO_CAJA_SHEET_ID, HOJA_REPORTES_ENTREGADOS);
 }
 

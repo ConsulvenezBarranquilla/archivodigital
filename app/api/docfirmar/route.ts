@@ -33,7 +33,7 @@ export async function GET() {
 
         }
 
-        if (sesion.rol !== "admin") {
+        if (sesion.rol !== "admin" && sesion.rol !== "analista") {
             return NextResponse.json(
                 { ok: false, error: "No tiene permisos para firmar documentos." },
                 { status: 403 }
@@ -64,23 +64,30 @@ export async function GET() {
 
         };
 
-        const documentos =
-            obtenerDocumentos(
-                "CONSTANCIA_REGISTRO",
-                data
-            );
+        const documentos = [
+            ...obtenerDocumentos("CONSTANCIA_REGISTRO", data),
+            ...obtenerDocumentos("CONSTANCIA_CONSULAR", data),
+        ];
 
         const documentosFirma =
     documentos
         .filter(
-            documento =>
-                documento.estadoProcesamiento === "PENDIENTE_FIRMA" ||
-                documento.estadoProcesamiento === "FIRMADO_PENDIENTE_ENVIO" ||
-                documento.estadoProcesamiento === "ENTREGADO" &&
-                documento.categoria === "CONSTANCIA_REGISTRO" &&
-                Boolean(String(documento.pdfConstanciaFirmada || "").trim()) &&
-                Boolean(String(documento.tokenValidacion || "").trim()) &&
-                documento.metodoEntrega === "CORREO"
+            (documento) => {
+                const pdfOriginal = documento.categoria === "CONSTANCIA_CONSULAR"
+                    ? documento.pdfConstanciaConsular
+                    : documento.pdfConstanciaRegistro;
+                const esVerificacionIdentidad =
+                    documento.categoria === "CONSTANCIA_REGISTRO" &&
+                    String(documento.codigoActuacion || "").trim().toUpperCase() === "VER-I";
+                const tieneFuente = Boolean(String(pdfOriginal || "").trim()) &&
+                    (!esVerificacionIdentidad || Boolean(String(documento.pdfFichaIdentidadSaime || "").trim()));
+                const pendiente = ["PENDIENTE_FIRMA", "FIRMADO_PENDIENTE_ENVIO"].includes(documento.estadoProcesamiento);
+                const enviado = documento.estadoProcesamiento === "ENTREGADO" &&
+                    Boolean(String(documento.pdfConstanciaFirmada || "").trim()) &&
+                    Boolean(String(documento.tokenValidacion || "").trim()) &&
+                    documento.metodoEntrega === "CORREO";
+                return (tieneFuente && pendiente) || enviado;
+            }
         )
         .map(documento => {
 
@@ -101,6 +108,10 @@ export async function GET() {
 
                 ...documento,
 
+                fechaRecibo: documento.categoria === "CONSTANCIA_CONSULAR"
+                    ? String(documento.fechaConstancia || "")
+                    : documento.fechaRecibo,
+
                 codigoActuacion:
                     String(
                         gestion?.[1] ?? ""
@@ -112,13 +123,24 @@ export async function GET() {
 
         });
 
+        const documentosVisibles = sesion.rol === "analista"
+            ? documentosFirma.filter(documento =>
+                documento.estadoProcesamiento === "ENTREGADO" &&
+                Boolean(String(documento.pdfConstanciaFirmada || "").trim()) &&
+                Boolean(String(documento.tokenValidacion || "").trim()) &&
+                documento.metodoEntrega === "CORREO"
+            )
+            : documentosFirma;
+
 return NextResponse.json({
 
     ok: true,
 
-    total: documentosFirma.length,
+    total: documentosVisibles.length,
 
-    documentos: documentosFirma,
+    rol: sesion.rol,
+
+    documentos: documentosVisibles,
 
 });
 

@@ -32,8 +32,8 @@ export const navigation: NavigationItem[] = [
       },
       {
         label: "Expediente Único",
-        disabled: true,
-        permiso: MODULOS.RECEPCION,
+        href: "/expedienteciudadano",
+        permiso: MODULOS.EXPEDIENTE_CIUDADANO,
       },
     ],
   },
@@ -64,7 +64,7 @@ export const navigation: NavigationItem[] = [
 {
   label: "Firmar Documentos",
   href: "/docfirmar",
-  permiso: MODULOS.ADMIN,
+  permiso: MODULOS.DOCFIRMAR,
 },
     ],
   },

@@ -149,6 +149,19 @@ export async function generarPdfReciboTermico(
       return "";
     }
 
+    // fechaHoraActual() ya entrega la hora de Bogotá como
+    // "YYYY-MM-DD HH:mm:ss". Parsearla con new Date() la
+    // interpreta en la zona horaria del servidor y puede restar
+    // cinco horas en Vercel (UTC). En este formato se conservan
+    // directamente los componentes locales recibidos.
+    const fechaBogotaLocal = fecha.match(
+      /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::\d{2})?$/
+    );
+    if (fechaBogotaLocal) {
+      const [, anio, mes, dia, hora, minuto] = fechaBogotaLocal;
+      return `${dia}/${mes}/${anio}, ${hora}:${minuto}`;
+    }
+
     const fechaObjeto =
       new Date(
         fecha

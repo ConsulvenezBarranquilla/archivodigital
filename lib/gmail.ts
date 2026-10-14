@@ -403,12 +403,14 @@ export async function enviarDocumentoFirmadoPorCorreo({
   destinatario,
   nombre,
   numeroRegistro,
+  tipoDocumento = "Constancia de Registro Consular",
   urlValidacion,
   pdfBytes,
 }: {
   destinatario: string;
   nombre: string;
   numeroRegistro: string;
+  tipoDocumento?: string;
   urlValidacion: string;
   pdfBytes: Uint8Array;
 }) {
@@ -419,10 +421,12 @@ export async function enviarDocumentoFirmadoPorCorreo({
   const resend = new Resend(process.env.RESEND_DOC_API_KEY);
   const nombreSeguro = escaparHtml(nombre);
   const registroSeguro = escaparHtml(numeroRegistro);
+  const tipoDocumentoSeguro = escaparHtml(tipoDocumento);
   const urlSeguro = escaparHtml(urlValidacion);
-  const nombreArchivo = `Constancia_Registro_${numeroRegistro.replace(/[^a-zA-Z0-9_-]/g, "_")}.pdf`;
+  const nombreArchivo = `${tipoDocumento.replace(/[^a-zA-Z0-9_-]/g, "_")}_${numeroRegistro.replace(/[^a-zA-Z0-9_-]/g, "_")}.pdf`;
   const logoBuffer = await readFile(path.join(process.cwd(), "public", "logo.png"));
   const texto = `Estimado/a ${nombre},\n\nAdjuntamos su Constancia de Registro Consular firmada. Puede validar su autenticidad en este enlace:\n${urlValidacion}\n\nConsulado General de la República Bolivariana de Venezuela en Barranquilla.\n\nEste mensaje fue generado automáticamente. Por favor, no responda.`;
+  const textoDinamico = texto.replaceAll("Constancia de Registro Consular", tipoDocumento);
   const html = `
 <!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
 <body style="margin:0;padding:30px 12px;background:#f3f5f7;font-family:Arial,Helvetica,sans-serif;color:#263238">
@@ -447,12 +451,12 @@ export async function enviarDocumentoFirmadoPorCorreo({
       <tr><td style="background:#f5f7fa;border-top:1px solid #e5e7eb;padding:20px;text-align:center;font-size:11px;line-height:1.7;color:#64748b">Comunicación automática del sistema de Registro Consular.<br>Consulado General de la República Bolivariana de Venezuela en Barranquilla.</td></tr>
     </table>
   </td></tr></table>
-</body></html>`.trim();
+</body></html>`.trim().replaceAll("Constancia de Registro Consular", tipoDocumentoSeguro);
   const resultado = await resend.emails.send({
     from: RESEND_FROM,
     to: [correo],
-    subject: `Constancia de Registro Consular ${numeroRegistro}`,
-    text: texto,
+    subject: `${tipoDocumento} ${numeroRegistro}`,
+    text: textoDinamico,
     html,
     attachments: [
       { filename: nombreArchivo, content: Buffer.from(pdfBytes) },

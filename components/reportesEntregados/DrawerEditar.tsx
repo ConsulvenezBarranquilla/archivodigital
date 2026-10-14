@@ -16,6 +16,8 @@ import {
 
 interface ArchivosConstancia {
     pdfConstancia?: File | null;
+    pdfConstanciaConsular?: File | null;
+    pdfFichaIdentidadSaime?: File | null;
     fotoCarnet?: File | null;
 }
 
@@ -388,6 +390,20 @@ export default function DrawerEditar({
 
             return;
 
+        }
+
+        if (
+            documentoActual.categoria === "CONSTANCIA_REGISTRO" &&
+            String(documentoActual.codigoActuacion || "").trim().toUpperCase() === "VER-I"
+        ) {
+            const faltaPdfRegistro =
+                !documentoActual.pdfConstanciaRegistro && !archivosConstancia.pdfConstancia;
+            const faltaFichaSaime =
+                !documentoActual.pdfFichaIdentidadSaime && !archivosConstancia.pdfFichaIdentidadSaime;
+            if (faltaPdfRegistro || faltaFichaSaime) {
+                setErrorValidacion("Para Verificacion de Identidad, adjunte el PDF del Registro Consular y la Ficha de Identidad SAIME.");
+                return;
+            }
         }
 
 

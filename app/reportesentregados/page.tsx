@@ -503,6 +503,8 @@ const [
 
         archivos?: {
             pdfConstancia?: File | null;
+            pdfConstanciaConsular?: File | null;
+            pdfFichaIdentidadSaime?: File | null;
             fotoCarnet?: File | null;
         }
 
@@ -551,7 +553,9 @@ const [
 
 async function guardarNuevaConstancia(
 
-    documento: ReporteEntregado
+    documento: ReporteEntregado,
+
+    pdfConstanciaConsular: File
 
 ) {
 
@@ -561,7 +565,9 @@ async function guardarNuevaConstancia(
 
             documento,
 
-            usuario
+            usuario,
+
+            { pdfConstanciaConsular }
 
         );
 

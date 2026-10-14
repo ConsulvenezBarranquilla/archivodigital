@@ -1575,14 +1575,35 @@ export async function validarDocumentoPorToken(
         return { encontrado: false };
     }
 
-    return {
-        encontrado: true,
-        datos: {
-            "Documento": "Constancia de Registro Consular",
+    const esConstanciaConsular = texto(reporte[1]).toUpperCase() === "CONSTANCIA_CONSULAR";
+    const gestion = await obtenerGestionConsular();
+    const esVerificacionIdentidad = gestion.slice(1).some((fila) =>
+        texto(fila[11]) === texto(reporte[0]) && texto(fila[1]).toUpperCase() === "VER-I"
+    );
+    const datosValidacion: Record<string, string> = {
+        "Documento": esConstanciaConsular
+            ? "Constancia Consular"
+            : esVerificacionIdentidad
+                ? "Verificacion de Identidad"
+                : "Constancia de Registro Consular",
             "Número de Registro": texto(reporte[30]),
             "Titular": capitalizarNombre(reporte[6]),
             "Fecha de envío": texto(reporte[57]),
             "Estado": "Firmado y enviado por correo",
-        },
     };
+
+    if (esConstanciaConsular) {
+        for (const clave of Object.keys(datosValidacion)) {
+            if (clave.includes("Registro")) delete datosValidacion[clave];
+        }
+        datosValidacion["Numero de Constancia"] = texto(reporte[33]);
+    } else if (esVerificacionIdentidad) {
+        delete datosValidacion["NÃºmero de Registro"];
+        for (const clave of Object.keys(datosValidacion)) {
+            if (clave.includes("Registro")) delete datosValidacion[clave];
+        }
+        datosValidacion["Actuacion"] = "VER-I";
+    }
+
+    return { encontrado: true, datos: datosValidacion };
 }

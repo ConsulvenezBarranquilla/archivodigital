@@ -7,4 +7,6 @@ export const MODULOS = {
   USUARIOS: "usuarios",
   REPORTES: "reportes",
   CONFIGURACION: "configuracion",
+  EXPEDIENTE_CIUDADANO: "expediente-ciudadano",
+  DOCFIRMAR: "docfirmar",
 } as const;

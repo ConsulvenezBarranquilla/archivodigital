@@ -181,7 +181,10 @@ export async function GET() {
                         "PROCESADO" ||
 
                     documento.estadoProcesamiento ===
-                        "ENTREGADO"
+                        "ENTREGADO" ||
+
+                    documento.estadoProcesamiento ===
+                        "RECHAZADA"
 
             );
 
@@ -541,7 +544,8 @@ export async function GET() {
 
                 documento =>
 
-                    documento.entregado !== true
+                    documento.entregado !== true &&
+                    documento.estadoProcesamiento !== "RECHAZADA"
 
             ).length;
 
@@ -550,9 +554,18 @@ export async function GET() {
 
                 documento =>
 
-                    documento.entregado === true
+                    documento.entregado === true &&
+                    documento.metodoEntrega !== "CORREO"
 
             ).length;
+
+        const enviadosPorCorreo = documentosEntrega.filter(
+            documento => documento.entregado === true && documento.metodoEntrega === "CORREO"
+        ).length;
+
+        const rechazados = documentosEntrega.filter(
+            documento => documento.estadoProcesamiento === "RECHAZADA"
+        ).length;
 
         // ==================================================
         // RESPUESTA
@@ -568,6 +581,10 @@ export async function GET() {
             pendientes,
 
             entregados,
+
+            enviadosPorCorreo,
+
+            rechazados,
 
             documentos:
                 documentosEntrega,

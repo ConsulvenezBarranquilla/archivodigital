@@ -11,6 +11,8 @@ import {
 } from "react";
 
 import SistemaLayout from "@/components/layout/SistemaLayout";
+import DataTableActions from "@/components/table/DataTableActions";
+import PdfColocacionEditor, { PosicionesFirma } from "./PdfColocacionEditor";
 
 import {
     MODULOS,
@@ -62,6 +64,10 @@ interface Documento {
 
     pdfConstanciaRegistro?: string;
 
+    pdfFichaIdentidadSaime?: string;
+
+    pdfConstanciaConsular?: string;
+
     pdfConstanciaFirmada?: string;
 
     usuarioFirma?: string;
@@ -70,6 +76,13 @@ interface Documento {
 
     correoDestino?: string;
 
+}
+
+function requiereUbicacionesPersonalizadas(documento: Documento | null | undefined): boolean {
+    return documento?.categoria === "CONSTANCIA_CONSULAR" || (
+        documento?.categoria === "CONSTANCIA_REGISTRO" &&
+        String(documento.codigoActuacion || "").trim().toUpperCase() === "VER-I"
+    );
 }
 
 function anioDeFecha(fecha: string | undefined): number | null {
@@ -138,17 +151,33 @@ export default function DocFirmarPage() {
         pdfPrevisualizacionUrl,
         setPdfPrevisualizacionUrl,
     ] = useState("");
+    const [pdfOriginalUrl, setPdfOriginalUrl] = useState("");
+    const [mostrarEditorUbicaciones, setMostrarEditorUbicaciones] = useState(false);
+    const [posicionesFirma, setPosicionesFirma] = useState<PosicionesFirma>({ firma: null, sello: null, qr: null });
     const [previsualizacionLista, setPrevisualizacionLista] = useState(false);
     const [enviandoCorreo, setEnviandoCorreo] = useState(false);
     const [solicitandoTotp, setSolicitandoTotp] = useState(false);
     const [codigoTotp, setCodigoTotp] = useState("");
     const [correoEnviado, setCorreoEnviado] = useState("");
+    const [mensajeAccion, setMensajeAccion] = useState("");
     const [vistaLista, setVistaLista] = useState<"PENDIENTES" | "FIRMADOS">("PENDIENTES");
+    const [rolActual, setRolActual] = useState("");
+    const [busquedaFirmados, setBusquedaFirmados] = useState("");
     const [accionDocumentoId, setAccionDocumentoId] = useState("");
     const [anioFiltro, setAnioFiltro] = useState(String(new Date().getFullYear()));
     const aniosDisponibles = Array.from(new Set([new Date().getFullYear(), ...documentos
         .map(documento => anioDeFecha(documento.fechaRecibo))
         .filter((anio): anio is number => anio !== null)])).sort((a, b) => b - a);
+    const documentosVista = documentos.filter(documento => {
+        const correspondeVista = vistaLista === "FIRMADOS"
+            ? documento.estadoProcesamiento === "ENTREGADO"
+            : documento.estadoProcesamiento !== "ENTREGADO";
+        const correspondeAnio = anioDeFecha(documento.fechaRecibo) === Number(anioFiltro);
+        const consulta = busquedaFirmados.trim().toLocaleLowerCase();
+        const correspondeBusqueda = vistaLista !== "FIRMADOS" || !consulta ||
+            `${documento.solicitante} ${documento.documento}`.toLocaleLowerCase().includes(consulta);
+        return correspondeVista && correspondeAnio && correspondeBusqueda;
+    });
     const ventanaPrevisualizacionRef =
         useRef<Window | null>(null);
 
@@ -255,7 +284,7 @@ export default function DocFirmarPage() {
     // CARGAR DOCUMENTOS
     // ==================================================
 
-    async function cargarDocumentos() {
+    async function cargarDocumentos(): Promise<string> {
 
         try {
 
@@ -294,6 +323,10 @@ export default function DocFirmarPage() {
                     ? data.documentos
                     : []
             );
+            const rol = String(data.rol || "").trim().toLowerCase();
+            setRolActual(rol);
+            if (rol === "analista") setVistaLista("FIRMADOS");
+            return rol;
 
         }
 
@@ -310,6 +343,7 @@ export default function DocFirmarPage() {
             );
 
             setDocumentos([]);
+            return "";
 
         }
 
@@ -323,9 +357,7 @@ export default function DocFirmarPage() {
 
     useEffect(() => {
 
-        cargarDocumentos();
-
-        cargarFirmasYSellos()
+        cargarDocumentos().then(rol => rol === "admin" ? cargarFirmasYSellos() : undefined)
             .catch((err: any) => {
 
                 setError(
@@ -351,6 +383,10 @@ export default function DocFirmarPage() {
 
     }, [pdfPrevisualizacionUrl]);
 
+    useEffect(() => () => {
+        if (pdfOriginalUrl) URL.revokeObjectURL(pdfOriginalUrl);
+    }, [pdfOriginalUrl]);
+
     function abrirDocumento(
         documento: Documento
     ) {
@@ -366,6 +402,10 @@ export default function DocFirmarPage() {
         }
 
         setPdfPrevisualizacionUrl("");
+        if (pdfOriginalUrl) URL.revokeObjectURL(pdfOriginalUrl);
+        setPdfOriginalUrl("");
+        setMostrarEditorUbicaciones(false);
+        setPosicionesFirma({ firma: null, sello: null, qr: null });
         setPrevisualizacionLista(false);
 
         setIdFirmaSeleccionada(
@@ -387,12 +427,47 @@ export default function DocFirmarPage() {
         }
 
         setPdfPrevisualizacionUrl("");
+        if (pdfOriginalUrl) URL.revokeObjectURL(pdfOriginalUrl);
+        setPdfOriginalUrl("");
+        setMostrarEditorUbicaciones(false);
+        setPosicionesFirma({ firma: null, sello: null, qr: null });
         setPrevisualizacionLista(false);
         setErrorPrevisualizacion("");
         setDocumentoSeleccionado(null);
         setSolicitandoTotp(false);
         setCodigoTotp("");
 
+    }
+
+    async function abrirEditorUbicaciones() {
+        if (!documentoSeleccionado || !requiereUbicacionesPersonalizadas(documentoSeleccionado)) {
+            return;
+        }
+
+        setErrorPrevisualizacion("");
+        setGenerandoPrevisualizacion(true);
+        try {
+            let url = pdfOriginalUrl;
+            if (!url) {
+                const response = await fetch("/api/docfirmar/generar-pdf", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    credentials: "include",
+                    body: JSON.stringify({ accion: "original", documentoId: documentoSeleccionado.id }),
+                });
+                if (!response.ok) {
+                    const data = await response.json().catch(() => null);
+                    throw new Error(data?.error || "No fue posible abrir el PDF original.");
+                }
+                url = URL.createObjectURL(await response.blob());
+                setPdfOriginalUrl(url);
+            }
+            setMostrarEditorUbicaciones(true);
+        } catch (cause) {
+            setErrorPrevisualizacion(cause instanceof Error ? cause.message : "No fue posible cargar el PDF original.");
+        } finally {
+            setGenerandoPrevisualizacion(false);
+        }
     }
 
     async function generarPrevisualizacion() {
@@ -412,6 +487,12 @@ export default function DocFirmarPage() {
             setErrorPrevisualizacion(
                 "Debe seleccionar un sello institucional."
             );
+            return;
+        }
+
+        if (requiereUbicacionesPersonalizadas(documentoSeleccionado) &&
+            (!posicionesFirma.firma || !posicionesFirma.sello || !posicionesFirma.qr)) {
+            setErrorPrevisualizacion("Antes de previsualizar, use ‘Elegir ubicaciones’ para colocar firma, sello y QR en el PDF.");
             return;
         }
 
@@ -486,12 +567,14 @@ export default function DocFirmarPage() {
                         },
                         credentials: "include",
                         body: JSON.stringify({
+                            accion: "previsualizar",
                             documentoId:
                                 documentoSeleccionado.id,
                             idFirma:
                                 idFirmaSeleccionada,
                             idSello:
                                 idSelloSeleccionado,
+                            ...(requiereUbicacionesPersonalizadas(documentoSeleccionado) ? { posicionesFirma } : {}),
                         }),
                     }
                 );
@@ -616,6 +699,7 @@ export default function DocFirmarPage() {
                     documentoId: documentoSeleccionado.id,
                     idFirma: idFirmaSeleccionada,
                     idSello: idSelloSeleccionado,
+                    ...(requiereUbicacionesPersonalizadas(documentoSeleccionado) ? { posicionesFirma } : {}),
                     ...(reintentar ? {} : { codigoTOTP }),
                 }),
             });
@@ -685,6 +769,34 @@ export default function DocFirmarPage() {
         }
     }
 
+    async function revertirPdfFirmado(documento: Documento) {
+        const confirmar = window.confirm(
+            "La firma y el código QR actuales se invalidarán y el documento volverá a Pendiente por Firma. El correo que ya recibió el ciudadano no puede retirarse. ¿Desea continuar?"
+        );
+        if (!confirmar) return;
+
+        setAccionDocumentoId(documento.id);
+        setError("");
+        setMensajeAccion("");
+        try {
+            const response = await fetch("/api/docfirmar/generar-pdf", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
+                body: JSON.stringify({ accion: "revertir", documentoId: documento.id }),
+            });
+            const resultado = await response.json();
+            if (!response.ok || !resultado.ok) throw new Error(resultado.error || "No fue posible revertir la firma.");
+            setMensajeAccion(resultado.mensaje || "Firma revertida.");
+            setVistaLista("PENDIENTES");
+            await cargarDocumentos();
+        } catch (error) {
+            setError(error instanceof Error ? error.message : "No fue posible revertir la firma.");
+        } finally {
+            setAccionDocumentoId("");
+        }
+    }
+
     // ==================================================
     // RENDER
     // ==================================================
@@ -693,10 +805,16 @@ export default function DocFirmarPage() {
 
         <SistemaLayout
             titulo="Consulnet Barranquilla"
-            permiso={MODULOS.ADMIN}
+            permiso={MODULOS.DOCFIRMAR}
         >
 
             <div className="space-y-6">
+
+                {mensajeAccion && (
+                    <div role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-800">
+                        {mensajeAccion}
+                    </div>
+                )}
 
                 {correoEnviado && (
                     <div
@@ -792,9 +910,7 @@ export default function DocFirmarPage() {
                                     whitespace-nowrap
                                 "
                             >
-                                {vistaLista === "PENDIENTES"
-                                    ? documentos.filter(d => d.estadoProcesamiento !== "ENTREGADO" && anioDeFecha(d.fechaRecibo) === Number(anioFiltro)).length
-                                    : documentos.filter(d => d.estadoProcesamiento === "ENTREGADO" && anioDeFecha(d.fechaRecibo) === Number(anioFiltro)).length}{" "}
+                                {documentosVista.length}{" "}
                                 {vistaLista === "PENDIENTES" ? "pendientes" : "firmados"}
                             </div>
 
@@ -880,9 +996,23 @@ export default function DocFirmarPage() {
                 =========================================== */}
 
                 <div className="flex gap-2 border-b border-slate-200 px-2">
-                    <button type="button" onClick={() => setVistaLista("PENDIENTES")} className={`border-b-2 px-4 py-3 text-sm font-semibold ${vistaLista === "PENDIENTES" ? "border-blue-700 text-blue-800" : "border-transparent text-slate-500"}`}>Pendientes de firma</button>
+                    {rolActual !== "analista" && <button type="button" onClick={() => setVistaLista("PENDIENTES")} className={`border-b-2 px-4 py-3 text-sm font-semibold ${vistaLista === "PENDIENTES" ? "border-blue-700 text-blue-800" : "border-transparent text-slate-500"}`}>Pendientes de firma</button>}
                     <button type="button" onClick={() => setVistaLista("FIRMADOS")} className={`border-b-2 px-4 py-3 text-sm font-semibold ${vistaLista === "FIRMADOS" ? "border-emerald-600 text-emerald-700" : "border-transparent text-slate-500"}`}>Firmados y enviados</button>
                 </div>
+
+                {vistaLista === "FIRMADOS" && (
+                    <div className="border-b border-slate-200 bg-slate-50 px-4 py-3">
+                        <label htmlFor="buscar-documento-firmado" className="sr-only">Buscar por nombre o número de documento</label>
+                        <input
+                            id="buscar-documento-firmado"
+                            type="search"
+                            value={busquedaFirmados}
+                            onChange={event => setBusquedaFirmados(event.target.value)}
+                            placeholder="Buscar por nombre o número de documento..."
+                            className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100 sm:max-w-md"
+                        />
+                    </div>
+                )}
 
                 <div
                     className="
@@ -922,7 +1052,7 @@ export default function DocFirmarPage() {
 
                         </div>
 
-                    ) : documentos.filter(d => (vistaLista === "FIRMADOS" ? d.estadoProcesamiento === "ENTREGADO" : d.estadoProcesamiento !== "ENTREGADO") && anioDeFecha(d.fechaRecibo) === Number(anioFiltro)).length === 0 ? (
+                    ) : documentosVista.length === 0 ? (
 
                         <div
                             className="
@@ -1098,7 +1228,7 @@ export default function DocFirmarPage() {
 
                                 <tbody>
 
-                                    {documentos.filter(d => (vistaLista === "FIRMADOS" ? d.estadoProcesamiento === "ENTREGADO" : d.estadoProcesamiento !== "ENTREGADO") && anioDeFecha(d.fechaRecibo) === Number(anioFiltro)).map(
+                                    {documentosVista.map(
                                         documento => (
 
                                             <tr
@@ -1212,10 +1342,29 @@ export default function DocFirmarPage() {
                                                 >
 
                                                     {vistaLista === "FIRMADOS" ? (
-                                                        <div className="flex flex-wrap justify-center gap-2">
-                                                            <button type="button" disabled={accionDocumentoId === documento.id} onClick={() => abrirPdfFirmado(documento)} className="rounded-xl bg-blue-600 px-3 py-2 font-semibold text-white hover:bg-blue-700 disabled:opacity-50">{accionDocumentoId === documento.id ? "Abriendo…" : "Imprimir PDF"}</button>
-                                                            <button type="button" disabled={accionDocumentoId === documento.id} onClick={() => reenviarPdfFirmado(documento)} className="rounded-xl bg-violet-600 px-3 py-2 font-semibold text-white hover:bg-violet-700 disabled:opacity-50">Reenviar correo</button>
-                                                        </div>
+                                                        <DataTableActions
+                                                            actions={[
+                                                                {
+                                                                    label: accionDocumentoId === documento.id ? "Abriendo…" : "Imprimir PDF",
+                                                                    icon: "🖨️",
+                                                                    disabled: accionDocumentoId === documento.id,
+                                                                    onClick: () => abrirPdfFirmado(documento),
+                                                                },
+                                                                {
+                                                                    label: "Reenviar correo",
+                                                                    icon: "✉️",
+                                                                    disabled: accionDocumentoId === documento.id,
+                                                                    onClick: () => { void reenviarPdfFirmado(documento); },
+                                                                },
+                                                                ...(rolActual === "analista" ? [] : [{
+                                                                    label: "Revertir",
+                                                                    icon: "↩️",
+                                                                    danger: true,
+                                                                    disabled: accionDocumentoId === documento.id,
+                                                                    onClick: () => { void revertirPdfFirmado(documento); },
+                                                                }]),
+                                                            ]}
+                                                        />
                                                     ) : <button
                                                         type="button"
                                                         onClick={() =>
@@ -1326,7 +1475,7 @@ export default function DocFirmarPage() {
                                             text-blue-950
                                         "
                                     >
-                                        Revisar Constancia de Registro
+                                        {documentoSeleccionado.categoria === "CONSTANCIA_CONSULAR" ? "Revisar Constancia Consular" : documentoSeleccionado.codigoActuacion === "VER-I" ? "Revisar Verificación de Identidad" : "Revisar Constancia de Registro"}
                                     </h2>
 
                                     <div
@@ -1440,7 +1589,7 @@ export default function DocFirmarPage() {
                                                 mb-3
                                             "
                                         >
-                                            Constancia de Registro
+                                            {documentoSeleccionado.categoria === "CONSTANCIA_CONSULAR" ? "Constancia Consular" : documentoSeleccionado.codigoActuacion === "VER-I" ? "Verificación de Identidad" : "Constancia de Registro"}
                                         </h3>
 
                                         <div
@@ -1877,6 +2026,13 @@ export default function DocFirmarPage() {
                                         </div>
                                     )}
 
+                                    {requiereUbicacionesPersonalizadas(documentoSeleccionado) && (
+                                        <div className="flex w-full flex-wrap items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
+                                            <span className="flex-1">Firma: {posicionesFirma.firma ? `pág. ${posicionesFirma.firma.pagina + 1}` : "pendiente"} · Sello: {posicionesFirma.sello ? `pág. ${posicionesFirma.sello.pagina + 1}` : "pendiente"} · QR: {posicionesFirma.qr ? `pág. ${posicionesFirma.qr.pagina + 1}` : "pendiente"}</span>
+                                            <button type="button" onClick={() => void abrirEditorUbicaciones()} disabled={generandoPrevisualizacion || enviandoCorreo} className="rounded-lg border border-blue-300 bg-white px-3 py-1.5 font-semibold hover:bg-blue-100 disabled:opacity-50">Elegir ubicaciones</button>
+                                        </div>
+                                    )}
+
                                     <button
                                         type="button"
                                         onClick={
@@ -1908,6 +2064,20 @@ export default function DocFirmarPage() {
 
                 )
             }
+
+            {mostrarEditorUbicaciones && pdfOriginalUrl && typeof document !== "undefined" && createPortal(
+                <PdfColocacionEditor
+                    url={pdfOriginalUrl}
+                    iniciales={posicionesFirma}
+                    onCancelar={() => setMostrarEditorUbicaciones(false)}
+                    onConfirmar={(nuevasPosiciones) => {
+                        setPosicionesFirma(nuevasPosiciones);
+                        setMostrarEditorUbicaciones(false);
+                        setPrevisualizacionLista(false);
+                    }}
+                />,
+                document.body
+            )}
 
             
 

@@ -11,6 +11,8 @@ export const PERMISOS = {
     "usuarios",
     "configuracion",
     "reportes",
+    "expediente-ciudadano",
+    "docfirmar",
   ],
 
   caja: [
@@ -24,10 +26,13 @@ export const PERMISOS = {
   analista: [
   "sgc",
   "consultas",
+  "expediente-ciudadano",
+  "docfirmar",
 ],
 
   consultas: [
     "consultas",
+    "expediente-ciudadano",
   ],
 
 } as const;

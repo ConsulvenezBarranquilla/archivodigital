@@ -62,8 +62,10 @@ function registrarErrorSeguro(contexto: string, error: unknown) {
 CONFIGURACIÓN
 ------------------------------------------*/
 
-const CATEGORIA =
+const CATEGORIA_REGISTRO =
   "CONSTANCIA_REGISTRO";
+const CATEGORIA_CONSULAR = "CONSTANCIA_CONSULAR";
+const CATEGORIAS_FIRMA = [CATEGORIA_REGISTRO, CATEGORIA_CONSULAR];
 
 const ESTADO_PENDIENTE =
   "PENDIENTE_FIRMA";
@@ -74,7 +76,17 @@ function normalizarDocumento(valor: unknown) {
   return String(valor ?? "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
 }
 
-async function obtenerCorreoCiudadano(documento: ReporteEntregado) {
+async function obtenerCorreoCiudadano(documento: ReporteEntregado, preferirDestinoGuardado = false) {
+  const correoPrioritario = preferirDestinoGuardado
+    ? documento.correoDestino || documento.correoSolicitante
+    : documento.correoSolicitante;
+  if (correoPrioritario && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correoPrioritario.trim())) {
+    return {
+      correo: correoPrioritario.trim(),
+      nombre: documento.solicitante,
+    };
+  }
+
   const filas = await obtenerRegistroConsular();
   const clave = normalizarDocumento(documento.documento);
   const ciudadano = filas.slice(1).find((fila: unknown[]) =>
@@ -93,6 +105,28 @@ async function obtenerCorreoCiudadano(documento: ReporteEntregado) {
       .filter(Boolean)
       .join(" "),
   };
+}
+
+async function cargarPdfFuenteFirma(documento: ReporteEntregado, archivoPrincipalId: string, anexarFichaSaime: boolean) {
+  const pdfPrincipal = await descargarArchivoDrive(archivoPrincipalId);
+  if (!anexarFichaSaime) return pdfPrincipal;
+
+  const fichaSaimeId = String(documento.pdfFichaIdentidadSaime || "").trim();
+  if (!fichaSaimeId) {
+    throw new Error("Verificacion de Identidad requiere el PDF de la Ficha SAIME.");
+  }
+
+  const pdfSaime = await descargarArchivoDrive(fichaSaimeId);
+  const combinado = await PDFDocument.create();
+  const principal = await PDFDocument.load(new Uint8Array(pdfPrincipal));
+  const ficha = await PDFDocument.load(new Uint8Array(pdfSaime));
+
+  for (const fuente of [principal, ficha]) {
+    const paginas = await combinado.copyPages(fuente, fuente.getPageIndices());
+    paginas.forEach((pagina) => combinado.addPage(pagina));
+  }
+
+  return Buffer.from(await combinado.save());
 }
 
 
@@ -297,10 +331,7 @@ export async function POST(
     SOLO ADMINISTRADORES
     --------------------------------------*/
 
-    if (
-      sesion.rol !==
-      "admin"
-    ) {
+    if (sesion.rol !== "admin" && sesion.rol !== "analista") {
 
       return NextResponse.json(
         {
@@ -349,6 +380,13 @@ export async function POST(
 
     const accion = String(body?.accion ?? "previsualizar").trim();
 
+    if (sesion.rol === "analista" && !["imprimir", "reenviar"].includes(accion)) {
+      return NextResponse.json(
+        { ok: false, error: "El rol analista solo puede imprimir o reenviar documentos firmados." },
+        { status: 403 }
+      );
+    }
+
 
     const idFirma =
       String(
@@ -361,6 +399,12 @@ export async function POST(
         body?.idSello ??
         ""
       ).trim();
+
+    const posicionesFirma = body?.posicionesFirma;
+    const ubicacionValida = (valor: any) =>
+      Number.isInteger(valor?.pagina) &&
+      Number.isFinite(valor?.x) && valor.x >= 0 && valor.x <= 1 &&
+      Number.isFinite(valor?.y) && valor.y >= 0 && valor.y <= 1;
 
 
     if (!documentoId) {
@@ -378,7 +422,11 @@ export async function POST(
     }
 
 
-    if (!['reenviar', 'imprimir'].includes(accion) && !idFirma) {
+    if (!['previsualizar', 'firmar-enviar', 'reenviar', 'imprimir', 'revertir', 'original'].includes(accion)) {
+      return NextResponse.json({ ok: false, error: "La acción solicitada no es válida." }, { status: 400 });
+    }
+
+    if (!['reenviar', 'imprimir', 'revertir', 'original'].includes(accion) && !idFirma) {
 
       return NextResponse.json(
         {
@@ -393,7 +441,7 @@ export async function POST(
     }
 
 
-    if (!['reenviar', 'imprimir'].includes(accion) && !idSello) {
+    if (!['reenviar', 'imprimir', 'revertir', 'original'].includes(accion) && !idSello) {
 
       return NextResponse.json(
         {
@@ -438,11 +486,9 @@ export async function POST(
     OBTENER DOCUMENTOS
     --------------------------------------*/
 
-    const documentos =
-      obtenerDocumentos(
-        CATEGORIA,
-        data
-      );
+    const documentos = CATEGORIAS_FIRMA.flatMap((categoria) =>
+      obtenerDocumentos(categoria as "CONSTANCIA_REGISTRO" | "CONSTANCIA_CONSULAR", data)
+    );
 
 
     /*--------------------------------------
@@ -473,9 +519,94 @@ export async function POST(
       );
     }
 
+    const esRegistro = documento.categoria === CATEGORIA_REGISTRO;
+    const esConsular = documento.categoria === CATEGORIA_CONSULAR;
+    const esVerificacionIdentidad =
+      esRegistro && String(documento.codigoActuacion || "").trim().toUpperCase() === "VER-I";
+    const requiereUbicaciones = esConsular || esVerificacionIdentidad;
+    if (!esRegistro && !esConsular) {
+      return NextResponse.json({ ok: false, error: "El documento no pertenece a una categoría firmable." }, { status: 400 });
+    }
+
+    if (sesion.rol === "analista" && (
+      documento.estadoProcesamiento !== "ENTREGADO" ||
+      documento.metodoEntrega !== "CORREO" ||
+      !String(documento.pdfConstanciaFirmada || "").trim() ||
+      !String(documento.tokenValidacion || "").trim()
+    )) {
+      return NextResponse.json(
+        { ok: false, error: "El documento no está firmado y enviado por correo." },
+        { status: 403 }
+      );
+    }
+
+    const archivoPdfOriginalId = String(
+      esConsular ? documento.pdfConstanciaConsular ?? "" : documento.pdfConstanciaRegistro ?? ""
+    ).trim();
+
+    if (accion === "original") {
+      if (!requiereUbicaciones || !archivoPdfOriginalId) {
+        return NextResponse.json({ ok: false, error: "No se encontró el PDF original de la Constancia Consular." }, { status: 404 });
+      }
+      const pdfOriginal = await cargarPdfFuenteFirma(documento, archivoPdfOriginalId, esVerificacionIdentidad);
+      return new NextResponse(new Uint8Array(pdfOriginal), {
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `inline; filename="${esVerificacionIdentidad ? "verificacion-identidad" : "constancia-consular"}-original.pdf"`,
+          "Cache-Control": "no-store",
+        },
+      });
+    }
+
+    if (
+      requiereUbicaciones &&
+      ["previsualizar", "firmar-enviar"].includes(accion) &&
+      ![posicionesFirma?.firma, posicionesFirma?.sello, posicionesFirma?.qr].every(ubicacionValida)
+    ) {
+      return NextResponse.json(
+        { ok: false, error: "Debe indicar en qué página y posición van la firma, el sello y el QR." },
+        { status: 400 }
+      );
+    }
+
+    if (accion === "revertir") {
+      if (
+        !CATEGORIAS_FIRMA.includes(documento.categoria) ||
+        documento.estadoProcesamiento !== "ENTREGADO" ||
+        documento.metodoEntrega !== "CORREO" ||
+        !documento.pdfConstanciaFirmada ||
+        !documento.tokenValidacion
+      ) {
+        return NextResponse.json(
+          { ok: false, error: "Solo se puede revertir una constancia firmada y enviada por correo." },
+          { status: 409 }
+        );
+      }
+
+      await actualizarDatosFirmaConstancia(documento.id, {
+        estadoProcesamiento: ESTADO_PENDIENTE,
+        entregado: false,
+        fechaEntrega: "",
+        entregadoPor: "",
+        observaciones: "Firma revertida para corregir y generar un nuevo documento.",
+        pdfConstanciaFirmada: "",
+        metodoEntrega: "",
+        fechaEnvioCorreo: "",
+        correoDestino: "",
+        usuarioFirma: "",
+        idCorreoEnviado: "",
+        tokenValidacion: "",
+      });
+
+      return NextResponse.json({
+        ok: true,
+        mensaje: "Firma revertida. El documento volvió a Pendiente por Firma.",
+      });
+    }
+
     if (accion === "imprimir") {
       if (
-        documento.categoria !== CATEGORIA ||
+        !CATEGORIAS_FIRMA.includes(documento.categoria) ||
         documento.estadoProcesamiento !== "ENTREGADO" ||
         documento.metodoEntrega !== "CORREO" ||
         !documento.pdfConstanciaFirmada ||
@@ -490,7 +621,7 @@ export async function POST(
       return new NextResponse(new Uint8Array(pdfFirmado), {
         headers: {
           "Content-Type": "application/pdf",
-          "Content-Disposition": `inline; filename="Constancia_Registro_${String(documento.numeroRegistro || documento.id).replace(/[^a-zA-Z0-9_-]/g, "_")}.pdf"`,
+          "Content-Disposition": `inline; filename="Constancia_${String(documento.correlativoConstancia || documento.numeroRegistro || documento.id).replace(/[^a-zA-Z0-9_-]/g, "_")}.pdf"`,
           "Cache-Control": "no-store",
         },
       });
@@ -498,7 +629,7 @@ export async function POST(
 
     if (accion === "reenviar") {
       if (
-        documento.categoria !== CATEGORIA ||
+        !CATEGORIAS_FIRMA.includes(documento.categoria) ||
         ![ESTADO_FIRMADO_PENDIENTE_ENVIO, "ENTREGADO"].includes(documento.estadoProcesamiento) ||
         !documento.pdfConstanciaFirmada ||
         !documento.tokenValidacion ||
@@ -510,7 +641,7 @@ export async function POST(
         );
       }
 
-      const destinatario = await obtenerCorreoCiudadano(documento);
+      const destinatario = await obtenerCorreoCiudadano(documento, true);
       const pdfFirmado = await descargarArchivoDrive(documento.pdfConstanciaFirmada);
       const tokenReenvio = String(documento.tokenValidacion || "").trim();
       if (!tokenReenvio) {
@@ -522,7 +653,8 @@ export async function POST(
       const resultadoCorreo = await enviarDocumentoFirmadoPorCorreo({
         destinatario: destinatario.correo,
         nombre: destinatario.nombre || documento.solicitante,
-        numeroRegistro: String(documento.numeroRegistro ?? documento.id),
+        numeroRegistro: String(documento.correlativoConstancia || documento.numeroRegistro || documento.id),
+        tipoDocumento: esConsular ? "Constancia Consular" : "Constancia de Registro Consular",
         urlValidacion: `https://consultaconsulvenezbarranquilla.app/?token=${encodeURIComponent(tokenReenvio)}`,
         pdfBytes: new Uint8Array(pdfFirmado),
       });
@@ -554,24 +686,6 @@ export async function POST(
     VALIDAR CATEGORÍA
     --------------------------------------*/
 
-    if (
-      documento.categoria !==
-      CATEGORIA
-    ) {
-
-      return NextResponse.json(
-        {
-          ok: false,
-          error:
-            "El documento seleccionado no corresponde a una Constancia de Registro.",
-        },
-        {
-          status: 400,
-        }
-      );
-    }
-
-
     /*--------------------------------------
     VALIDAR ESTADO
     --------------------------------------*/
@@ -601,11 +715,7 @@ export async function POST(
     VALIDAR PDF
     --------------------------------------*/
 
-    const archivoPdfId =
-      String(
-        documento.pdfConstanciaRegistro ??
-        ""
-      ).trim();
+    const archivoPdfId = archivoPdfOriginalId;
 
 
     if (!archivoPdfId) {
@@ -614,7 +724,7 @@ export async function POST(
         {
           ok: false,
           error:
-            "La Constancia de Registro no tiene asociado un PDF en Google Drive.",
+            "La constancia no tiene asociado su PDF original en Google Drive.",
         },
         {
           status: 400,
@@ -744,9 +854,7 @@ export async function POST(
     --------------------------------------*/
 
     const pdfOriginal =
-      await descargarArchivoDrive(
-        archivoPdfId
-      );
+      await cargarPdfFuenteFirma(documento, archivoPdfId, esVerificacionIdentidad);
 
 
     if (
@@ -799,6 +907,10 @@ export async function POST(
       );
     }
 
+    if (requiereUbicaciones && [posicionesFirma.firma, posicionesFirma.sello, posicionesFirma.qr].some((ubicacion: any) => ubicacion.pagina >= paginas.length)) {
+      return NextResponse.json({ ok: false, error: "Una ubicación seleccionada apunta a una página que no existe en el PDF." }, { status: 400 });
+    }
+
 
     /*--------------------------------------
     OBTENER PRIMERA PÁGINA
@@ -825,7 +937,7 @@ export async function POST(
         documento.fotoCarnet ?? ""
       ).trim();
 
-    if (fotoCarnetId) {
+    if (esRegistro && !esVerificacionIdentidad && fotoCarnetId) {
 
       try {
 
@@ -1003,6 +1115,7 @@ const selloY =
   115;
 
 
+    if (esRegistro && !requiereUbicaciones) {
     await insertarImagen(
       pdf,
       pagina,
@@ -1069,6 +1182,7 @@ const selloY =
           ),
       }
     );
+    }
 
 
     /*--------------------------------------
@@ -1076,6 +1190,7 @@ const selloY =
     --------------------------------------*/
 
     if (
+      !requiereUbicaciones &&
       sello &&
       sello.archivoSelloDriveId
     ) {
@@ -1135,13 +1250,100 @@ const selloY =
         "Helvetica-Oblique"
       );
 
+    const esFirmaFinal = accion === "firmar-enviar";
+    const tokenValidacion = esFirmaFinal
+      ? randomUUID()
+      : requiereUbicaciones && accion === "previsualizar"
+        ? `PREVIEW-${randomUUID()}`
+        : "";
+    const urlValidacion = tokenValidacion
+      ? `https://consultaconsulvenezbarranquilla.app/?token=${encodeURIComponent(tokenValidacion)}`
+      : "";
+
+    if (requiereUbicaciones) {
+      const selloBuffer = await descargarArchivoDrive(sello.archivoSelloDriveId);
+      const qrPng = await QRCode.toBuffer(urlValidacion || "https://consultaconsulvenezbarranquilla.app", {
+        type: "png",
+        errorCorrectionLevel: "M",
+        margin: 1,
+        width: 240,
+      });
+      const qrImage = await pdf.embedPng(new Uint8Array(qrPng));
+      const fuenteFirma = await pdf.embedFont("Helvetica");
+
+      const insertarEnUbicacion = async (
+        tipo: "firma" | "sello" | "qr",
+        imagen: Buffer | Awaited<ReturnType<typeof pdf.embedPng>>,
+        anchoMaximo: number,
+        altoMaximo: number
+      ) => {
+        const ubicacion = posicionesFirma[tipo];
+        const paginaDestino = paginas[ubicacion.pagina];
+        const caja = paginaDestino.getCropBox();
+        const anchoPagina = caja.width;
+        const altoPagina = caja.height;
+        const rotacion = ((paginaDestino.getRotation().angle % 360) + 360) % 360;
+        const xVisual = ubicacion.x;
+        const yVisual = ubicacion.y;
+        let centroX = caja.x + xVisual * anchoPagina;
+        let centroY = caja.y + (1 - yVisual) * altoPagina;
+        if (rotacion === 90) {
+          centroX = caja.x + (1 - yVisual) * anchoPagina;
+          centroY = caja.y + xVisual * altoPagina;
+        } else if (rotacion === 180) {
+          centroX = caja.x + (1 - xVisual) * anchoPagina;
+          centroY = caja.y + yVisual * altoPagina;
+        } else if (rotacion === 270) {
+          centroX = caja.x + yVisual * anchoPagina;
+          centroY = caja.y + (1 - xVisual) * altoPagina;
+        }
+
+        if (tipo === "qr") {
+          const lado = 64;
+          paginaDestino.drawImage(qrImage, {
+            x: Math.max(caja.x, Math.min(caja.x + anchoPagina - lado, centroX - lado / 2)),
+            y: Math.max(caja.y, Math.min(caja.y + altoPagina - lado, centroY - lado / 2)),
+            width: lado,
+            height: lado,
+          });
+          paginaDestino.drawText("Escanee para validar", {
+            x: Math.max(caja.x, Math.min(caja.x + anchoPagina - 120, centroX - 48)),
+            y: Math.max(caja.y + 4, centroY - 42),
+            size: 6,
+            font: fuenteCursiva,
+            color: rgb(0.18, 0.18, 0.18),
+          });
+          return;
+        }
+
+        const x = Math.max(caja.x, Math.min(caja.x + anchoPagina - anchoMaximo, centroX - anchoMaximo / 2));
+        const y = Math.max(caja.y, Math.min(caja.y + altoPagina - altoMaximo, centroY - altoMaximo / 2));
+        await insertarImagen(pdf, paginaDestino, imagen as Buffer, x, y, anchoMaximo, altoMaximo);
+        if (tipo === "firma") {
+          paginaDestino.drawText(sesion.nombre || sesion.usuario, {
+            x,
+            y: Math.max(2, y - 12),
+            size: 7,
+            font: fuenteFirma,
+            color: rgb(0.15, 0.15, 0.15),
+          });
+        }
+      };
+
+      await insertarEnUbicacion("firma", firmaBuffer, 190, 75);
+      await insertarEnUbicacion("sello", selloBuffer, 120, 100);
+      if (accion === "previsualizar" || esFirmaFinal) {
+        await insertarEnUbicacion("qr", qrImage, 64, 64);
+      }
+    }
+
     const numeroRegistroConsular =
       String(
         documento.numeroRegistro ??
           ""
       ).trim();
 
-    if (accion === "firmar-enviar" && !numeroRegistroConsular) {
+    if (esRegistro && !esVerificacionIdentidad && esFirmaFinal && !numeroRegistroConsular) {
       return NextResponse.json(
         { ok: false, error: "La constancia no tiene número de registro para generar el QR." },
         { status: 400 }
@@ -1175,7 +1377,7 @@ const selloY =
     const textoLegalYInicial =
       42;
 
-    for (
+    if (esRegistro && !esVerificacionIdentidad) for (
       let indice = 0;
       indice < lineasTextoLegal.length;
       indice++
@@ -1220,15 +1422,7 @@ const selloY =
 
     }
 
-    const esFirmaFinal = accion === "firmar-enviar";
-    const tokenValidacion = esFirmaFinal
-      ? randomUUID()
-      : "";
-    const urlValidacion = esFirmaFinal
-      ? `https://consultaconsulvenezbarranquilla.app/?token=${encodeURIComponent(tokenValidacion)}`
-      : "";
-
-    if (esFirmaFinal) {
+    if (esRegistro && !esVerificacionIdentidad && esFirmaFinal) {
       const qrPng = await QRCode.toBuffer(urlValidacion, {
         type: "png",
         errorCorrectionLevel: "M",
@@ -1263,12 +1457,19 @@ const selloY =
     METADATOS PDF
     --------------------------------------*/
 
-    pdf.setTitle(
-      "Constancia de Registro Consular"
+    const nombreTipoDocumento = esConsular
+      ? "Constancia Consular"
+      : esVerificacionIdentidad
+        ? "Verificacion de Identidad"
+        : "Constancia de Registro Consular";
+    const numeroDocumentoConstancia = String(
+      documento.correlativoConstancia || documento.numeroRegistro || (esVerificacionIdentidad ? documento.recibo : "") || documento.id
     );
 
+    pdf.setTitle(nombreTipoDocumento);
+
     pdf.setSubject(
-      `Constancia de Registro Consular - ${documento.numeroRegistro ?? ""}`
+      `${nombreTipoDocumento} - ${numeroDocumentoConstancia}`
     );
 
     pdf.setAuthor(
@@ -1291,12 +1492,12 @@ const selloY =
       const destinatario = await obtenerCorreoCiudadano(documento);
       const archivo = new File(
         [Buffer.from(pdfBytes) as unknown as BlobPart],
-        `Constancia_Registro_${documento.numeroRegistro || documento.id}.pdf`,
+        `${esConsular ? "Constancia_Consular" : esVerificacionIdentidad ? "Verificacion_Identidad" : "Constancia_Registro"}_${numeroDocumentoConstancia}.pdf`,
         { type: "application/pdf" }
       );
       const subida = await subirArchivoDrive({
         archivo,
-        categoria: CATEGORIA,
+        categoria: documento.categoria,
         tipoArchivo: "PDF_FIRMADO",
         documentoId: documento.id,
       });
@@ -1312,7 +1513,8 @@ const selloY =
       const resultadoCorreo = await enviarDocumentoFirmadoPorCorreo({
         destinatario: destinatario.correo,
         nombre: destinatario.nombre || documento.solicitante,
-        numeroRegistro: String(documento.numeroRegistro ?? documento.id),
+        numeroRegistro: numeroDocumentoConstancia,
+        tipoDocumento: nombreTipoDocumento,
         urlValidacion,
         pdfBytes: new Uint8Array(pdfBytes),
       });
@@ -1357,7 +1559,7 @@ const selloY =
             "application/pdf",
 
           "Content-Disposition":
-            `inline; filename="constancia-registro-${documento.numeroRegistro || documento.id}.pdf"`,
+            `inline; filename="constancia-${esConsular ? "consular" : "registro"}-${numeroDocumentoConstancia.replace(/[^a-zA-Z0-9_-]/g, "_")}.pdf"`,
 
           "X-Documento-Id":
             documento.id,

@@ -761,6 +761,14 @@ if (
         "CONSTANCIA_CONSULAR"
     ) {
 
+        if (
+            documento.estadoProcesamiento === "PENDIENTE_FIRMA" ||
+            documento.estadoProcesamiento === "FIRMADO_PENDIENTE_ENVIO" ||
+            documento.estadoProcesamiento === "ENTREGADO"
+        ) {
+            return documento.estadoProcesamiento;
+        }
+
         const completo =
 
             texto(
@@ -992,6 +1000,14 @@ if (
 
     documento.pdfConstanciaRegistro =
         texto(reporte[53]);
+
+    documento.pdfFichaIdentidadSaime =
+        texto(reporte[64]);
+
+    documento.pdfConstanciaConsular =
+        texto(reporte[62]);
+    documento.correoSolicitante =
+        texto(reporte[63]);
 
     // ======================================
     // CONSTANCIA REGISTRO - FOTO CARNET
@@ -2519,6 +2535,8 @@ function obtenerConstanciasRegistro(
 
                 estadoProcesamiento:
                     "EN_PROCESO",
+
+                codigoActuacion,
 
                 entregado:
                     false,

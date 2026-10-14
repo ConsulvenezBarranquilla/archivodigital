@@ -41,6 +41,8 @@ interface Props {
     onArchivosChange?: (
         archivos: {
             pdfConstancia?: File | null;
+            pdfConstanciaConsular?: File | null;
+            pdfFichaIdentidadSaime?: File | null;
             fotoCarnet?: File | null;
         }
     ) => void;
@@ -161,6 +163,9 @@ const [
     fotoCarnet,
     setFotoCarnet,
 ] = useState<File | null>(null);
+
+const [pdfFichaIdentidadSaime, setPdfFichaIdentidadSaime] = useState<File | null>(null);
+const esVerificacionIdentidad = String(documento.codigoActuacion || "").trim().toUpperCase() === "VER-I";
 
     useEffect(() => {
 
@@ -422,13 +427,11 @@ function cambiarPdfConstancia(
     if (onArchivosChange) {
 
         onArchivosChange({
-
-            pdfConstancia:
-                archivo,
-
-            fotoCarnet:
-                fotoCarnet,
-
+            ...(categoria === "CONSTANCIA_CONSULAR"
+                ? { pdfConstanciaConsular: archivo }
+                : { pdfConstancia: archivo }),
+            pdfFichaIdentidadSaime,
+            fotoCarnet,
         });
 
     }
@@ -463,17 +466,31 @@ function cambiarFotoCarnet(
     if (onArchivosChange) {
 
         onArchivosChange({
-
-            pdfConstancia:
-                pdfConstancia,
-
-            fotoCarnet:
-                archivo,
-
+            ...(categoria === "CONSTANCIA_CONSULAR"
+                ? { pdfConstanciaConsular: pdfConstancia }
+                : { pdfConstancia }),
+            pdfFichaIdentidadSaime,
+            fotoCarnet: archivo,
         });
 
     }
 
+}
+
+function cambiarPdfFichaIdentidadSaime(archivo: File | null) {
+    if (archivo && archivo.type !== "application/pdf") {
+        alert("El archivo de la Ficha de Identidad SAIME debe ser un PDF.");
+        return;
+    }
+
+    setPdfFichaIdentidadSaime(archivo);
+    onArchivosChange?.({
+        ...(categoria === "CONSTANCIA_CONSULAR"
+            ? { pdfConstanciaConsular: pdfConstancia }
+            : { pdfConstancia }),
+        pdfFichaIdentidadSaime: archivo,
+        fotoCarnet,
+    });
 }
 
 // ======================================================
@@ -874,7 +891,7 @@ function cambiarApoderado(
     ARCHIVOS
 ========================================== */}
 
-{categoria === "CONSTANCIA_REGISTRO" &&
+{(categoria === "CONSTANCIA_REGISTRO" || categoria === "CONSTANCIA_CONSULAR") &&
     modo === "editar" && (
 
     <div className="
@@ -893,7 +910,7 @@ function cambiarApoderado(
                 font-semibold
                 text-slate-800
             ">
-                Archivos de la Constancia de Registro
+                {categoria === "CONSTANCIA_CONSULAR" ? "PDF de la Constancia Consular" : "Archivos de la Constancia de Registro"}
             </h3>
 
             <p className="
@@ -923,7 +940,7 @@ function cambiarApoderado(
                     text-slate-700
                 "
             >
-                PDF de la Constancia
+                {esVerificacionIdentidad ? "PDF del Registro Consular" : "PDF de la Constancia"}
 
                 <span className="ml-1 text-red-500">
                     *
@@ -975,7 +992,7 @@ function cambiarApoderado(
 
             )}
 
-            {documento.pdfConstanciaRegistro && (
+            {(categoria === "CONSTANCIA_CONSULAR" ? documento.pdfConstanciaConsular : documento.pdfConstanciaRegistro) && (
                 <p className="
                     text-xs
                     text-slate-500
@@ -988,11 +1005,29 @@ function cambiarApoderado(
 
         </div>
 
+        {categoria === "CONSTANCIA_REGISTRO" && esVerificacionIdentidad && (
+            <div className="space-y-1 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                <label className="block text-sm font-medium text-slate-700">
+                    PDF de Ficha de Identidad SAIME
+                    <span className="ml-1 text-red-500">*</span>
+                </label>
+                <input
+                    type="file"
+                    accept="application/pdf,.pdf"
+                    onChange={e => cambiarPdfFichaIdentidadSaime(e.target.files?.[0] ?? null)}
+                    className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                />
+                {pdfFichaIdentidadSaime && <p className="text-xs text-green-700">Archivo seleccionado: {pdfFichaIdentidadSaime.name}</p>}
+                {documento.pdfFichaIdentidadSaime && <p className="text-xs text-slate-500">Ya existe una ficha SAIME guardada. Seleccione otro archivo solo para reemplazarla.</p>}
+                <p className="text-xs text-slate-500">La ficha se anexara al PDF del Registro Consular como pagina horizontal para firmar y validar ambas paginas.</p>
+            </div>
+        )}
+
         {/* ======================================
             FOTO CARNET
         ====================================== */}
 
-        <div className="space-y-1">
+        {categoria === "CONSTANCIA_REGISTRO" && <div className="space-y-1">
 
             <label
                 className="
@@ -1065,7 +1100,7 @@ function cambiarApoderado(
                 </p>
             )}
 
-        </div>
+        </div>}
 
     </div>
 

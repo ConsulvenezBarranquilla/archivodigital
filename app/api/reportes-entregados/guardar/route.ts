@@ -5,6 +5,9 @@ import {
 
 import {
     guardarReporte,
+    actualizarPdfConstanciaConsular,
+    actualizarCorreoConstanciaConsular,
+    actualizarPdfFichaIdentidadSaime,
 } from "@/lib/googleSheets";
 
 import {
@@ -33,8 +36,12 @@ export async function POST(
         let pdfConstancia:
             File | null = null;
 
+        let pdfConstanciaConsular: File | null = null;
+
         let fotoCarnet:
             File | null = null;
+
+        let pdfFichaIdentidadSaime: File | null = null;
 
 
         // ==================================================
@@ -161,6 +168,16 @@ export async function POST(
                 pdfConstancia =
                     pdfRaw;
 
+            }
+
+            const pdfConsularRaw = formData.get("pdfConstanciaConsular");
+            if (pdfConsularRaw instanceof File) {
+                pdfConstanciaConsular = pdfConsularRaw;
+            }
+
+            const fichaSaimeRaw = formData.get("pdfFichaIdentidadSaime");
+            if (fichaSaimeRaw instanceof File) {
+                pdfFichaIdentidadSaime = fichaSaimeRaw;
             }
 
 
@@ -336,6 +353,72 @@ export async function POST(
             documento.estadoProcesamiento =
                 "PENDIENTE_FIRMA";
 
+            if (String(documento.codigoActuacion || "").trim().toUpperCase() === "VER-I") {
+                if (pdfFichaIdentidadSaime) {
+                    if (pdfFichaIdentidadSaime.type !== "application/pdf") {
+                        return NextResponse.json({ ok: false, error: "La Ficha de Identidad SAIME debe ser un PDF." }, { status: 400 });
+                    }
+                    const firmaPdfSaime = Buffer.from(await pdfFichaIdentidadSaime.slice(0, 5).arrayBuffer()).toString("ascii");
+                    if (firmaPdfSaime !== "%PDF-") {
+                        return NextResponse.json({ ok: false, error: "El archivo de la Ficha de Identidad SAIME no parece un PDF valido." }, { status: 400 });
+                    }
+                    const resultadoSaime = await subirArchivoDrive({
+                        archivo: pdfFichaIdentidadSaime,
+                        categoria: "CONSTANCIA_REGISTRO",
+                        tipoArchivo: "PDF_FICHA_SAIME",
+                        documentoId: String(documento.id),
+                        archivoIdExistente: documento.pdfFichaIdentidadSaime || undefined,
+                    });
+                    documento.pdfFichaIdentidadSaime = resultadoSaime.id;
+                }
+
+                if (!documento.pdfConstanciaRegistro || !documento.pdfFichaIdentidadSaime) {
+                    return NextResponse.json({ ok: false, error: "Verificacion de Identidad requiere el PDF del Registro Consular y la Ficha de Identidad SAIME." }, { status: 400 });
+                }
+            }
+
+        }
+
+        if (
+            documento.categoria === "CONSTANCIA_CONSULAR" &&
+            pdfConstanciaConsular
+        ) {
+            if (pdfConstanciaConsular.type !== "application/pdf") {
+                return NextResponse.json({ ok: false, error: "El archivo de la constancia consular debe ser PDF." }, { status: 400 });
+            }
+
+            const firmaPdf = Buffer.from(await pdfConstanciaConsular.slice(0, 5).arrayBuffer()).toString("ascii");
+            if (firmaPdf !== "%PDF-") {
+                return NextResponse.json({ ok: false, error: "El archivo seleccionado no parece ser un PDF válido." }, { status: 400 });
+            }
+
+            const resultadoPdf = await subirArchivoDrive({
+                archivo: pdfConstanciaConsular,
+                categoria: "CONSTANCIA_CONSULAR",
+                tipoArchivo: "PDF_CONSTANCIA",
+                documentoId: String(documento.id),
+                archivoIdExistente: documento.pdfConstanciaConsular || undefined,
+            });
+
+            documento.pdfConstanciaConsular = resultadoPdf.id;
+            documento.estadoProcesamiento = "PENDIENTE_FIRMA";
+        }
+
+        if (
+            documento.categoria === "CONSTANCIA_REGISTRO" &&
+            String(documento.codigoActuacion || "").trim().toUpperCase() === "VER-I" &&
+            pdfFichaIdentidadSaime &&
+            !documento.pdfFichaIdentidadSaime
+        ) {
+            return NextResponse.json({ ok: false, error: "No se pudo guardar la Ficha de Identidad SAIME." }, { status: 400 });
+        }
+
+        if (documento.categoria === "CONSTANCIA_CONSULAR" && documento.correoSolicitante) {
+            const correo = String(documento.correoSolicitante).trim().toLowerCase();
+            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo)) {
+                return NextResponse.json({ ok: false, error: "El correo electronico del solicitante no es valido." }, { status: 400 });
+            }
+            documento.correoSolicitante = correo;
         }
 
 
@@ -350,6 +433,37 @@ export async function POST(
             usuario
 
         );
+
+        if (
+            documento.categoria === "CONSTANCIA_CONSULAR" &&
+            documento.pdfConstanciaConsular
+        ) {
+            await actualizarPdfConstanciaConsular(
+                String(documento.id),
+                String(documento.pdfConstanciaConsular)
+            );
+        }
+
+        if (
+            documento.categoria === "CONSTANCIA_REGISTRO" &&
+            String(documento.codigoActuacion || "").trim().toUpperCase() === "VER-I" &&
+            documento.pdfFichaIdentidadSaime
+        ) {
+            await actualizarPdfFichaIdentidadSaime(
+                String(documento.id),
+                String(documento.pdfFichaIdentidadSaime)
+            );
+        }
+
+        if (
+            documento.categoria === "CONSTANCIA_CONSULAR" &&
+            typeof documento.correoSolicitante === "string"
+        ) {
+            await actualizarCorreoConstanciaConsular(
+                String(documento.id),
+                documento.correoSolicitante
+            );
+        }
 
 
         // ==================================================
@@ -371,6 +485,18 @@ export async function POST(
 
                 pdfConstanciaRegistro:
                     documento.pdfConstanciaRegistro
+                    ?? null,
+
+                pdfConstanciaConsular:
+                    documento.pdfConstanciaConsular
+                    ?? null,
+
+                pdfFichaIdentidadSaime:
+                    documento.pdfFichaIdentidadSaime
+                    ?? null,
+
+                correoSolicitante:
+                    documento.correoSolicitante
                     ?? null,
 
                 fotoCarnet:

@@ -24,6 +24,10 @@ export interface ArchivosConstancia {
 
     pdfConstancia?: File | null;
 
+    pdfConstanciaConsular?: File | null;
+
+    pdfFichaIdentidadSaime?: File | null;
+
     fotoCarnet?: File | null;
 
 }
@@ -235,12 +239,20 @@ export async function actualizarDocumento(
     const tienePdf =
         archivos?.pdfConstancia instanceof File;
 
+    const tienePdfConsular =
+        archivos?.pdfConstanciaConsular instanceof File;
+
+    const tieneFichaSaime =
+        archivos?.pdfFichaIdentidadSaime instanceof File;
+
     const tieneFoto =
         archivos?.fotoCarnet instanceof File;
 
 
     if (
         tienePdf ||
+        tienePdfConsular ||
+        tieneFichaSaime ||
         tieneFoto
     ) {
 
@@ -293,6 +305,20 @@ export async function actualizarDocumento(
 
             );
 
+        }
+
+        if (
+            tienePdfConsular &&
+            archivos?.pdfConstanciaConsular
+        ) {
+            formData.append(
+                "pdfConstanciaConsular",
+                archivos.pdfConstanciaConsular
+            );
+        }
+
+        if (tieneFichaSaime && archivos?.pdfFichaIdentidadSaime) {
+            formData.append("pdfFichaIdentidadSaime", archivos.pdfFichaIdentidadSaime);
         }
 
 

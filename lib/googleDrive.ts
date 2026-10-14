@@ -61,8 +61,14 @@ VALIDACIONES
 const TIPOS_PERMITIDOS: Record<string, string[]> = {
   CONSTANCIA_REGISTRO: [
     "PDF_CONSTANCIA",
+    "PDF_FICHA_SAIME",
     "PDF_FIRMADO",
     "FOTO_CARNET",
+  ],
+
+  CONSTANCIA_CONSULAR: [
+    "PDF_CONSTANCIA",
+    "PDF_FIRMADO",
   ],
 
   FIRMAS_USUARIOS: [
@@ -72,6 +78,10 @@ const TIPOS_PERMITIDOS: Record<string, string[]> = {
 
 const MIME_PERMITIDOS: Record<string, string[]> = {
   PDF_CONSTANCIA: [
+    "application/pdf",
+  ],
+
+  PDF_FICHA_SAIME: [
     "application/pdf",
   ],
 

@@ -18,7 +18,8 @@ interface Props {
     onClose: () => void;
 
     onGuardar: (
-        documento: ReporteEntregado
+        documento: ReporteEntregado,
+        pdfConstanciaConsular: File
     ) => Promise<void>;
 
 }
@@ -48,6 +49,10 @@ export default function ModalNuevaConstancia({
         documento,
         setDocumento,
     ] = useState("");
+
+    const [correoSolicitante, setCorreoSolicitante] = useState("");
+
+    const [pdfConstanciaConsular, setPdfConstanciaConsular] = useState<File | null>(null);
 
     // ==========================================
     // DATOS DE LA CONSTANCIA
@@ -86,6 +91,10 @@ export default function ModalNuevaConstancia({
         setSolicitante("");
 
         setDocumento("");
+
+        setCorreoSolicitante("");
+
+        setPdfConstanciaConsular(null);
 
         setFechaConstancia("");
 
@@ -168,6 +177,8 @@ export default function ModalNuevaConstancia({
         const documentoLimpio =
             documento.trim();
 
+        const correoLimpio = correoSolicitante.trim().toLowerCase();
+
         const fechaLimpia =
             fechaConstancia.trim();
 
@@ -200,6 +211,16 @@ export default function ModalNuevaConstancia({
 
             return;
 
+        }
+
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correoLimpio)) {
+            alert("Debe indicar un correo electronico valido para enviar la constancia firmada.");
+            return;
+        }
+
+        if (!pdfConstanciaConsular) {
+            alert("Debe adjuntar el PDF original de la constancia consular.");
+            return;
         }
 
         if (
@@ -279,6 +300,8 @@ fechaRecibo: "",
             documento:
                 documentoLimpio,
 
+            correoSolicitante: correoLimpio,
+
             // ----------------------------------
             // Estado
             // ----------------------------------
@@ -330,7 +353,8 @@ setGuardando(true);
 try {
 
     await onGuardar(
-        nuevoDocumento
+        nuevoDocumento,
+        pdfConstanciaConsular
     );
 
     limpiarFormulario();
@@ -403,6 +427,9 @@ finally {
                 className="
                     w-full
                     max-w-2xl
+                    max-h-[calc(100vh-3rem)]
+                    flex
+                    flex-col
                     overflow-hidden
                     rounded-2xl
                     bg-white
@@ -484,6 +511,9 @@ finally {
 
                 <div
                     className="
+                        min-h-0
+                        flex-1
+                        overflow-y-auto
                         space-y-5
                         px-6
                         py-6
@@ -647,6 +677,46 @@ finally {
 
                         </div>
 
+                        <div className="space-y-1 md:col-span-2">
+                            <label className="block text-sm font-semibold text-slate-700">
+                                Correo electr&#243;nico del solicitante
+                                <span className="ml-1 text-red-500">*</span>
+                            </label>
+                            <input
+                                type="email"
+                                required
+                                autoComplete="email"
+                                value={correoSolicitante}
+                                onChange={(event) => setCorreoSolicitante(event.target.value)}
+                                placeholder="ciudadano@correo.com"
+                                className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+                            />
+                            <p className="text-xs text-slate-500">Se usar&#225; para enviar la constancia una vez firmada.</p>
+                        </div>
+
+                        <div className="space-y-1 md:col-span-2">
+                            <label className="block text-sm font-semibold text-slate-700">
+                                PDF original de la Constancia Consular
+                                <span className="ml-1 text-red-500">*</span>
+                            </label>
+                            <input
+                                type="file"
+                                accept="application/pdf,.pdf"
+                                onChange={(event) => {
+                                    const file = event.target.files?.[0] ?? null;
+                                    if (file && file.type !== "application/pdf") {
+                                        alert("El archivo debe ser PDF.");
+                                        event.currentTarget.value = "";
+                                        return;
+                                    }
+                                    setPdfConstanciaConsular(file);
+                                }}
+                                className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+                            />
+                            {pdfConstanciaConsular && <p className="text-xs text-emerald-700">Archivo: {pdfConstanciaConsular.name}</p>}
+                            <p className="text-xs text-slate-500">Se guardará en Drive. Puede tener varias páginas; el firmante elegirá dónde ubicar cada elemento.</p>
+                        </div>
+
                         {/* ==================================
                             FECHA
                         ================================== */}
@@ -712,7 +782,6 @@ finally {
                         <div
                             className="
                                 space-y-1
-                                md:col-span-2
                             "
                         >
 

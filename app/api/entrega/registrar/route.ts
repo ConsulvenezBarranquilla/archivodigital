@@ -186,7 +186,7 @@ export async function POST(
                     MODULO_CAJA_SHEET_ID,
 
                 range:
-                    "ReportesEntregados!A:M",
+                "ReportesEntregados!A:BA",
 
             });
 
@@ -254,6 +254,16 @@ export async function POST(
                 }
             );
 
+        }
+
+        const estadoProcesamiento = String(
+            rows[fila - 1][52] ?? ""
+        ).trim().toUpperCase();
+        if (estadoProcesamiento === "RECHAZADA") {
+            return NextResponse.json(
+                { ok: false, error: "Un documento rechazado no se puede registrar como entregado." },
+                { status: 409 }
+            );
         }
 
 

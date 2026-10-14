@@ -109,12 +109,17 @@ export interface ReporteEntregado {
 
     pdfConstanciaRegistro?: string;
 
+    pdfFichaIdentidadSaime?: string;
+
+    pdfConstanciaConsular?: string;
+
     fotoCarnet?: string;
 
     pdfConstanciaFirmada?: string;
     metodoEntrega?: "PRESENCIAL" | "CORREO" | "";
     fechaEnvioCorreo?: string;
     correoDestino?: string;
+    correoSolicitante?: string;
     usuarioFirma?: string;
     idCorreoEnviado?: string;
     tokenValidacion?: string;
