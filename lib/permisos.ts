@@ -17,6 +17,8 @@ export const PERMISOS = {
 
   caja: [
     "caja",
+    "recepcion",
+    "expediente-ciudadano",
   ],
 
   recepcion: [

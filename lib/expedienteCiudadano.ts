@@ -12,6 +12,19 @@ import { obtenerDocumentos } from "@/lib/reportesEntregados/reportesService";
 
 const HOJA_EXPEDIENTE = "ExpedienteCiudadano";
 const ETIQUETAS_REGISTRO_EXPEDIENTE: Record<number, string> = {
+  1: "Número de Cédula (National ID Number)",
+  2: "Primer Nombre (First Name)",
+  3: "Segundo Nombre (Middle Name)",
+  4: "Primer Apellido (Last Name)",
+  5: "Segundo Apellido (Second Last Name)",
+  6: "Nacionalidad (Nationality)",
+  7: "Ciudad de Nacimiento",
+  8: "País de Nacimiento (Place of Birth)",
+  9: "Estado Civil (Civil Status)",
+  10: "Género (Gender)",
+  11: "Correo electrónico (Email Address)",
+  12: "Número Teléfono (Phone Number)",
+  13: "Fecha Nacimiento (Date of Birth)",
   14: "Número de Pasaporte (Passport Number)",
   15: "Lugar de Residencia",
   16: "Estatus Migratorio",
@@ -253,6 +266,24 @@ export async function guardarDatosEditablesExpediente(
   }
 }
 
+export async function actualizarDocumentoExpedienteCiudadano(documentoAnterior: string, documentoNuevo: string): Promise<void> {
+  const anterior = normalizarDocumento(documentoAnterior);
+  const nuevo = texto(documentoNuevo);
+  if (!anterior || !nuevo || anterior === normalizarDocumento(nuevo)) return;
+  const filas = await leerDatosEditables();
+  const indice = filas.findIndex((fila, index) => index > 0 && normalizarDocumento(fila[0]) === anterior);
+  if (indice < 1) return;
+  const fila = [...filas[indice]];
+  while (fila.length < ENCABEZADOS_EXPEDIENTE.length) fila.push("");
+  fila[0] = nuevo;
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: REGISTRO_CONSULAR_SHEET_ID,
+    range: `'${HOJA_EXPEDIENTE}'!A${indice + 1}:L${indice + 1}`,
+    valueInputOption: "RAW",
+    requestBody: { values: [fila.slice(0, ENCABEZADOS_EXPEDIENTE.length)] },
+  });
+}
+
 export async function buscarExpedienteCiudadano(
   numeroDocumento: string
 ): Promise<{ expediente: ExpedienteCiudadano | null; fotoDriveId: string }> {
@@ -323,13 +354,16 @@ export async function buscarExpedienteCiudadano(
   const fotoDriveId = fotoExpediente || fotoConstancia;
 
   const encabezadosRegistro = registro[0] ?? [];
-  const datosRegistro = filaRegistro
-    .map((valor, indice) => ({
-      etiqueta: ETIQUETAS_REGISTRO_EXPEDIENTE[indice]
-        || (texto(encabezadosRegistro[indice]) || `Dato ${indice + 1}`).replace(/^32750\s*/i, ""),
-      valor: texto(valor),
-    }))
-    .filter((item) => item.valor && !/marca temporal/i.test(item.etiqueta));
+  const datosRegistro = Array.from({ length: 18 }, (_, desplazamiento) => {
+      const indice = desplazamiento + 1;
+      const valor = filaRegistro[indice];
+      return {
+        indice,
+        etiqueta: ETIQUETAS_REGISTRO_EXPEDIENTE[indice]
+          || (texto(encabezadosRegistro[indice]) || `Dato ${indice + 1}`).replace(/^32750\s*/i, ""),
+        valor: texto(valor),
+      };
+    });
 
   const nombreCompleto = [filaRegistro[2], filaRegistro[3], filaRegistro[4], filaRegistro[5]]
     .map(texto)

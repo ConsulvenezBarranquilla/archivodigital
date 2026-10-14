@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-export type ElementoFirma = "firma" | "sello" | "qr";
+export type ElementoFirma = "firma" | "sello" | "qr" | "legal";
 
 export interface UbicacionFirma {
   pagina: number;
@@ -15,6 +15,7 @@ export type PosicionesFirma = Record<ElementoFirma, UbicacionFirma | null>;
 interface Props {
   url: string;
   iniciales: PosicionesFirma;
+  incluirTextoLegal?: boolean;
   onCancelar: () => void;
   onConfirmar: (posiciones: PosicionesFirma) => void;
 }
@@ -33,6 +34,7 @@ const nombres: Record<ElementoFirma, string> = {
   firma: "Firma",
   sello: "Sello",
   qr: "QR de validación",
+  legal: "Mensaje legal",
 };
 
 function PaginaPdf({
@@ -40,12 +42,14 @@ function PaginaPdf({
   numero,
   posiciones,
   elementoActivo,
+  incluirTextoLegal,
   onElegir,
 }: {
   documento: PdfDocument;
   numero: number;
   posiciones: PosicionesFirma;
   elementoActivo: ElementoFirma;
+  incluirTextoLegal: boolean;
   onElegir: (pagina: number, x: number, y: number) => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -99,7 +103,7 @@ function PaginaPdf({
         aria-label={`Página ${numero}. Haz clic para ubicar ${nombres[elementoActivo]}.`}
       >
         <canvas ref={canvasRef} className="block max-w-full" />
-        {(Object.keys(nombres) as ElementoFirma[]).map((tipo) => {
+        {(Object.keys(nombres) as ElementoFirma[]).filter((tipo) => tipo !== "legal" || incluirTextoLegal).map((tipo) => {
           const ubicacion = posiciones[tipo];
           if (!ubicacion || ubicacion.pagina !== numero - 1) return null;
           return (
@@ -117,7 +121,7 @@ function PaginaPdf({
   );
 }
 
-export default function PdfColocacionEditor({ url, iniciales, onCancelar, onConfirmar }: Props) {
+export default function PdfColocacionEditor({ url, iniciales, onCancelar, onConfirmar, incluirTextoLegal = false }: Props) {
   const [documento, setDocumento] = useState<PdfDocument | null>(null);
   const [posiciones, setPosiciones] = useState<PosicionesFirma>(iniciales);
   const [elementoActivo, setElementoActivo] = useState<ElementoFirma>("firma");
@@ -155,11 +159,12 @@ export default function PdfColocacionEditor({ url, iniciales, onCancelar, onConf
 
   function elegirUbicacion(pagina: number, x: number, y: number) {
     setPosiciones((anteriores) => ({ ...anteriores, [elementoActivo]: { pagina, x, y } }));
-    const siguiente = elementoActivo === "firma" ? "sello" : elementoActivo === "sello" ? "qr" : "qr";
+    const siguiente = elementoActivo === "firma" ? "sello" : elementoActivo === "sello" ? "qr" : elementoActivo === "qr" && incluirTextoLegal ? "legal" : "qr";
     setElementoActivo(siguiente);
   }
 
-  const faltantes = (Object.keys(nombres) as ElementoFirma[]).filter((tipo) => !posiciones[tipo]);
+  const elementos = (Object.keys(nombres) as ElementoFirma[]).filter((tipo) => tipo !== "legal" || incluirTextoLegal);
+  const faltantes = elementos.filter((tipo) => !posiciones[tipo]);
 
   return (
     <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-950/70 p-2 sm:p-5">
@@ -173,7 +178,7 @@ export default function PdfColocacionEditor({ url, iniciales, onCancelar, onConf
             <button type="button" onClick={onCancelar} className="rounded-lg px-3 py-1 text-2xl text-slate-500 hover:bg-slate-100" aria-label="Cerrar">×</button>
           </div>
           <div className="mt-4 flex flex-wrap gap-2">
-            {(Object.keys(nombres) as ElementoFirma[]).map((tipo) => (
+            {elementos.map((tipo) => (
               <button key={tipo} type="button" onClick={() => setElementoActivo(tipo)} className={`rounded-lg border px-3 py-2 text-sm font-semibold ${elementoActivo === tipo ? "border-blue-700 bg-blue-700 text-white" : "border-slate-300 bg-white text-slate-700"}`}>
                 {nombres[tipo]}{posiciones[tipo] ? ` · página ${posiciones[tipo]!.pagina + 1}` : " · pendiente"}
               </button>
@@ -186,7 +191,7 @@ export default function PdfColocacionEditor({ url, iniciales, onCancelar, onConf
           {error && <p role="alert" className="rounded-lg bg-red-50 p-4 text-red-700">{error}</p>}
           {documento && Array.from({ length: documento.numPages }, (_, indice) => (
             <div key={indice} className="mx-auto mb-5 max-w-4xl">
-              <PaginaPdf documento={documento} numero={indice + 1} posiciones={posiciones} elementoActivo={elementoActivo} onElegir={elegirUbicacion} />
+              <PaginaPdf documento={documento} numero={indice + 1} posiciones={posiciones} elementoActivo={elementoActivo} incluirTextoLegal={incluirTextoLegal} onElegir={elegirUbicacion} />
             </div>
           ))}
         </div>

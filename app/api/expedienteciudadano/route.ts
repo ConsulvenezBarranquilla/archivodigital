@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { exigirPermiso } from "@/lib/autorizacion";
-import { buscarExpedienteCiudadano, guardarDatosEditablesExpediente, normalizarDocumentoExpediente, type HijoExpediente } from "@/lib/expedienteCiudadano";
+import { actualizarDocumentoExpedienteCiudadano, buscarExpedienteCiudadano, guardarDatosEditablesExpediente, normalizarDocumentoExpediente, type HijoExpediente } from "@/lib/expedienteCiudadano";
+import { obtenerDocumentoPrincipal } from "@/lib/googleSheets";
 import { subirArchivoDrive } from "@/lib/googleDrive";
+import { sheets, REGISTRO_CONSULAR_SHEET_ID, MODULO_CAJA_SHEET_ID } from "@/lib/googleSheets";
 
 export const runtime = "nodejs";
 
@@ -60,6 +62,62 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ ok: false, error: "No se encontró ese documento en el Registro Consular." }, { status: 404 });
     }
 
+    if (Array.isArray(body?.datosGenerales)) {
+      const datosGenerales = body.datosGenerales.map((valor: unknown) => limitarTexto(valor, 500));
+      if (datosGenerales.length !== 18) {
+        return NextResponse.json({ ok: false, error: "La información general debe incluir todos los campos del registro." }, { status: 400 });
+      }
+      const cedulaNueva = datosGenerales[0].trim().toUpperCase();
+      const pasaporteNuevo = datosGenerales[13].trim().toUpperCase();
+      if (!cedulaNueva && !pasaporteNuevo) {
+        return NextResponse.json({ ok: false, error: "Debe conservar una cédula o un pasaporte." }, { status: 400 });
+      }
+
+      const respuestaRegistro = await sheets.spreadsheets.values.get({
+        spreadsheetId: REGISTRO_CONSULAR_SHEET_ID,
+        range: "'Respuestas de formulario 1'!A:S",
+      });
+      const filasRegistro = respuestaRegistro.data.values ?? [];
+      const original = normalizarDocumentoExpediente(body?.documentoOriginal || documento);
+      const filaCiudadano = filasRegistro.findIndex((fila, index) => index > 0 && (
+        normalizarDocumentoExpediente(fila[1]) === original || normalizarDocumentoExpediente(fila[14]) === original
+      ));
+      if (filaCiudadano < 1) {
+        return NextResponse.json({ ok: false, error: "No se encontró el registro original del ciudadano." }, { status: 404 });
+      }
+      for (let index = 1; index < filasRegistro.length; index++) {
+        if (index === filaCiudadano) continue;
+        const cedulaExistente = String(filasRegistro[index][1] ?? "").trim().toUpperCase();
+        const pasaporteExistente = String(filasRegistro[index][14] ?? "").trim().toUpperCase();
+        if ((cedulaNueva && cedulaNueva === cedulaExistente) || (pasaporteNuevo && pasaporteNuevo === pasaporteExistente)) {
+          return NextResponse.json({ ok: false, error: "La cédula o el pasaporte ya pertenece a otro ciudadano." }, { status: 409 });
+        }
+      }
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: REGISTRO_CONSULAR_SHEET_ID,
+        range: `'Respuestas de formulario 1'!B${filaCiudadano + 1}:S${filaCiudadano + 1}`,
+        valueInputOption: "USER_ENTERED",
+        requestBody: { values: [datosGenerales] },
+      });
+
+      const documentoNuevo = obtenerDocumentoPrincipal(cedulaNueva, pasaporteNuevo, datosGenerales[5]) || cedulaNueva || pasaporteNuevo;
+      await actualizarDocumentoExpedienteCiudadano(expediente.documento, documentoNuevo);
+
+      const respuestaCaja = await sheets.spreadsheets.values.get({ spreadsheetId: MODULO_CAJA_SHEET_ID, range: "Caja!A:N" });
+      const nombreCompleto = datosGenerales.slice(1, 5).map((valor: string) => valor.trim()).filter(Boolean).join(" ");
+      const actualizacionesCaja = (respuestaCaja.data.values ?? []).slice(1).flatMap((fila, index) => {
+        const documentosFila = [fila[2], fila[11], fila[12]].map(normalizarDocumentoExpediente);
+        if (!documentosFila.includes(original)) return [];
+        return [{
+          range: `Caja!C${index + 2}:N${index + 2}`,
+          values: [[datosGenerales[0] || datosGenerales[13], nombreCompleto, datosGenerales[10], fila[5], fila[6], fila[7], fila[8], fila[9], fila[10], datosGenerales[0], datosGenerales[13], datosGenerales[5]]],
+        }];
+      });
+      if (actualizacionesCaja.length) {
+        await sheets.spreadsheets.values.batchUpdate({ spreadsheetId: MODULO_CAJA_SHEET_ID, requestBody: { valueInputOption: "USER_ENTERED", data: actualizacionesCaja } });
+      }
+    }
+
     const hijosEntrada = Array.isArray(body?.hijos)
       ? body.hijos as Array<Record<string, unknown>>
       : [];
@@ -87,7 +145,7 @@ export async function PUT(request: NextRequest) {
       tieneHijos: typeof body?.tieneHijos === "boolean" ? body.tieneHijos : null,
       hijos: [],
     };
-    if (typeof body?.tieneHijos !== "boolean") {
+    if (body?.tieneHijos !== undefined && typeof body.tieneHijos !== "boolean") {
       return NextResponse.json({ ok: false, error: "Indique si el ciudadano tiene hijos." }, { status: 400 });
     }
     if (cambios.tieneHijos && (
@@ -101,7 +159,9 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ ok: false, error: "Complete nombre, género y fecha de nacimiento de cada hijo." }, { status: 400 });
     }
     if (cambios.tieneHijos) cambios.hijos = hijos as HijoExpediente[];
-    await guardarDatosEditablesExpediente(expediente.documento, cambios, autorizacion.sesion.usuario);
+    if (typeof body?.tieneHijos === "boolean") {
+      await guardarDatosEditablesExpediente(expediente.documento, cambios, autorizacion.sesion.usuario);
+    }
 
     return NextResponse.json({ ok: true, mensaje: "Datos del expediente guardados." });
   } catch (error) {

@@ -561,7 +561,7 @@ export async function POST(
     if (
       requiereUbicaciones &&
       ["previsualizar", "firmar-enviar"].includes(accion) &&
-      ![posicionesFirma?.firma, posicionesFirma?.sello, posicionesFirma?.qr].every(ubicacionValida)
+      ![posicionesFirma?.firma, posicionesFirma?.sello, posicionesFirma?.qr, ...(esConsular ? [posicionesFirma?.legal] : [])].every(ubicacionValida)
     ) {
       return NextResponse.json(
         { ok: false, error: "Debe indicar en qué página y posición van la firma, el sello y el QR." },
@@ -1259,6 +1259,13 @@ const selloY =
     const urlValidacion = tokenValidacion
       ? `https://consultaconsulvenezbarranquilla.app/?token=${encodeURIComponent(tokenValidacion)}`
       : "";
+    const numeroCorrelativoConsular = String(documento.correlativoConstancia || documento.numeroRegistro || "").trim();
+    const lineasMensajeLegalConsular = [
+      "Documento firmado electrónicamente con el mismo valor probatorio que la Ley otorga a los documentos escritos, según Gaceta Oficial N° 37.076, del",
+      "13 de diciembre de 2000 de la Ley de Mensajes de Datos y Firmas Electrónicas, artículo N° 4.",
+      `Para validar la autenticidad de este documento ingrese este código: ${numeroCorrelativoConsular} en`,
+      "https://consultaconsulvenezbarranquilla.app",
+    ];
 
     if (requiereUbicaciones) {
       const selloBuffer = await descargarArchivoDrive(sello.archivoSelloDriveId);
@@ -1334,6 +1341,39 @@ const selloY =
       await insertarEnUbicacion("sello", selloBuffer, 120, 100);
       if (accion === "previsualizar" || esFirmaFinal) {
         await insertarEnUbicacion("qr", qrImage, 64, 64);
+      }
+
+      if (esConsular && (accion === "previsualizar" || esFirmaFinal)) {
+        const ubicacion = posicionesFirma.legal;
+        const paginaLegal = paginas[ubicacion.pagina];
+        const cajaLegal = paginaLegal.getCropBox();
+        const anchoLegal = cajaLegal.width;
+        const altoLegal = cajaLegal.height;
+        const giroLegal = ((paginaLegal.getRotation().angle % 360) + 360) % 360;
+        let centroX = cajaLegal.x + ubicacion.x * anchoLegal;
+        let centroY = cajaLegal.y + (1 - ubicacion.y) * altoLegal;
+        if (giroLegal === 90) {
+          centroX = cajaLegal.x + (1 - ubicacion.y) * anchoLegal;
+          centroY = cajaLegal.y + ubicacion.x * altoLegal;
+        } else if (giroLegal === 180) {
+          centroX = cajaLegal.x + (1 - ubicacion.x) * anchoLegal;
+          centroY = cajaLegal.y + ubicacion.y * altoLegal;
+        } else if (giroLegal === 270) {
+          centroX = cajaLegal.x + ubicacion.y * anchoLegal;
+          centroY = cajaLegal.y + (1 - ubicacion.x) * altoLegal;
+        }
+        const tamanoLegal = 6.5;
+        const interlineadoLegal = 8;
+        lineasMensajeLegalConsular.forEach((linea, indice) => {
+          const anchoLinea = fuenteCursiva.widthOfTextAtSize(linea, tamanoLegal);
+          paginaLegal.drawText(linea, {
+            x: Math.max(cajaLegal.x + 4, Math.min(cajaLegal.x + anchoLegal - anchoLinea - 4, centroX - anchoLinea / 2)),
+            y: Math.max(cajaLegal.y + 4, Math.min(cajaLegal.y + altoLegal - 8, centroY + ((lineasMensajeLegalConsular.length - 1) * interlineadoLegal) / 2 - indice * interlineadoLegal)),
+            size: tamanoLegal,
+            font: fuenteCursiva,
+            color: rgb(0.18, 0.18, 0.18),
+          });
+        });
       }
     }
 

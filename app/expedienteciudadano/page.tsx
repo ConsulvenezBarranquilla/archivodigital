@@ -13,7 +13,7 @@ interface Expediente {
   telefono: string;
   fechaNacimiento: string;
   nacionalidad: string;
-  datosRegistro: Array<{ etiqueta: string; valor: string }>;
+  datosRegistro: Array<{ indice: number; etiqueta: string; valor: string }>;
   datosEditables: {
     direccionColombia: string;
     direccionVenezuela: string;
@@ -67,20 +67,21 @@ function Campo({ etiqueta, valor }: { etiqueta: string; valor: string }) {
   );
 }
 
-function Entrada({ etiqueta, value, onChange, multiline = false, type = "text", disabled = false }: {
+function Entrada({ etiqueta, value, onChange, multiline = false, type = "text", disabled = false, placeholder }: {
   etiqueta: string;
   value: string;
   onChange: (value: string) => void;
   multiline?: boolean;
   type?: string;
   disabled?: boolean;
+  placeholder?: string;
 }) {
   const clases = "mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100";
   return (
     <label className="block text-sm font-semibold text-slate-700">
       {etiqueta}
-      {multiline ? <textarea rows={3} value={value} onChange={(event) => onChange(event.target.value)} disabled={disabled} className={`${clases} disabled:bg-slate-100 disabled:text-slate-500`} />
-        : <input type={type} value={value} onChange={(event) => onChange(event.target.value)} disabled={disabled} className={`${clases} disabled:bg-slate-100 disabled:text-slate-500`} />}
+      {multiline ? <textarea rows={3} value={value} onChange={(event) => onChange(event.target.value)} disabled={disabled} placeholder={placeholder} className={`${clases} disabled:bg-slate-100 disabled:text-slate-500`} />
+        : <input type={type} value={value} onChange={(event) => onChange(event.target.value)} disabled={disabled} placeholder={placeholder} className={`${clases} disabled:bg-slate-100 disabled:text-slate-500`} />}
     </label>
   );
 }
@@ -134,6 +135,7 @@ export default function ExpedienteCiudadanoPage() {
   const [numeroDocumento, setNumeroDocumento] = useState("");
   const [expediente, setExpediente] = useState<Expediente | null>(null);
   const [formulario, setFormulario] = useState<FormularioExpediente>(formularioVacio);
+  const [datosGenerales, setDatosGenerales] = useState<string[]>(Array(18).fill(""));
   const [buscando, setBuscando] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [subiendoFoto, setSubiendoFoto] = useState(false);
@@ -144,11 +146,15 @@ export default function ExpedienteCiudadanoPage() {
   const hayCambiosComplementarios = Boolean(expediente) &&
     JSON.stringify(datosComplementariosNormalizados(formulario)) !==
     JSON.stringify(datosComplementariosNormalizados(expediente?.datosEditables));
+  const hayCambiosGenerales = Boolean(expediente) && JSON.stringify(datosGenerales) !== JSON.stringify(
+    Array.from({ length: 18 }, (_, indice) => expediente?.datosRegistro.find((dato) => dato.indice === indice + 1)?.valor ?? "")
+  );
 
   function limpiarBusqueda() {
     setNumeroDocumento("");
     setExpediente(null);
     setFormulario(formularioVacio);
+    setDatosGenerales(Array(18).fill(""));
     setPuedeEditar(false);
     setError("");
     setMensaje("");
@@ -221,6 +227,7 @@ export default function ExpedienteCiudadanoPage() {
       const item = data.expediente as Expediente;
       setPuedeEditar(data.puedeEditar === true);
       setExpediente(item);
+      setDatosGenerales(Array.from({ length: 18 }, (_, indice) => item.datosRegistro.find((dato) => dato.indice === indice + 1)?.valor ?? ""));
       setFormulario({
         direccionColombia: item.datosEditables.direccionColombia,
         direccionVenezuela: item.datosEditables.direccionVenezuela,
@@ -272,6 +279,35 @@ export default function ExpedienteCiudadanoPage() {
     }
   }
 
+  async function guardarInformacionGeneral() {
+    if (!expediente) return;
+    if (!datosGenerales[0]?.trim() && !datosGenerales[13]?.trim()) {
+      setError("Debe conservar una cédula o un pasaporte.");
+      return;
+    }
+    setGuardando(true);
+    setError("");
+    setMensaje("");
+    try {
+      const response = await fetch("/api/expedienteciudadano", {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ documento: expediente.documento, documentoOriginal: expediente.documento, datosGenerales }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.ok) throw new Error(data.error || "No fue posible guardar la información general.");
+      const nuevoDocumento = datosGenerales[0]?.trim() || datosGenerales[13]?.trim() || expediente.documento;
+      setNumeroDocumento(nuevoDocumento);
+      setMensaje("Información general guardada en Registro Consular.");
+      await recargarExpediente(nuevoDocumento);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "No fue posible guardar la información general.");
+    } finally {
+      setGuardando(false);
+    }
+  }
+
   async function recargarExpediente(documento: string) {
     const response = await fetch(`/api/expedienteciudadano?documento=${encodeURIComponent(documento)}`, { credentials: "include", cache: "no-store" });
     const data = await response.json();
@@ -279,6 +315,7 @@ export default function ExpedienteCiudadanoPage() {
       const item = data.expediente as Expediente;
       setPuedeEditar(data.puedeEditar === true);
       setExpediente(item);
+      setDatosGenerales(Array.from({ length: 18 }, (_, indice) => item.datosRegistro.find((dato) => dato.indice === indice + 1)?.valor ?? ""));
       setFormulario({
         direccionColombia: item.datosEditables.direccionColombia,
         direccionVenezuela: item.datosEditables.direccionVenezuela,
@@ -376,7 +413,7 @@ export default function ExpedienteCiudadanoPage() {
               <div className="min-w-0">
                 <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
                   <div>
-                    <h2 className="text-2xl font-bold text-blue-950">{expediente.nombreCompleto}</h2>
+                    <h2 className="text-2xl font-bold text-blue-950">{expediente.nombreCompleto || "—"}</h2>
                     <p className="mt-1 font-semibold text-blue-700">Documento: {expediente.documento}</p>
                   </div>
                   <button type="button" onClick={() => void descargarPdf()} disabled={descargandoPdf} className="shrink-0 rounded-xl bg-emerald-700 px-4 py-3 font-bold text-white hover:bg-emerald-800 disabled:opacity-60">{descargandoPdf ? "Preparando PDF..." : "Descargar ficha PDF"}</button>
@@ -393,9 +430,18 @@ export default function ExpedienteCiudadanoPage() {
             </section>
 
             <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h2 className="mb-4 text-xl font-bold text-blue-950">Información General</h2>
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <h2 className="text-xl font-bold text-blue-950">Información General</h2>
+                {puedeEditar && <button type="button" onClick={() => void guardarInformacionGeneral()} disabled={guardando || !hayCambiosGenerales} className={`rounded-lg px-4 py-2 font-bold text-white disabled:cursor-not-allowed ${hayCambiosGenerales ? "bg-blue-700 hover:bg-blue-800" : "bg-slate-400"}`}>{guardando ? "Guardando..." : "Guardar información general"}</button>}
+              </div>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {expediente.datosRegistro.map((dato, index) => <Campo key={`${dato.etiqueta}-${index}`} etiqueta={dato.etiqueta} valor={dato.valor} />)}
+                {expediente.datosRegistro.map((dato) => (
+                  <div key={`${dato.indice}-${dato.etiqueta}`}>
+                    {puedeEditar
+                      ? <Entrada etiqueta={dato.etiqueta} value={datosGenerales[dato.indice - 1] ?? ""} placeholder="—" onChange={(valor) => setDatosGenerales((actual) => actual.map((anterior, indice) => indice === dato.indice - 1 ? valor : anterior))} />
+                      : <Campo etiqueta={dato.etiqueta} valor={dato.valor} />}
+                  </div>
+                ))}
               </div>
             </section>
 

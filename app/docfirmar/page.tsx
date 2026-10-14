@@ -85,6 +85,10 @@ function requiereUbicacionesPersonalizadas(documento: Documento | null | undefin
     );
 }
 
+function requiereUbicacionTextoLegal(documento: Documento | null | undefined): boolean {
+    return documento?.categoria === "CONSTANCIA_CONSULAR";
+}
+
 function anioDeFecha(fecha: string | undefined): number | null {
     const valor = String(fecha ?? "").trim();
     const iso = valor.match(/^(\d{4})[-/]/);
@@ -153,7 +157,7 @@ export default function DocFirmarPage() {
     ] = useState("");
     const [pdfOriginalUrl, setPdfOriginalUrl] = useState("");
     const [mostrarEditorUbicaciones, setMostrarEditorUbicaciones] = useState(false);
-    const [posicionesFirma, setPosicionesFirma] = useState<PosicionesFirma>({ firma: null, sello: null, qr: null });
+    const [posicionesFirma, setPosicionesFirma] = useState<PosicionesFirma>({ firma: null, sello: null, qr: null, legal: null });
     const [previsualizacionLista, setPrevisualizacionLista] = useState(false);
     const [enviandoCorreo, setEnviandoCorreo] = useState(false);
     const [solicitandoTotp, setSolicitandoTotp] = useState(false);
@@ -405,7 +409,7 @@ export default function DocFirmarPage() {
         if (pdfOriginalUrl) URL.revokeObjectURL(pdfOriginalUrl);
         setPdfOriginalUrl("");
         setMostrarEditorUbicaciones(false);
-        setPosicionesFirma({ firma: null, sello: null, qr: null });
+        setPosicionesFirma({ firma: null, sello: null, qr: null, legal: null });
         setPrevisualizacionLista(false);
 
         setIdFirmaSeleccionada(
@@ -430,7 +434,7 @@ export default function DocFirmarPage() {
         if (pdfOriginalUrl) URL.revokeObjectURL(pdfOriginalUrl);
         setPdfOriginalUrl("");
         setMostrarEditorUbicaciones(false);
-        setPosicionesFirma({ firma: null, sello: null, qr: null });
+        setPosicionesFirma({ firma: null, sello: null, qr: null, legal: null });
         setPrevisualizacionLista(false);
         setErrorPrevisualizacion("");
         setDocumentoSeleccionado(null);
@@ -491,7 +495,7 @@ export default function DocFirmarPage() {
         }
 
         if (requiereUbicacionesPersonalizadas(documentoSeleccionado) &&
-            (!posicionesFirma.firma || !posicionesFirma.sello || !posicionesFirma.qr)) {
+            (!posicionesFirma.firma || !posicionesFirma.sello || !posicionesFirma.qr || (requiereUbicacionTextoLegal(documentoSeleccionado) && !posicionesFirma.legal))) {
             setErrorPrevisualizacion("Antes de previsualizar, use ‘Elegir ubicaciones’ para colocar firma, sello y QR en el PDF.");
             return;
         }
@@ -669,6 +673,14 @@ export default function DocFirmarPage() {
 
         const reintentar =
             documentoSeleccionado.estadoProcesamiento === "FIRMADO_PENDIENTE_ENVIO";
+
+        if (!reintentar && requiereUbicacionesPersonalizadas(documentoSeleccionado) && (
+            !posicionesFirma.firma || !posicionesFirma.sello || !posicionesFirma.qr ||
+            (requiereUbicacionTextoLegal(documentoSeleccionado) && !posicionesFirma.legal)
+        )) {
+            setErrorPrevisualizacion("Seleccione las ubicaciones de firma, sello, QR y mensaje legal antes de firmar.");
+            return;
+        }
 
         if (!reintentar && !previsualizacionLista) {
             setErrorPrevisualizacion("Primero genere y revise la previsualización.");
@@ -2028,7 +2040,7 @@ export default function DocFirmarPage() {
 
                                     {requiereUbicacionesPersonalizadas(documentoSeleccionado) && (
                                         <div className="flex w-full flex-wrap items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
-                                            <span className="flex-1">Firma: {posicionesFirma.firma ? `pág. ${posicionesFirma.firma.pagina + 1}` : "pendiente"} · Sello: {posicionesFirma.sello ? `pág. ${posicionesFirma.sello.pagina + 1}` : "pendiente"} · QR: {posicionesFirma.qr ? `pág. ${posicionesFirma.qr.pagina + 1}` : "pendiente"}</span>
+                                            <span className="flex-1">Firma: {posicionesFirma.firma ? `pág. ${posicionesFirma.firma.pagina + 1}` : "pendiente"} · Sello: {posicionesFirma.sello ? `pág. ${posicionesFirma.sello.pagina + 1}` : "pendiente"} · QR: {posicionesFirma.qr ? `pág. ${posicionesFirma.qr.pagina + 1}` : "pendiente"}{requiereUbicacionTextoLegal(documentoSeleccionado) && ` · Mensaje legal: ${posicionesFirma.legal ? `pág. ${posicionesFirma.legal.pagina + 1}` : "pendiente"}`}</span>
                                             <button type="button" onClick={() => void abrirEditorUbicaciones()} disabled={generandoPrevisualizacion || enviandoCorreo} className="rounded-lg border border-blue-300 bg-white px-3 py-1.5 font-semibold hover:bg-blue-100 disabled:opacity-50">Elegir ubicaciones</button>
                                         </div>
                                     )}
@@ -2069,6 +2081,7 @@ export default function DocFirmarPage() {
                 <PdfColocacionEditor
                     url={pdfOriginalUrl}
                     iniciales={posicionesFirma}
+                    incluirTextoLegal={requiereUbicacionTextoLegal(documentoSeleccionado)}
                     onCancelar={() => setMostrarEditorUbicaciones(false)}
                     onConfirmar={(nuevasPosiciones) => {
                         setPosicionesFirma(nuevasPosiciones);
