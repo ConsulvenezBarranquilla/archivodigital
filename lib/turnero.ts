@@ -38,9 +38,20 @@ const redis = new Redis({ url: redisUrl, token: redisToken });
 const PREFIX = "registro-consular:turnero:v1";
 const KEY_ACTIVOS = `${PREFIX}:activos`;
 const KEY_OUTBOX = `${PREFIX}:outbox`;
-// Versioned to avoid colliding with the legacy scalar public-call key.
-const KEY_LLAMADOS = `${PREFIX}:ultimos-llamados:v2`;
 const KEY_SECUENCIA = `${PREFIX}:secuencia`;
+
+function fechaActualBogota() {
+  const partes = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Bogota", year: "numeric", month: "2-digit", day: "2-digit",
+  }).formatToParts(new Date());
+  const valores = Object.fromEntries(partes.map(({ type, value }) => [type, value]));
+  return `${valores.year}-${valores.month}-${valores.day}`;
+}
+
+function claveLlamadosPublicos() {
+  // A separate Redis list per local calendar day makes the public board reset at midnight.
+  return `${PREFIX}:ultimos-llamados:v3:${fechaActualBogota()}`;
+}
 
 function sha(valor: string) { return crypto.createHash("sha256").update(valor).digest("hex"); }
 function claveTurno(id: string) { return `${PREFIX}:turno:${id}`; }
@@ -100,6 +111,7 @@ if accion == 'llamar' then
   local llamado = cjson.encode({id=turno.id, nombre=turno.nombre, tipo=turno.llamadaTipo, caja=turno.llamadaTipo == 'caja' and ARGV[4] or '', actualizadoEl=ahora})
   redis.call('LPUSH', KEYS[3], 'CALL:' .. llamado)
   redis.call('LTRIM', KEYS[3], 0, 3)
+  redis.call('EXPIRE', KEYS[3], 604800)
 else
   redis.call('ZREM', KEYS[2], turno.id)
 end
@@ -151,9 +163,10 @@ export async function obtenerTurno(id: string) {
 }
 
 export async function cambiarEstadoTurno(id: string, accion: "llamar" | "atendido", usuario: string, caja = "", tipoOperador: "recepcion" | "caja" | "analista" = "caja") {
+  const keyLlamados = claveLlamadosPublicos();
   const resultado = await redis.eval(
     LUA_CAMBIAR,
-    [claveTurno(id), KEY_ACTIVOS, KEY_LLAMADOS, KEY_OUTBOX, `${PREFIX}:turno:`],
+    [claveTurno(id), KEY_ACTIVOS, keyLlamados, KEY_OUTBOX, `${PREFIX}:turno:`],
     [accion, new Date().toISOString(), usuario, caja, tipoOperador],
   );
   if (resultado === "NO_TURNO") throw new Error("No se encontr\u00C3\u00B3 el turno solicitado.");
@@ -167,7 +180,7 @@ export async function cambiarEstadoTurno(id: string, accion: "llamar" | "atendid
 export interface LlamadoPublico { id: string; nombre: string; tipo: "analista" | "caja" | "recepcion"; caja: string; actualizadoEl: string; }
 
 export async function obtenerLlamadosPublicos(): Promise<LlamadoPublico[]> {
-  const items = await redis.lrange(KEY_LLAMADOS, 0, 3) as unknown as string[];
+  const items = await redis.lrange(claveLlamadosPublicos(), 0, 3) as unknown as string[];
   return (items || []).flatMap((raw) => {
     try {
       const item = JSON.parse(String(raw).replace(/^CALL:/, "")) as Record<string, unknown>;
