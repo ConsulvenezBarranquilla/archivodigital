@@ -14,6 +14,7 @@ import DataTable, {
 
 import DataTableToolbar from "@/components/table/DataTableToolbar";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 import {
   obtenerPendientesSGC,
@@ -35,6 +36,17 @@ interface DocumentoPendienteFirma {
 }
 
 export default function AdminPage() {
+
+ const router = useRouter();
+
+ useEffect(() => {
+  let activo = true;
+  fetch("/api/session", { cache: "no-store", credentials: "include" })
+    .then((response) => response.json())
+    .then((data) => { if (activo && data?.ok && data.rol === "analista") router.replace("/atencion"); })
+    .catch(() => undefined);
+  return () => { activo = false; };
+ }, [router]);
 
  
   const [

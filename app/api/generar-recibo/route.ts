@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { obtenerSesion } from "@/lib/auth";
+import { tienePermiso } from "@/lib/permisos";
 
 import {
   obtenerCorrelativos,
@@ -7,7 +8,9 @@ import {
   guardarMovimientoCaja,
   guardarDetalleCaja,
   obtenerDocumentoPrincipal,
+  obtenerActuaciones,
 } from "@/lib/googleSheets";
+import { buscarVisitaReciente, sincronizarTurnosAnalista } from "@/lib/turnero";
 
 import { generarPdfRecibo } from "@/lib/generarPdfRecibo";
 import { enviarReciboPorCorreo } from "@/lib/gmail";
@@ -16,6 +19,12 @@ import {
   fechaHoraActual,
   anioActual,
 } from "@/lib/fechas";
+
+type ActuacionRecibo = Record<string, unknown> & {
+  codigo: string;
+  actuacion: string;
+  monto: number;
+};
 
 export async function POST(
   req: NextRequest
@@ -48,6 +57,13 @@ if (!sesion) {
     {
       status: 401,
     }
+  );
+}
+
+if (!tienePermiso(sesion.rol, "caja")) {
+  return NextResponse.json(
+    { ok: false, mensaje: "No tiene permiso para generar recibos de Caja." },
+    { status: 403 }
   );
 }
 
@@ -103,6 +119,20 @@ const usuario = {
       });
 
     }
+
+    const actuacionesRecibo = (actuaciones as unknown[]).map((entrada): ActuacionRecibo => {
+      if (!entrada || typeof entrada !== "object" || Array.isArray(entrada)) {
+        throw new Error("Una de las actuaciones no tiene un formato válido.");
+      }
+      const item = entrada as Record<string, unknown>;
+      const codigo = String(item.codigo || "").trim();
+      const actuacion = String(item.actuacion || "").trim();
+      const monto = Number(item.monto);
+      if (!codigo || !actuacion || !Number.isFinite(monto)) {
+        throw new Error("Faltan el código, el nombre o el monto de una actuación.");
+      }
+      return { ...item, codigo, actuacion, monto };
+    });
     
     console.log(
       "CIUDADANO RECIBIDO:"
@@ -361,9 +391,9 @@ const usuario = {
 
       ciudadano.correo,
 
-      actuaciones
+      actuacionesRecibo
         .map(
-          (a: any) =>
+          (a) =>
             a.actuacion
         )
         .join("; "),
@@ -402,7 +432,7 @@ const usuario = {
 
     console.log(
       "ACTUACIONES RECIBIDAS:",
-      actuaciones
+      actuacionesRecibo
     );
 
     for (
@@ -421,6 +451,37 @@ const usuario = {
 
       ]);
 
+    }
+
+    // La factura y todos sus detalles ya quedaron persistidos. Solo el
+    // catálogo leído en servidor determina qué actuaciones pasan a Analistas.
+    let turnosAnalista: string[] = [];
+    let transferenciaTurnosPendiente = false;
+    let errorTransferenciaTurnos = "";
+    try {
+      const [catalogoActuacionesRaw, visitaId] = await Promise.all([
+        obtenerActuaciones(),
+        buscarVisitaReciente(documentoImpreso, fecha),
+      ]);
+      const catalogoActuaciones: unknown[][] = catalogoActuacionesRaw;
+      const paresCatalogo = catalogoActuaciones.slice(1)
+        .filter((row: unknown[]) => String(row[3] || "").trim().toUpperCase() === "SI")
+        .map((row: unknown[]) => [String(row[0] || "").trim(), String(row[1] || "").trim()] as [string, string]);
+      const catalogo = new Map<string, string>(paresCatalogo);
+      const candidatas = actuacionesRecibo.flatMap((actuacion, indice) => {
+        const codigo = String(actuacion.codigo || "").trim();
+        const nombre = catalogo.get(codigo);
+        return nombre ? [{ codigo, nombre, indice }] : [];
+      });
+      const creados = await sincronizarTurnosAnalista({
+        correlativo, nombre: String(ciudadano.nombreCompleto || ""), documento: String(documentoImpreso || ""),
+        fecha, usuario: sesion.usuario, actuaciones: candidatas, visitaId,
+      });
+      turnosAnalista = creados.map((turno) => turno.id);
+    } catch (errorTurnos) {
+      transferenciaTurnosPendiente = true;
+      errorTransferenciaTurnos = errorTurnos instanceof Error ? errorTurnos.message : "No se pudo completar la transferencia de atenciones.";
+      console.error("RECIBO GUARDADO; transferencia a Analistas pendiente de recuperación:", errorTurnos);
     }
 
     // ======================================================
@@ -446,8 +507,8 @@ let correoNoAplica = false;
 // ------------------------------------------------------
 
 const contieneConstanciaExenta =
-  actuaciones.some(
-    (actuacion: any) =>
+  actuacionesRecibo.some(
+    (actuacion) =>
       String(
         actuacion.codigo || ""
       )
@@ -504,7 +565,7 @@ if (
         usuario:
           usuario.nombre,
 
-        actuaciones,
+        actuaciones: actuacionesRecibo,
 
         totalUSD,
 
@@ -564,7 +625,7 @@ if (
     }
 
   } catch (
-    error: any
+    error: unknown
   ) {
 
     console.error(
@@ -572,9 +633,9 @@ if (
       error
     );
 
-    errorCorreo =
-      error?.message ||
-      "No fue posible enviar el recibo por correo electrónico.";
+    errorCorreo = error instanceof Error
+      ? error.message
+      : "No fue posible enviar el recibo por correo electrónico.";
 
   }
 
@@ -604,7 +665,7 @@ if (
       usuario:
         usuario.nombre,
 
-      actuaciones,
+      actuaciones: actuacionesRecibo,
 
       totalUSD,
 
@@ -616,12 +677,16 @@ if (
 
       correoNoAplica,
 
+      totalTurnosAnalista: turnosAnalista.length,
+      transferenciaTurnosPendiente,
+      errorTransferenciaTurnos,
+
     });
 
   }
 
   catch (
-    error: any
+    error: unknown
   ) {
 
     console.error(
@@ -634,8 +699,7 @@ if (
       {
         ok: false,
 
-        error:
-          error.message,
+        error: error instanceof Error ? error.message : "No fue posible generar el recibo.",
       },
 
       {

@@ -666,6 +666,31 @@ export async function obtenerSesion(): Promise<
 
 }
 
+/** Lee y valida la sesión durante el render de una página, sin escribir cookies. */
+export async function obtenerSesionEnLectura(): Promise<UsuarioSesion | null> {
+  try {
+    const cookieStore = await cookies();
+    const cookie = cookieStore.get(COOKIE_NAME);
+    if (!cookie?.value) return null;
+
+    const payload = descifrarSesion(cookie.value);
+    if (!payload?.sessionId) return null;
+
+    const sesionActiva = await validarSesionActiva(payload.usuario, payload.sessionId);
+    if (!sesionActiva) return null;
+
+    return {
+      usuario: payload.usuario,
+      nombre: payload.nombre,
+      rol: payload.rol,
+      caja: payload.caja,
+      sessionId: payload.sessionId,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export async function cerrarSesion(): Promise<void> {
 
   try {

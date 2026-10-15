@@ -9,6 +9,7 @@ import {
   obtenerReportesEntregados,
 } from "@/lib/googleSheets";
 import { obtenerDocumentos } from "@/lib/reportesEntregados/reportesService";
+import { obtenerSeguimientoDocumentalTramite } from "@/lib/progresoTramite";
 
 const HOJA_EXPEDIENTE = "ExpedienteCiudadano";
 const ETIQUETAS_REGISTRO_EXPEDIENTE: Record<number, string> = {
@@ -73,6 +74,7 @@ export interface FilaHistorialExpediente {
   referencia: string;
   estado?: string;
   detalle?: string;
+  documentos?: Array<{ nombre: string; estado: string }>;
 }
 
 export interface ExpedienteCiudadano {
@@ -384,6 +386,11 @@ export async function buscarExpedienteCiudadano(
     spreadsheetId: MODULO_CAJA_SHEET_ID,
     range: "DetalleCaja!A:F",
   }).then((respuesta) => respuesta.data.values ?? []);
+  const documentosSeguimiento = ([
+    "PASAPORTES", "VISA", "APOSTILLA", "FE_VIDA", "CARTA_SOLTERIA",
+    "CERTIFICADO_USO", "CONSTANCIA_REGISTRO", "CONSTANCIA_CONSULAR",
+    "PODER", "AUTORIZACION_VIAJE",
+  ] as const).flatMap((categoria) => obtenerDocumentos(categoria, { caja, gestionConsular, reportes }));
   const tramitesExpediente = caja.slice(1)
     .filter((fila) => [fila[2], fila[11], fila[12]].some((doc) => normalizarDocumento(doc) === claveDocumento))
     .map((fila) => {
@@ -397,6 +404,11 @@ export async function buscarExpedienteCiudadano(
         tipo: "Trámite",
         referencia: correlativo,
         estado: texto(fila[10]) || "GENERADO",
+        documentos: obtenerSeguimientoDocumentalTramite(
+          documentosSeguimiento,
+          correlativo,
+          texto(fila[10]).toUpperCase() === "ANULADO"
+        ),
         detalle: actuaciones.join(" · ") || "Sin detalle de actuación",
       };
     })

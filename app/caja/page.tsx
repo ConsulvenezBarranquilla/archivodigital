@@ -9,6 +9,7 @@ import {
 import SistemaLayout from "@/components/layout/SistemaLayout";
 import { MODULOS } from "@/lib/modulos";
 import PopupTitulares from "@/components/caja/PopupTitulares";
+import TurnosWidget from "@/components/turnero/TurnosWidget";
 import { obtenerCatalogos } from "@/lib/services/Catalogos";
 
 export default function CajaPage() {
@@ -81,6 +82,8 @@ const [
   mostrarConfirmacion,
   setMostrarConfirmacion,
 ] = useState(false);
+const [reciboPendienteTransferencia, setReciboPendienteTransferencia] = useState("");
+const [recuperandoTransferencia, setRecuperandoTransferencia] = useState(false);
 
 const [
   mostrarOpcionesRecibo,
@@ -763,9 +766,10 @@ async function generarRecibo() {
     // ======================================================
 
     setDatosReciboGenerado(data);
+    setReciboPendienteTransferencia(data.transferenciaTurnosPendiente ? data.correlativo : "");
 
     setMensajeRecibo(
-      `Recibo registrado correctamente. Correlativo: ${data.correlativo}`
+      `Recibo registrado correctamente. Correlativo: ${data.correlativo}${data.transferenciaTurnosPendiente ? " La transferencia de actuaciones quedó pendiente de recuperación." : ""}`
     );
 
     // ======================================================
@@ -784,6 +788,25 @@ async function generarRecibo() {
     setMensajeRecibo(
       "Error generando recibo."
     );
+  }
+}
+
+async function recuperarTransferenciaTurnos() {
+  if (!reciboPendienteTransferencia || recuperandoTransferencia) return;
+  setRecuperandoTransferencia(true);
+  try {
+    const response = await fetch("/api/turnos/recuperar", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ correlativo: reciboPendienteTransferencia }),
+    });
+    const data = await response.json();
+    if (!response.ok || !data.ok) throw new Error(data.error || "No fue posible recuperar las atenciones.");
+    setMensajeRecibo(`Atenciones recuperadas para el recibo ${reciboPendienteTransferencia}.`);
+    setReciboPendienteTransferencia("");
+  } catch (error) {
+    setMensajeRecibo(error instanceof Error ? error.message : "No fue posible recuperar las atenciones.");
+  } finally {
+    setRecuperandoTransferencia(false);
   }
 }
 
@@ -1672,6 +1695,8 @@ async function generarCierreDiario() {
 >
 
 <div className="space-y-8">
+
+<TurnosWidget titulo="Turnos pendientes" cola="visitas" />
 
       {usuario && (
   <div className="bg-amber-50 border-l-4 border-amber-500 rounded-2xl shadow-sm p-5 flex items-center justify-between">
@@ -2626,6 +2651,7 @@ async function generarCierreDiario() {
           </p>
 
         )}
+        {reciboPendienteTransferencia && <button type="button" disabled={recuperandoTransferencia} onClick={() => void recuperarTransferenciaTurnos()} className="mt-3 rounded-lg bg-amber-600 px-4 py-2 font-bold text-white disabled:opacity-50">{recuperandoTransferencia ? "Recuperando…" : `Reintentar transferencia a Atención · ${reciboPendienteTransferencia}`}</button>}
 
       </div>
 

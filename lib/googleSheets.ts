@@ -83,6 +83,25 @@ export const HOJA_GESTION_CONSULAR =
 export const HOJA_REPORTES_ENTREGADOS =
   "ReportesEntregados";
 
+export const HOJA_CASOS_CONSULARES = "CasosConsulares";
+export const HOJA_TURNOS_ATENCION = "TurnosAtencion";
+const ENCABEZADOS_CASOS_CONSULARES = [
+  "ID",
+  "Correlativo",
+  "Categoría",
+  "Nombre",
+  "Tipo",
+  "Fecha",
+  "Creado por",
+  "Creado el",
+  "Actualizado por",
+  "Actualizado el",
+  "Datos JSON",
+  "Estado",
+  "Recibo Caja",
+  "Código actuación",
+];
+
 /*------------------------------------------
 FUNCIONES GENÉRICAS
 ------------------------------------------*/
@@ -159,6 +178,182 @@ export async function leerHojaRegistro(
   const rangoReal = separador >= 0 ? rango.substring(separador + 1) : rango;
 
   return await leerHojaConCache(REGISTRO_CONSULAR_SHEET_ID, hoja, rangoReal);
+}
+
+async function asegurarHojaCasosConsulares() {
+  if (!REGISTRO_CONSULAR_SHEET_ID) {
+    throw new Error("Falta configurar REGISTRO_CONSULAR_SHEET_ID.");
+  }
+
+  const obtenerHoja = async () => {
+    const respuesta = await sheets.spreadsheets.get({
+      spreadsheetId: REGISTRO_CONSULAR_SHEET_ID,
+      fields: "sheets.properties(sheetId,title)",
+    });
+    return respuesta.data.sheets?.find(
+      (hoja) => hoja.properties?.title === HOJA_CASOS_CONSULARES
+    );
+  };
+
+  let hoja = await obtenerHoja();
+  if (!hoja) {
+    try {
+      await sheets.spreadsheets.batchUpdate({
+        spreadsheetId: REGISTRO_CONSULAR_SHEET_ID,
+        requestBody: {
+          requests: [{ addSheet: { properties: { title: HOJA_CASOS_CONSULARES } } }],
+        },
+      });
+    } catch {
+      // Otra instancia puede crear la pestaña a la vez; confirmar antes de fallar.
+      hoja = await obtenerHoja();
+      if (!hoja) throw new Error("No fue posible preparar la pestaña CasosConsulares.");
+    }
+    hoja = hoja ?? await obtenerHoja();
+  }
+
+  const encabezados = await sheets.spreadsheets.values.get({
+    spreadsheetId: REGISTRO_CONSULAR_SHEET_ID,
+    range: `${HOJA_CASOS_CONSULARES}!A1:N1`,
+  });
+  const filaEncabezados = encabezados.data.values?.[0] || [];
+  if (!filaEncabezados.length) {
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: REGISTRO_CONSULAR_SHEET_ID,
+      range: `${HOJA_CASOS_CONSULARES}!A1:N1`,
+      valueInputOption: "RAW",
+      requestBody: { values: [ENCABEZADOS_CASOS_CONSULARES] },
+    });
+    invalidarCacheHoja(REGISTRO_CONSULAR_SHEET_ID, HOJA_CASOS_CONSULARES);
+  } else if (filaEncabezados[0] !== "ID" || filaEncabezados[1] !== "Correlativo") {
+    throw new Error("La pestaña CasosConsulares existe con encabezados distintos a los esperados.");
+  }
+  if (filaEncabezados.length && !filaEncabezados[11]) {
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: REGISTRO_CONSULAR_SHEET_ID,
+      range: `${HOJA_CASOS_CONSULARES}!L1`,
+      valueInputOption: "RAW",
+      requestBody: { values: [["Estado"]] },
+    });
+    invalidarCacheHoja(REGISTRO_CONSULAR_SHEET_ID, HOJA_CASOS_CONSULARES);
+  } else if (filaEncabezados[11] && filaEncabezados[11] !== "Estado") {
+    throw new Error("La columna L de CasosConsulares ya tiene otro encabezado.");
+  }
+  for (const [indice, encabezado] of [[12, "Recibo Caja"], [13, "Código actuación"]] as const) {
+    const columna = String.fromCharCode(65 + indice);
+    if (!filaEncabezados[indice]) {
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: REGISTRO_CONSULAR_SHEET_ID,
+        range: `${HOJA_CASOS_CONSULARES}!${columna}1`,
+        valueInputOption: "RAW",
+        requestBody: { values: [[encabezado]] },
+      });
+      invalidarCacheHoja(REGISTRO_CONSULAR_SHEET_ID, HOJA_CASOS_CONSULARES);
+    } else if (filaEncabezados[indice] !== encabezado) {
+      throw new Error(`La columna ${columna} de CasosConsulares ya tiene otro encabezado.`);
+    }
+  }
+}
+
+export async function obtenerFilasCasosConsulares(omitirCache = false) {
+  await asegurarHojaCasosConsulares();
+  if (omitirCache) {
+    const respuesta = await sheets.spreadsheets.values.get({
+      spreadsheetId: REGISTRO_CONSULAR_SHEET_ID,
+      range: `${HOJA_CASOS_CONSULARES}!A:N`,
+    });
+    return respuesta.data.values || [];
+  }
+  return await leerHojaConCache(
+    REGISTRO_CONSULAR_SHEET_ID,
+    HOJA_CASOS_CONSULARES,
+    "A:N"
+  );
+}
+
+export async function agregarCasoConsular(fila: unknown[]) {
+  await asegurarHojaCasosConsulares();
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: REGISTRO_CONSULAR_SHEET_ID,
+    range: `${HOJA_CASOS_CONSULARES}!A:N`,
+    valueInputOption: "RAW",
+    insertDataOption: "INSERT_ROWS",
+    requestBody: { values: [fila] },
+  });
+  invalidarCacheHoja(REGISTRO_CONSULAR_SHEET_ID, HOJA_CASOS_CONSULARES);
+}
+
+export async function actualizarCasoConsular(filaNumero: number, fila: unknown[]) {
+  await asegurarHojaCasosConsulares();
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: REGISTRO_CONSULAR_SHEET_ID,
+    range: `${HOJA_CASOS_CONSULARES}!A${filaNumero}:N${filaNumero}`,
+    valueInputOption: "RAW",
+    requestBody: { values: [fila] },
+  });
+  invalidarCacheHoja(REGISTRO_CONSULAR_SHEET_ID, HOJA_CASOS_CONSULARES);
+}
+
+const ENCABEZADOS_TURNOS_ATENCION = [
+  "Evento ID", "Turno ID", "Evento", "Creado el", "Nombre", "Documento",
+  "Tipo de visita", "Cola", "Estado", "Etapa", "Actuación", "Recibo",
+  "Visita ID", "Detalle ID", "Usuario", "Fecha de actualización", "Caja",
+];
+
+async function asegurarHojaTurnosAtencion() {
+  if (!MODULO_CAJA_SHEET_ID) throw new Error("Falta configurar MODULO_CAJA_SHEET_ID.");
+  const obtenerHoja = async () => {
+    const respuesta = await sheets.spreadsheets.get({
+      spreadsheetId: MODULO_CAJA_SHEET_ID,
+      fields: "sheets.properties(sheetId,title)",
+    });
+    return respuesta.data.sheets?.find((hoja) => hoja.properties?.title === HOJA_TURNOS_ATENCION);
+  };
+  let hoja = await obtenerHoja();
+  if (!hoja) {
+    try {
+      await sheets.spreadsheets.batchUpdate({
+        spreadsheetId: MODULO_CAJA_SHEET_ID,
+        requestBody: { requests: [{ addSheet: { properties: { title: HOJA_TURNOS_ATENCION } } }] },
+      });
+    } catch {
+      hoja = await obtenerHoja();
+      if (!hoja) throw new Error("No fue posible crear la pestaña TurnosAtencion en el libro Modulo_de_caja.");
+    }
+  }
+  const encabezados = await sheets.spreadsheets.values.get({
+    spreadsheetId: MODULO_CAJA_SHEET_ID,
+    range: `${HOJA_TURNOS_ATENCION}!A1:Q1`,
+  });
+  const existentes = encabezados.data.values?.[0] || [];
+  if (!existentes.length) {
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: MODULO_CAJA_SHEET_ID,
+      range: `${HOJA_TURNOS_ATENCION}!A1:Q1`,
+      valueInputOption: "RAW",
+      requestBody: { values: [ENCABEZADOS_TURNOS_ATENCION] },
+    });
+    invalidarCacheHoja(MODULO_CAJA_SHEET_ID, HOJA_TURNOS_ATENCION);
+  } else if (ENCABEZADOS_TURNOS_ATENCION.some((encabezado, indice) => existentes[indice] !== encabezado)) {
+    throw new Error("La pestaña TurnosAtencion existe con encabezados no compatibles.");
+  }
+}
+
+export async function guardarEventoTurnoEnSheet(evento: Record<string, unknown>) {
+  await asegurarHojaTurnosAtencion();
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: MODULO_CAJA_SHEET_ID,
+    range: `${HOJA_TURNOS_ATENCION}!A:Q`,
+    valueInputOption: "RAW",
+    insertDataOption: "INSERT_ROWS",
+    requestBody: { values: [[
+      evento.eventId, evento.id, evento.evento, evento.creadoEl, evento.nombre,
+      evento.documento, evento.tipoVisita, evento.cola, evento.estado, evento.etapa,
+      evento.actuacion, evento.correlativo, evento.visitaId, evento.detalleId,
+      evento.usuario, evento.fechaActualizacion, evento.caja,
+    ]] },
+  });
+  invalidarCacheHoja(MODULO_CAJA_SHEET_ID, HOJA_TURNOS_ATENCION);
 }
 
 export async function agregarFila(

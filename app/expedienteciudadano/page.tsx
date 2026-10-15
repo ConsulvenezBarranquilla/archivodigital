@@ -88,7 +88,7 @@ function Entrada({ etiqueta, value, onChange, multiline = false, type = "text", 
 
 function Historial({ titulo, items, vacio }: {
   titulo: string;
-  items: Array<{ fecha: string; tipo: string; referencia: string; estado?: string; detalle?: string }>;
+  items: Array<{ fecha: string; tipo: string; referencia: string; estado?: string; detalle?: string; documentos?: Array<{ nombre: string; estado: string }> }>;
   vacio: string;
 }) {
   return (
@@ -103,7 +103,20 @@ function Historial({ titulo, items, vacio }: {
                 <span className="text-sm text-slate-500">{item.fecha || "Fecha no indicada"}</span>
               </div>
               {item.estado && <div className="mt-1 text-sm text-slate-600">Estado: {item.estado}</div>}
-              {item.detalle && <p className="mt-2 whitespace-pre-wrap text-sm text-slate-700">{item.detalle}</p>}
+              {item.documentos && item.documentos.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  <div className="text-xs font-bold uppercase tracking-wide text-slate-500">Avance documental</div>
+                  {item.detalle && <p className="text-sm font-medium text-slate-700">{item.detalle}</p>}
+                  <div className="flex flex-wrap gap-2">
+                    {item.documentos.map((documento, indice) => (
+                      <span key={`${documento.nombre}-${indice}`} className={`rounded-full px-2.5 py-1 text-xs font-bold ${documento.estado === "En Proceso" ? "bg-amber-100 text-amber-800" : documento.estado === "Procesado" ? "bg-blue-100 text-blue-800" : documento.estado === "Entregado" ? "bg-emerald-100 text-emerald-800" : documento.estado === "Entregado por correo" ? "bg-violet-100 text-violet-800" : "bg-red-100 text-red-800"}`}>
+                        {documento.estado}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {item.detalle && !item.documentos?.length && <p className="mt-2 whitespace-pre-wrap text-sm text-slate-700">{item.detalle}</p>}
             </article>
           ))}
         </div>

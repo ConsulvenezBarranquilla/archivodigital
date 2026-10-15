@@ -9,6 +9,7 @@ import SistemaLayout from "@/components/layout/SistemaLayout";
 import { MODULOS } from "@/lib/modulos";
 import ConfiguracionGeneralCard from "./components/ConfiguracionGeneralCard";
 import RespaldoCard from "./components/RespaldoCard";
+import TurneroDevicesCard from "./components/TurneroDevicesCard";
 export default function ConfiguracionPage() {
 
   const [
@@ -173,6 +174,7 @@ export default function ConfiguracionPage() {
     guardando={guardandoRespaldo}
     mensaje={mensajeRespaldo}
 />
+<TurneroDevicesCard />
 </SistemaLayout>    
   );
 }

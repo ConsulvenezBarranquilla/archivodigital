@@ -5,6 +5,7 @@ import {
   useState,
 } from "react";
 import SistemaLayout from "@/components/layout/SistemaLayout";
+import TurnosWidget from "@/components/turnero/TurnosWidget";
 import { MODULOS } from "@/lib/modulos";
 
 export default function RecepcionPage() {
@@ -783,6 +784,13 @@ async function registrarVisita() {
     
   try {
 
+    const solicitudKey = `recepcion-visita:${ciudadano?.documento || "sin-documento"}:${tipoVisita}`;
+    let solicitudId = window.sessionStorage.getItem(solicitudKey);
+    if (!solicitudId) {
+      solicitudId = window.crypto.randomUUID();
+      window.sessionStorage.setItem(solicitudKey, solicitudId);
+    }
+
     const response =
       await fetch(
         "/api/registrar-visita",
@@ -812,6 +820,8 @@ pasaporte:
             tipo:
               tipoVisita,
 
+            solicitudId,
+
           }),
         }
       );
@@ -830,6 +840,7 @@ pasaporte:
   return;
 
 }
+window.sessionStorage.removeItem(solicitudKey);
 const documentoBusqueda =
   ciudadano?.documento;
 await cargarHistorialVisitas(
@@ -922,6 +933,8 @@ await cargarEstadisticas();
 >
 
 <div className="space-y-8">
+
+<TurnosWidget titulo="Información pendiente" cola="visitas" />
 
      
 
@@ -2313,6 +2326,19 @@ Cerrar
                 </div>
 
               )
+            )}
+
+            {tramite.estado !== "ANULADO" && tramite.documentos?.length > 0 && (
+              <div className="mt-4 space-y-2 border-t border-slate-100 pt-3">
+                <div className="text-xs font-bold uppercase tracking-wide text-slate-500">Avance documental</div>
+                <div className="flex flex-wrap gap-2">
+                  {tramite.documentos.map((documento: { nombre: string; estado: string }, i: number) => (
+                    <span key={`${documento.nombre}-${i}`} className={`rounded-full px-2.5 py-1 text-xs font-bold ${documento.estado === "En Proceso" ? "bg-amber-100 text-amber-800" : documento.estado === "Procesado" ? "bg-blue-100 text-blue-800" : documento.estado === "Entregado" ? "bg-emerald-100 text-emerald-800" : documento.estado === "Entregado por correo" ? "bg-violet-100 text-violet-800" : "bg-red-100 text-red-800"}`}>
+                      {documento.estado}
+                    </span>
+                  ))}
+                </div>
+              </div>
             )}
 
             <div className="mt-3 font-bold text-green-700">

@@ -6,7 +6,11 @@ import {
 import {
   sheets,
   MODULO_CAJA_SHEET_ID,
+  obtenerGestionConsular,
+  obtenerReportesEntregados,
   } from "@/lib/googleSheets";
+import { obtenerDocumentos } from "@/lib/reportesEntregados/reportesService";
+import { obtenerSeguimientoDocumentalTramite } from "@/lib/progresoTramite";
 
 export async function GET(
   req: NextRequest
@@ -35,11 +39,26 @@ export async function GET(
           "DetalleCaja!A:F",
       });
 
+    const [gestionConsular, reportes] = await Promise.all([
+      obtenerGestionConsular(),
+      obtenerReportesEntregados(),
+    ]);
+
     const cajaRows =
   cajaResponse.data.values || [];
 
 const detalleRows =
   detalleResponse.data.values || [];
+
+const documentosSeguimiento = ([
+  "PASAPORTES", "VISA", "APOSTILLA", "FE_VIDA", "CARTA_SOLTERIA",
+  "CERTIFICADO_USO", "CONSTANCIA_REGISTRO", "CONSTANCIA_CONSULAR",
+  "PODER", "AUTORIZACION_VIAJE",
+] as const).flatMap((categoria) => obtenerDocumentos(categoria, {
+  caja: cajaRows,
+  gestionConsular,
+  reportes,
+}));
 
 const tramites =
   cajaRows
@@ -116,6 +135,12 @@ const tramites =
         estado:
           row[10] ||
           "GENERADO",
+
+        documentos: obtenerSeguimientoDocumentalTramite(
+          documentosSeguimiento,
+          String(correlativo ?? ""),
+          String(row[10] || "GENERADO").trim().toUpperCase() === "ANULADO"
+        ),
 
         actuaciones,
 

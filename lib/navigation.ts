@@ -35,6 +35,11 @@ export const navigation: NavigationItem[] = [
         href: "/expedienteciudadano",
         permiso: MODULOS.EXPEDIENTE_CIUDADANO,
       },
+      {
+        label: "Atención",
+        href: "/atencion",
+        permiso: MODULOS.ATENCION,
+      },
     ],
   },
 
@@ -81,6 +86,11 @@ export const navigation: NavigationItem[] = [
         label: "Libro Diario",
         href: "/libro-diario",
         permiso: MODULOS.GESTION_CONSULAR,
+      },
+      {
+        label: "Casos",
+        href: "/casos",
+        permiso: MODULOS.CASOS,
       },
     ],
   },

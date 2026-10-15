@@ -9,4 +9,6 @@ export const MODULOS = {
   CONFIGURACION: "configuracion",
   EXPEDIENTE_CIUDADANO: "expediente-ciudadano",
   DOCFIRMAR: "docfirmar",
+  CASOS: "casos",
+  ATENCION: "atencion",
 } as const;

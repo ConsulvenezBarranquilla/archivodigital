@@ -1,5 +1,3 @@
-import { Rol } from "./roles";
-
 export const PERMISOS = {
 
   admin: [
@@ -13,6 +11,8 @@ export const PERMISOS = {
     "reportes",
     "expediente-ciudadano",
     "docfirmar",
+    "casos",
+    "atencion",
   ],
 
   caja: [
@@ -30,11 +30,14 @@ export const PERMISOS = {
   "consultas",
   "expediente-ciudadano",
   "docfirmar",
+  "casos",
+  "atencion",
 ],
 
   consultas: [
     "consultas",
     "expediente-ciudadano",
+    "casos",
   ],
 
 } as const;

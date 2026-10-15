@@ -100,6 +100,13 @@ function anioDeFecha(fecha: string | undefined): number | null {
     return Number.isNaN(parsed.getTime()) ? null : parsed.getFullYear();
 }
 
+function fechaDelDocumentoEntrega(documento: ReporteEntregado): string {
+    if (documento.categoria === "CONSTANCIA_CONSULAR" && documento.estado === "MANUAL") {
+        return documento.fechaConstancia || documento.fechaRecibo;
+    }
+    return documento.fechaRecibo;
+}
+
 // ======================================================
 // Página
 // ======================================================
@@ -166,7 +173,7 @@ export default function EntregaPage() {
     const [filtroEdad, setFiltroEdad] = useState<"TODOS" | "NNA" | "ADULTO">("TODOS");
     const [anioFiltro, setAnioFiltro] = useState(String(new Date().getFullYear()));
     const aniosDisponibles = useMemo(() => Array.from(new Set([new Date().getFullYear(), ...documentos
-        .map(documento => anioDeFecha(documento.fechaRecibo))
+        .map(documento => anioDeFecha(fechaDelDocumentoEntrega(documento)))
         .filter((anio): anio is number => anio !== null)])).sort((a, b) => b - a), [documentos]);
 
     // ==================================================
@@ -583,7 +590,7 @@ const documentosFiltradosBase =
         }
 
         let resultado = documentos.filter(documento =>
-            anioDeFecha(documento.fechaRecibo) === Number(anioFiltro)
+            anioDeFecha(fechaDelDocumentoEntrega(documento)) === Number(anioFiltro)
         );
 
         // ==================================================
@@ -709,7 +716,7 @@ const documentosFiltradosBase =
         }
 
         if (filtroMes) {
-            resultado = resultado.filter(documento => claveMes(documento.fechaRecibo).endsWith(`-${filtroMes}`));
+            resultado = resultado.filter(documento => claveMes(fechaDelDocumentoEntrega(documento)).endsWith(`-${filtroMes}`));
         }
 
         if (filtroEdad !== "TODOS") {
