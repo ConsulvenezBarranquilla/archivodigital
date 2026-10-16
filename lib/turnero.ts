@@ -264,6 +264,8 @@ export async function sincronizarTurnosAnalista(input: {
   const elegibles = input.actuaciones.filter((actuacion) => {
     const nombre = actuacion.nombre.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
     return nombre.includes("PASAPORTE") || nombre.includes("APOSTILLA") || nombre.includes("VISA")
+      || nombre.includes("FE DE VIDA") || nombre.includes("CARTA DE SOLTERIA")
+      || nombre.includes("VERIFICACION DE IDENTIDAD")
       || (nombre.includes("CONSTANCIA") && nombre.includes("REGISTRO") && nombre.includes("CONSULAR"))
       || (nombre.includes("RESETEO") && nombre.includes("SAIME"));
   });
