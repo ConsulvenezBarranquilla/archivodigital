@@ -103,7 +103,8 @@ export default function TurneroPublicoPage() {
       <section aria-live="polite" className="grid flex-1 grid-cols-1 gap-4 sm:grid-cols-2 sm:grid-rows-2">
         {[0, 1, 2, 3].map((index) => {
           const llamado = llamados[index];
-          return llamado ? <article key={llamado.id} className={`flex min-h-[30vh] flex-col items-center justify-center rounded-3xl border-2 p-5 text-center text-blue-950 shadow-2xl md:p-8 ${llamadoNuevo === llamado.id ? "animate-pulse border-amber-300 bg-amber-100" : "border-white bg-white"}`}>
+          const esUltimoLlamado = index === 0;
+          return llamado ? <article key={llamado.id} className={`flex min-h-[30vh] flex-col items-center justify-center rounded-3xl border-2 p-5 text-center text-blue-950 shadow-2xl md:p-8 ${llamadoNuevo === llamado.id ? "animate-pulse" : ""} ${esUltimoLlamado ? "border-amber-400 bg-amber-200 ring-2 ring-amber-400" : "border-white bg-white"}`}>
             <p className="text-lg font-bold uppercase tracking-widest text-slate-500 md:text-2xl">{llamado.tipo === "analista" ? "Atención consular" : "Pase por favor"}</p>
             <h2 className="mt-4 break-words text-3xl font-extrabold md:text-5xl">{llamado.nombre}</h2>
             {llamado.tipo === "analista" ? <p className="mt-5 text-2xl font-extrabold text-amber-600 md:text-4xl">Espere llamado</p> : llamado.tipo === "recepcion" ? <p className="mt-5 text-2xl font-extrabold text-amber-600 md:text-4xl">Diríjase a Recepción</p> : <p className="mt-5 text-3xl font-extrabold text-amber-600 md:text-5xl">{llamado.caja}</p>}

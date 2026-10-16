@@ -99,6 +99,28 @@ function anioDeFecha(fecha: string | undefined): number | null {
     return Number.isNaN(parsed.getTime()) ? null : parsed.getFullYear();
 }
 
+function tiempoDeFecha(fecha: string | undefined): number {
+    const valor = String(fecha ?? "").trim();
+    if (!valor) return 0;
+
+    const diaMesAnio = valor.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})(.*)$/);
+    if (diaMesAnio) {
+        const [, dia, mes, anio, resto] = diaMesAnio;
+        const hora = resto.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+        return new Date(
+            Number(anio),
+            Number(mes) - 1,
+            Number(dia),
+            Number(hora?.[1] ?? 0),
+            Number(hora?.[2] ?? 0),
+            Number(hora?.[3] ?? 0),
+        ).getTime();
+    }
+
+    const timestamp = new Date(valor).getTime();
+    return Number.isNaN(timestamp) ? 0 : timestamp;
+}
+
 export default function DocFirmarPage() {
 
     const [
@@ -181,7 +203,9 @@ export default function DocFirmarPage() {
         const correspondeBusqueda = vistaLista !== "FIRMADOS" || !consulta ||
             `${documento.solicitante} ${documento.documento}`.toLocaleLowerCase().includes(consulta);
         return correspondeVista && correspondeAnio && correspondeBusqueda;
-    });
+    }).sort((a, b) => vistaLista === "FIRMADOS"
+        ? tiempoDeFecha(b.fechaRecibo) - tiempoDeFecha(a.fechaRecibo)
+        : 0);
     const ventanaPrevisualizacionRef =
         useRef<Window | null>(null);
 

@@ -22,6 +22,7 @@ function turnoVisible(turno: Awaited<ReturnType<typeof listarTurnos>>[number]) {
     cola: turno.cola,
     etapa: turno.etapa,
     actuacion: turno.actuacion,
+    cantidadActuaciones: turno.cantidadActuaciones || 1,
     correlativo: turno.correlativo,
     creadoEl: turno.creadoEl,
     usuario: turno.usuario,

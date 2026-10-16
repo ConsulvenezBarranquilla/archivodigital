@@ -19,6 +19,7 @@ export interface TurnoAtencion {
   estado: EstadoTurno;
   etapa: "recepcion" | "caja" | "analista";
   actuacion: string;
+  cantidadActuaciones?: number;
   codigoActuacion: string;
   correlativo: string;
   visitaId: string;
@@ -108,9 +109,9 @@ if accion == 'llamar' then
   turno.llamadaPor = ARGV[3]
   turno.llamadaCaja = ARGV[4]
   turno.llamadaTipo = turno.cola == 'analistas' and 'analista' or ARGV[5]
-  local llamado = cjson.encode({id=turno.id, nombre=turno.nombre, tipo=turno.llamadaTipo, caja=turno.llamadaTipo == 'caja' and ARGV[4] or '', actualizadoEl=ahora})
+  local llamado = cjson.encode({id=turno.id, nombre=turno.nombre, tipo=turno.llamadaTipo, caja=turno.llamadaTipo == 'caja' and ARGV[4] or '', actualizadoEl=ahora, personaKey=ARGV[6]})
   redis.call('LPUSH', KEYS[3], 'CALL:' .. llamado)
-  redis.call('LTRIM', KEYS[3], 0, 3)
+  redis.call('LTRIM', KEYS[3], 0, 19)
   redis.call('EXPIRE', KEYS[3], 604800)
 else
   redis.call('ZREM', KEYS[2], turno.id)
@@ -164,10 +165,14 @@ export async function obtenerTurno(id: string) {
 
 export async function cambiarEstadoTurno(id: string, accion: "llamar" | "atendido", usuario: string, caja = "", tipoOperador: "recepcion" | "caja" | "analista" = "caja") {
   const keyLlamados = claveLlamadosPublicos();
+  const turnoActual = accion === "llamar" ? await obtenerTurno(id) : null;
+  const documentoNormalizado = turnoActual?.documento.trim().toUpperCase() || "";
+  const nombreNormalizado = turnoActual?.nombre.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toUpperCase() || "";
+  const personaKey = sha(documentoNormalizado ? "doc:" + documentoNormalizado : "nombre:" + nombreNormalizado);
   const resultado = await redis.eval(
     LUA_CAMBIAR,
     [claveTurno(id), KEY_ACTIVOS, keyLlamados, KEY_OUTBOX, `${PREFIX}:turno:`],
-    [accion, new Date().toISOString(), usuario, caja, tipoOperador],
+    [accion, new Date().toISOString(), usuario, caja, tipoOperador, personaKey],
   );
   if (resultado === "NO_TURNO") throw new Error("No se encontr\u00C3\u00B3 el turno solicitado.");
   if (resultado === "YA_ATENDIDO") throw new Error("Este turno ya fue atendido por otro operador.");
@@ -180,14 +185,30 @@ export async function cambiarEstadoTurno(id: string, accion: "llamar" | "atendid
 export interface LlamadoPublico { id: string; nombre: string; tipo: "analista" | "caja" | "recepcion"; caja: string; actualizadoEl: string; }
 
 export async function obtenerLlamadosPublicos(): Promise<LlamadoPublico[]> {
-  const items = await redis.lrange(claveLlamadosPublicos(), 0, 3) as unknown as string[];
-  return (items || []).flatMap((raw) => {
+  const items = await redis.lrange(claveLlamadosPublicos(), 0, 19) as unknown as string[];
+  const llamados = (items || []).flatMap((raw) => {
     try {
       const item = JSON.parse(String(raw).replace(/^CALL:/, "")) as Record<string, unknown>;
       if (!item.id || !item.nombre) return [];
-      return [{ id: String(item.id), nombre: String(item.nombre), tipo: item.tipo === "analista" || item.tipo === "recepcion" ? item.tipo : "caja", caja: item.tipo === "caja" ? String(item.caja || "") : "", actualizadoEl: String(item.actualizadoEl || "") }];
+      const nombreNormalizado = String(item.nombre).normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toUpperCase();
+      return [{ id: String(item.id), nombre: String(item.nombre), tipo: item.tipo === "analista" || item.tipo === "recepcion" ? item.tipo : "caja", caja: item.tipo === "caja" ? String(item.caja || "") : "", actualizadoEl: String(item.actualizadoEl || ""), personaKey: typeof item.personaKey === "string" ? item.personaKey : "", nombreNormalizado }];
     } catch { return []; }
-  });
+  }) as Array<LlamadoPublico & { personaKey: string; nombreNormalizado: string }>;
+  const analistasPorPersona = new Set(llamados.filter((llamado) => llamado.tipo === "analista" && llamado.personaKey).map((llamado) => llamado.personaKey));
+  const analistasPorNombre = new Set(llamados.filter((llamado) => llamado.tipo === "analista").map((llamado) => llamado.nombreNormalizado));
+  const analistasLegacyPorNombre = new Set(llamados.filter((llamado) => llamado.tipo === "analista" && !llamado.personaKey).map((llamado) => llamado.nombreNormalizado));
+  return llamados.filter((llamado) => llamado.tipo === "analista"
+    || (llamado.personaKey
+      ? !analistasPorPersona.has(llamado.personaKey) && !analistasLegacyPorNombre.has(llamado.nombreNormalizado)
+      : !analistasPorNombre.has(llamado.nombreNormalizado)))
+    .slice(0, 4)
+    .map((llamado) => ({
+      id: llamado.id,
+      nombre: llamado.nombre,
+      tipo: llamado.tipo,
+      caja: llamado.caja,
+      actualizadoEl: llamado.actualizadoEl,
+    }));
 }
 
 const DEVICE_PREFIX = `${PREFIX}:device`;
@@ -261,29 +282,39 @@ export async function sincronizarTurnosAnalista(input: {
   actuaciones: Array<{ codigo: string; nombre: string; indice: number }>;
   visitaId?: string;
 }) {
-  const elegibles = input.actuaciones.filter((actuacion) => {
+  const grupos = new Map<string, { etiqueta: string; actuaciones: typeof input.actuaciones }>();
+  for (const actuacion of input.actuaciones) {
     const nombre = actuacion.nombre.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
-    return nombre.includes("PASAPORTE") || nombre.includes("APOSTILLA") || nombre.includes("VISA")
-      || nombre.includes("FE DE VIDA") || nombre.includes("CARTA DE SOLTERIA")
-      || nombre.includes("VERIFICACION DE IDENTIDAD")
-      || (nombre.includes("CONSTANCIA") && nombre.includes("REGISTRO") && nombre.includes("CONSULAR"))
-      || (nombre.includes("RESETEO") && nombre.includes("SAIME"));
-  });
+    const categoria = nombre.includes("PASAPORTE") ? { clave: "pasaporte", etiqueta: "Pasaporte" }
+      : nombre.includes("APOSTILLA") ? { clave: "apostilla", etiqueta: "Apostilla" }
+      : nombre.includes("VISA") ? { clave: "visa", etiqueta: "Visa" }
+      : nombre.includes("FE DE VIDA") ? { clave: "fe_vida", etiqueta: "Fe de Vida" }
+      : nombre.includes("CARTA DE SOLTERIA") ? { clave: "carta_solteria", etiqueta: "Carta de Solter\u00EDa" }
+      : nombre.includes("VERIFICACION DE IDENTIDAD") ? { clave: "verificacion_identidad", etiqueta: "Verificaci\u00F3n de Identidad" }
+      : nombre.includes("CONSTANCIA") && nombre.includes("REGISTRO") && nombre.includes("CONSULAR") ? { clave: "registro_consular", etiqueta: "Constancia de Registro Consular" }
+      : nombre.includes("RESETEO") && nombre.includes("SAIME") ? { clave: "reseteo_saime", etiqueta: "Reseteo de Usuario SAIME" }
+      : null;
+    if (!categoria) continue;
+    const grupo = grupos.get(categoria.clave) || { etiqueta: categoria.etiqueta, actuaciones: [] };
+    grupo.actuaciones.push(actuacion);
+    grupos.set(categoria.clave, grupo);
+  }
   const creados: TurnoAtencion[] = [];
-  for (const actuacion of elegibles) {
+  for (const [clave, grupo] of grupos) {
     creados.push(await crearTurno({
-      requestKey: `recibo:${input.correlativo}:detalle:${actuacion.indice}`,
+      requestKey: "recibo:" + input.correlativo + ":analista:" + clave,
       creadoEl: input.fecha,
       nombre: input.nombre,
       documento: input.documento,
       tipoVisita: "Tr\u00E1mite",
       cola: "analistas",
       etapa: "analista",
-      actuacion: actuacion.nombre,
-      codigoActuacion: actuacion.codigo,
+      actuacion: grupo.etiqueta,
+      cantidadActuaciones: grupo.actuaciones.length,
+      codigoActuacion: grupo.actuaciones.map((item) => item.codigo).join(", "),
       correlativo: input.correlativo,
       visitaId: input.visitaId || "",
-      detalleId: String(actuacion.indice),
+      detalleId: grupo.actuaciones.map((item) => String(item.indice)).join(","),
       usuario: input.usuario,
       caja: "",
     }));

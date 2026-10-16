@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 type Turno = {
   id: string; nombre: string; tipoVisita: string; estado: "pendiente" | "llamado" | "atendido";
   cola: "visitas" | "analistas"; etapa: string; actuacion: string; correlativo: string; creadoEl: string;
+  cantidadActuaciones?: number;
   usuario?: string;
 };
 
@@ -13,6 +14,7 @@ export default function TurnosWidget({ titulo = "Turnos pendientes", cola }: { t
   const [abierto, setAbierto] = useState(false);
   const [ocupado, setOcupado] = useState("");
   const [error, setError] = useState("");
+  const canalRef = useRef<BroadcastChannel | null>(null);
 
   const cargar = useCallback(async () => {
     try {
@@ -26,9 +28,29 @@ export default function TurnosWidget({ titulo = "Turnos pendientes", cola }: { t
   }, [cola]);
 
   useEffect(() => {
-    const initial = window.setTimeout(() => void cargar(), 0);
-    const timer = window.setInterval(() => void cargar(), 5000);
-    return () => { window.clearTimeout(initial); window.clearInterval(timer); };
+    const actualizarSiVisible = () => {
+      if (document.visibilityState === "visible") void cargar();
+    };
+    const initial = window.setTimeout(actualizarSiVisible, 0);
+    const timer = window.setInterval(actualizarSiVisible, 2000);
+    window.addEventListener("focus", actualizarSiVisible);
+    document.addEventListener("visibilitychange", actualizarSiVisible);
+
+    if (typeof BroadcastChannel !== "undefined") {
+      canalRef.current = new BroadcastChannel("consulnet-turnero");
+      canalRef.current.onmessage = (event: MessageEvent<{ tipo?: string }>) => {
+        if (event.data?.tipo === "cola-actualizada") void cargar();
+      };
+    }
+
+    return () => {
+      window.clearTimeout(initial);
+      window.clearInterval(timer);
+      window.removeEventListener("focus", actualizarSiVisible);
+      document.removeEventListener("visibilitychange", actualizarSiVisible);
+      canalRef.current?.close();
+      canalRef.current = null;
+    };
   }, [cargar]);
 
   async function actuar(turno: Turno, accion: "llamar" | "atendido") {
@@ -41,6 +63,7 @@ export default function TurnosWidget({ titulo = "Turnos pendientes", cola }: { t
       });
       const data = await response.json();
       if (!response.ok || !data.ok) throw new Error(data.error || "No fue posible actualizar el turno.");
+      canalRef.current?.postMessage({ tipo: "cola-actualizada" });
       await cargar();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No fue posible actualizar el turno.");
@@ -68,7 +91,7 @@ export default function TurnosWidget({ titulo = "Turnos pendientes", cola }: { t
             {turno.cola === "analistas" && (indice === 0 || turnos[indice - 1]?.actuacion !== turno.actuacion) && <h3 className="mb-2 mt-4 border-b border-slate-200 pb-2 text-sm font-bold uppercase tracking-wide text-blue-800">{turno.actuacion}</h3>}
             <article className="grid gap-3 rounded-xl border border-slate-200 p-4 md:grid-cols-[1fr_auto] md:items-center">
             <div><div className="flex flex-wrap items-center gap-2"><h3 className="font-bold text-blue-950">{turno.nombre}</h3><span className={`rounded-full px-3 py-1 text-xs font-semibold ${turno.estado === "llamado" ? "bg-blue-100 text-blue-800" : "bg-amber-100 text-amber-800"}`}>{turno.estado === "llamado" ? "Llamado" : "Pendiente"}</span></div>
-              <p className="mt-1 text-sm text-slate-600">{turno.cola === "analistas" ? turno.actuacion : turno.tipoVisita}{turno.correlativo ? ` · Recibo ${turno.correlativo}` : ""}</p>
+              <p className="mt-1 text-sm text-slate-600">{turno.cola === "analistas" ? <>{turno.actuacion}{(turno.cantidadActuaciones || 1) > 1 ? ` (${turno.cantidadActuaciones})` : ""}</> : turno.tipoVisita}{turno.correlativo ? ` · Recibo ${turno.correlativo}` : ""}</p>
               <p className="text-xs text-slate-500">Registrado {new Date(turno.creadoEl).toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" })}</p>
               {turno.usuario && <p className="text-xs text-slate-500">Responsable: {turno.usuario}</p>}
             </div>
