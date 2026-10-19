@@ -26,6 +26,9 @@ function turnoVisible(turno: Awaited<ReturnType<typeof listarTurnos>>[number]) {
     correlativo: turno.correlativo,
     creadoEl: turno.creadoEl,
     usuario: turno.usuario,
+    llamadoEnMs: turno.estado === "llamado"
+      ? Number(turno.llamadoEnMs) || Date.parse(turno.fechaActualizacion) || 0
+      : 0,
   };
 }
 
@@ -79,6 +82,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, turno: turnoVisible(actualizado) });
   } catch (error) {
     const mensaje = error instanceof Error ? error.message : "No fue posible actualizar el turno.";
-    return NextResponse.json({ ok: false, error: mensaje }, { status: mensaje.includes("ya fue atendido") || mensaje.includes("ya fue llamado") ? 409 : 500 });
+    return NextResponse.json({ ok: false, error: mensaje }, { status: mensaje.includes("ya fue atendido") || mensaje.includes("volver a llamar") ? 409 : 500 });
   }
 }

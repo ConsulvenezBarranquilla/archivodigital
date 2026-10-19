@@ -133,17 +133,23 @@ const usuario = {
       }
       return { ...item, codigo, actuacion, monto };
     });
-    
-    console.log(
-      "CIUDADANO RECIBIDO:"
-    );
 
-    console.dir(
-      ciudadano,
-      {
-        depth: null,
+    const indicesModificacion: Record<string, number> = {};
+    const observacionesModificacion: string[] = [];
+    for (const actuacion of actuacionesRecibo) {
+      const codigo = actuacion.codigo.toUpperCase();
+      if (codigo !== "MOD-SLAE" && codigo !== "MOD-SIGESAP") continue;
+      indicesModificacion[codigo] = (indicesModificacion[codigo] || 0) + 1;
+      const numero = indicesModificacion[codigo];
+      const observacion = String(actuacion.observacionModificacion ?? actuacion.observacionSlae ?? "");
+      if (!observacion.trim() || observacion.length > 1000) {
+        return NextResponse.json({
+          ok: false,
+          mensaje: `Indique la naturaleza de modificación ${codigo} #${numero} (máximo 1000 caracteres).`,
+        }, { status: 400 });
       }
-    );
+      observacionesModificacion.push(`${codigo} #${numero}: ${observacion}`);
+    }
 
     // ======================================================
     // DOCUMENTO PRINCIPAL
@@ -365,15 +371,11 @@ const usuario = {
       pasaporteVisa =
         listaPasaporteVisa.join("; ");
 
-      observaciones =
-        listaObservaciones.join("; ");
+      observaciones = listaObservaciones.join("; ");
 
     }
 
-    console.log(
-      "NACIONALIDAD A GUARDAR:",
-      ciudadano.nacionalidad
-    );
+    observaciones = [observaciones, ...observacionesModificacion].filter(Boolean).join("\n");
 
     // ======================================================
     // GUARDAR MOVIMIENTO DE CAJA
@@ -429,11 +431,6 @@ const usuario = {
     // ======================================================
     // GUARDAR DETALLE DE CADA ACTUACIÓN
     // ======================================================
-
-    console.log(
-      "ACTUACIONES RECIBIDAS:",
-      actuacionesRecibo
-    );
 
     for (
       const actuacion of actuaciones
@@ -608,10 +605,7 @@ if (
       correoEnviado =
         true;
 
-      console.log(
-        "RECIBO ENVIADO POR CORREO:",
-        correo
-      );
+      console.log("Recibo enviado por correo.");
 
     } else {
 

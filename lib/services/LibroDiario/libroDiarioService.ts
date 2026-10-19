@@ -592,7 +592,7 @@ export async function obtenerDetalleOperacion(
         MODULO_CAJA_SHEET_ID,
 
       range:
-        "Caja!A:N",
+        "Caja!A:S",
 
     });
 
@@ -615,25 +615,6 @@ export async function obtenerDetalleOperacion(
 
   const detalleCaja =
     detalleResponse.data.values ?? [];
-
-  const detalleMap =
-    new Map<string, any>();
-
-  detalleCaja
-    .slice(1)
-    .forEach((fila) => {
-
-      detalleMap.set(
-
-        String(
-          fila[4] ?? ""
-        ).trim(),
-
-        fila
-
-      );
-
-    });
 
   const filasGestion =
     gestion
@@ -664,21 +645,11 @@ export async function obtenerDetalleOperacion(
   // DE CADA ACTUACIÓN
   // ======================================
 
-  const ultimaVersion =
-    new Map<string, any>();
+  const ultimaVersion = new Map<string, unknown[]>();
 
   filasGestion.forEach((fila) => {
-
-    const llave =
-      String(
-        fila[11] ?? ""
-      ).trim();
-
-    ultimaVersion.set(
-      llave,
-      fila
-    );
-
+    const llave = [fila[0], fila[1], fila[11]].map((valor) => String(valor ?? "").trim()).join("|");
+    ultimaVersion.set(llave, fila);
   });
 
   const filasVigentes =
@@ -711,28 +682,19 @@ export async function obtenerDetalleOperacion(
   // ======================================
 
   const correlativo =
-    filasVinculadas[0][0];
-
-  const recibo =
-    caja
-      .slice(1)
-      .find(
-
-        (fila) =>
-
-          String(
-            fila[1] ?? ""
-          ).trim() ===
-          String(
-            correlativo
-          ).trim()
-
-      );
+    String(filasVinculadas[0][0] ?? "");
 
   const actuaciones:
     DetalleActuacion[] = [];
 
   let total = 0;
+
+  const recibosPorCorrelativo = new Map<string, unknown[]>();
+  caja.slice(1).forEach((fila) => {
+    recibosPorCorrelativo.set(String(fila[1] ?? "").trim(), fila);
+  });
+  const indicesVisaPorRecibo = new Map<string, number>();
+  const titularesVisa: string[] = [];
 
   filasVinculadas.forEach((gc) => {
 
@@ -741,10 +703,15 @@ export async function obtenerDetalleOperacion(
         gc[11] ?? ""
       ).trim();
 
-    const detalle =
-      detalleMap.get(
-        numeroActuacion
-      );
+    const codigo = String(gc[1] ?? "").trim().toUpperCase();
+    const filaDetalle = String(gc[12] ?? "").trim();
+    const detalle = filaDetalle
+      ? detalleCaja[Number(filaDetalle) - 1]
+      : detalleCaja.slice(1).find((fila) =>
+          String(fila[0] ?? "").trim() === String(gc[0] ?? "").trim() &&
+          String(fila[1] ?? "").trim().toUpperCase() === codigo &&
+          String(fila[4] ?? "").trim() === numeroActuacion
+        );
 
     const monto =
       Number(
@@ -755,17 +722,35 @@ export async function obtenerDetalleOperacion(
 
     actuaciones.push({
 
-      codigo:
-        gc[1] || "",
+      codigo,
 
       actuacion:
-        gc[2] || "",
+        String(gc[2] ?? ""),
 
       monto,
 
     });
 
+    const actuacionNombre = String(gc[2] ?? "").toUpperCase();
+    if (actuacionNombre.includes("VISA")) {
+      const correlativoActual = String(gc[0] ?? "").trim();
+      const reciboActual = recibosPorCorrelativo.get(correlativoActual);
+      const titulares = String(reciboActual?.[16] ?? "").split(";").map((valor: string) => valor.trim()).filter(Boolean);
+      const filasVisaRecibo = detalleCaja.slice(1).filter((fila) =>
+        String(fila[0] ?? "").trim() === correlativoActual &&
+        String(fila[2] ?? "").toUpperCase().includes("VISA")
+      );
+      const indiceFila = detalle ? detalleCaja.indexOf(detalle) : -1;
+      const ordinalVisa = indiceFila >= 1
+        ? filasVisaRecibo.filter((fila) => detalleCaja.indexOf(fila) < indiceFila).length
+        : (indicesVisaPorRecibo.get(correlativoActual) ?? 0);
+      indicesVisaPorRecibo.set(correlativoActual, ordinalVisa + 1);
+      if (titulares[ordinalVisa]) titularesVisa.push(titulares[ordinalVisa]);
+    }
+
   });
+
+  const reciboPrincipal = recibosPorCorrelativo.get(String(filasVinculadas[0][0] ?? "").trim());
 
   return {
 
@@ -774,29 +759,22 @@ export async function obtenerDetalleOperacion(
     correlativo,
 
     fecha:
-      filasVinculadas[0][4] ||
-      "",
+      String(filasVinculadas[0][4] ?? ""),
 
     ciudadano:
-      recibo?.[3] ||
-      "",
+      [...new Set(titularesVisa)].join(", ") || String(reciboPrincipal?.[3] ?? ""),
 
     documento:
-      recibo?.[11] ||
-      recibo?.[12] ||
-      "",
+      String(reciboPrincipal?.[11] || reciboPrincipal?.[12] || ""),
 
     nacionalidad:
-      recibo?.[13] ||
-      "",
+      String(reciboPrincipal?.[13] ?? ""),
 
     correo:
-      recibo?.[4] ||
-      "",
+      String(reciboPrincipal?.[4] ?? ""),
 
     estado:
-      filasVinculadas[0][6] ||
-      "",
+      String(filasVinculadas[0][6] ?? ""),
 
     total,
 

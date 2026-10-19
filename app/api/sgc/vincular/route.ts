@@ -13,8 +13,11 @@ import {
   sheets,
 
   MODULO_CAJA_SHEET_ID,
+  invalidarCacheHojaGoogle,
+  actualizarRangosAtomico,
 
 } from "@/lib/googleSheets";
+import { conBloqueoGestionConsular } from "@/lib/bloqueo-sgc";
 
 export async function POST(
 
@@ -76,7 +79,7 @@ export async function POST(
         ok: false,
 
         error:
-          "Debe indicar el número de Planilla de Gestión Consular.",
+          "Debe indicar el nÃºmero de Planilla de GestiÃ³n Consular.",
 
       });
 
@@ -95,7 +98,7 @@ if (
     ok: false,
 
     error:
-      "El número de planilla debe contener únicamente números.",
+      "El nÃºmero de planilla debe contener Ãºnicamente nÃºmeros.",
 
   });
 
@@ -135,6 +138,7 @@ if (
 
     }
 
+    return await conBloqueoGestionConsular(async () => {
     const ahora = fechaHoraActual();
 
     // ===============================
@@ -148,7 +152,7 @@ if (
           MODULO_CAJA_SHEET_ID,
 
         range:
-          "GestionConsular!A:L",
+          "GestionConsular!A:M",
 
       });
 
@@ -172,7 +176,20 @@ if (
     const filasGestion =
       registrosGestion.slice(1);
 
-    const nuevasFilas: any[] = [];
+    const encabezadoM =
+      String(registrosGestion[0]?.[12] ?? "").trim();
+
+    if (encabezadoM && encabezadoM !== "FilaDetalle") {
+      return NextResponse.json({ ok: false, error: "La columna M de GestionConsular ya estÃ¡ ocupada." }, { status: 409 });
+    }
+
+    const ultimaOperacion = new Map<string, unknown[]>();
+    filasGestion.forEach((fila) => {
+      const clave = [fila[0], fila[1], fila[11]].map((valor) => String(valor ?? "").trim().toUpperCase()).join("|");
+      ultimaOperacion.set(clave, fila);
+    });
+
+    const nuevasFilas: Array<Array<string | number>> = [];
 
     for (const actuacion of actuaciones) {
 
@@ -198,7 +215,7 @@ if (
           ok: false,
 
           error:
-            `Debe indicar el número de la actuación para ${codigo}.`,
+            `Debe indicar el nÃºmero de la actuaciÃ³n para ${codigo}.`,
 
         });
 
@@ -211,40 +228,40 @@ if (
           ok: false,
 
           error:
-            `El número de actuación debe contener únicamente números.`,
+            `El nÃºmero de actuaciÃ³n debe contener Ãºnicamente nÃºmeros.`,
 
         });
 
       }
 
-      const existente =
-        filasGestion.find((row) => {
+      const llaveActuacion = [correlativo, codigo, numeroActuacion]
+        .map((valor) => valor.trim().toUpperCase())
+        .join("|");
+      const existente = ultimaOperacion.get(llaveActuacion);
+      const estadoExistente = String(existente?.[6] ?? "").trim().toUpperCase();
 
-          return (
-
-            (row[11] || "")
-              .toString()
-              .trim() === numeroActuacion &&
-
-            (row[6] || "")
-              .toString()
-              .trim() !== "DESVINCULADO"
-
-          );
-
-        });
-
-      if (existente) {
+      if (existente && estadoExistente !== "DESVINCULADO") {
 
         return NextResponse.json({
 
           ok: false,
 
           error:
-            `La actuación ${numeroActuacion} del recibo ${correlativo} ya se encuentra vinculada.`,
+            `La actuaciÃ³n ${numeroActuacion} del recibo ${correlativo} ya se encuentra vinculada.`,
 
         });
 
+      }
+
+      const filaDetalleSolicitada = Number(actuacion.filaDetalle);
+      const sinPlanillaActiva = filasGestion.find((fila) =>
+        String(fila[0] ?? "").trim() === correlativo &&
+        String(fila[1] ?? "").trim().toUpperCase() === codigo.toUpperCase() &&
+        (!String(fila[12] ?? "").trim() || Number(fila[12]) === filaDetalleSolicitada) &&
+        String(fila[6] ?? "").trim().toUpperCase() === "SIN PLANILLA"
+      );
+      if (sinPlanillaActiva) {
+        return NextResponse.json({ ok: false, error: `La actuaciÃ³n ${codigo} ya estÃ¡ registrada SIN PLANILLA. DesvincÃºlala antes de asignarle una planilla.` }, { status: 409 });
       }
 
       nuevasFilas.push([
@@ -273,7 +290,11 @@ if (
 
         numeroActuacion,
 
+        "",
+
       ]);
+
+      ultimaOperacion.set(llaveActuacion, nuevasFilas[nuevasFilas.length - 1]);
 
     }
 
@@ -281,37 +302,14 @@ if (
     // Registrar actuaciones
     // ===============================
 
-    await sheets.spreadsheets.values.append({
-
-      spreadsheetId:
-        MODULO_CAJA_SHEET_ID,
-
-      range:
-        "GestionConsular!A:L",
-
-      valueInputOption:
-        "USER_ENTERED",
-
-      insertDataOption:
-        "INSERT_ROWS",
-
-      requestBody: {
-
-        values:
-          nuevasFilas,
-
-      },
-
-    });
-
-    // ===============================
-    // Actualizar DetalleCaja
-    // ===============================
+    const rangosDetalle: Array<{ fila: number; values: Array<Array<string | number>> }> = [];
+    const indicesDetalleUsados = new Set<number>();
 
     const filasDetalle =
       detalleCaja.map((fila) => [...fila]);
 
-    for (const actuacion of actuaciones) {
+    for (let indiceActuacion = 0; indiceActuacion < actuaciones.length; indiceActuacion++) {
+      const actuacion = actuaciones[indiceActuacion];
 
       const correlativo =
         String(
@@ -332,77 +330,57 @@ if (
       // Buscar la fila exacta de DetalleCaja
       // ==========================================
       //
-      // Primera vinculación:
-      // E está vacío.
+      // Primera vinculaciÃ³n:
+      // E estÃ¡ vacÃ­o.
       //
-      // Revinculación:
-      // E contiene el mismo número de actuación
-      // y G está DESVINCULADA.
+      // RevinculaciÃ³n:
+      // E contiene el mismo nÃºmero de actuaciÃ³n
+      // y G estÃ¡ DESVINCULADA.
       //
       // De esta manera no se toma una fila
-      // DESVINCULADA de otra actuación.
+      // DESVINCULADA de otra actuaciÃ³n.
       // ==========================================
 
-      let indiceDetalle = -1;
+      const filaSolicitada = Number(actuacion.filaDetalle);
+      let indiceDetalle = Number.isInteger(filaSolicitada) ? filaSolicitada - 1 : -1;
+      const mismoRegistro = (fila: unknown[]) =>
+        String(fila[0] ?? "").trim() === correlativo &&
+        String(fila[1] ?? "").trim().toUpperCase() === codigo.toUpperCase();
+
+      if (indiceDetalle >= 1) {
+        if (!filasDetalle[indiceDetalle] || !mismoRegistro(filasDetalle[indiceDetalle])) {
+          return NextResponse.json({ ok: false, error: "La fila de detalle ya no corresponde a esta actuaciÃ³n. Actualiza la lista e intenta nuevamente." }, { status: 409 });
+        }
+        const numeroDetalleActual = String(filasDetalle[indiceDetalle][4] ?? "").trim();
+        if (numeroDetalleActual && numeroDetalleActual !== numeroActuacion) {
+          return NextResponse.json({ ok: false, error: "La fila de detalle ya pertenece a otro nÃºmero de actuaciÃ³n." }, { status: 409 });
+        }
+      } else {
+        indiceDetalle = -1;
+      }
 
       // ------------------------------------------
       // 1. Buscar primero una fila ya asociada
-      //    a esta misma actuación y DESVINCULADA
+      //    a esta misma actuaciÃ³n y DESVINCULADA
       // ------------------------------------------
 
-      for (
-        let i = 1;
-        i < filasDetalle.length;
-        i++
-      ) {
+      if (indiceDetalle === -1) {
+        for (let i = 1; i < filasDetalle.length; i++) {
+          const fila = filasDetalle[i];
+          const mismoNumeroActuacion = String(fila[4] ?? "").trim() === numeroActuacion;
+          const estaDesvinculada = String(fila[6] ?? "").trim().toUpperCase() === "DESVINCULADO";
 
-        const fila =
-          filasDetalle[i];
-
-        const mismoCorrelativo =
-          String(
-            fila[0] ?? ""
-          ).trim() === correlativo;
-
-        const mismoCodigo =
-          String(
-            fila[1] ?? ""
-          ).trim() === codigo;
-
-        const mismoNumeroActuacion =
-          String(
-            fila[4] ?? ""
-          ).trim() === numeroActuacion;
-
-        const estaDesvinculada =
-          String(
-            fila[6] ?? ""
-          )
-            .trim()
-            .toUpperCase() ===
-          "DESVINCULADA";
-
-        if (
-
-          mismoCorrelativo &&
-          mismoCodigo &&
-          mismoNumeroActuacion &&
-          estaDesvinculada
-
-        ) {
-
-          indiceDetalle = i;
-
-          break;
-
+          if (mismoRegistro(fila) && mismoNumeroActuacion && estaDesvinculada) {
+            indiceDetalle = i;
+            break;
+          }
         }
-
       }
 
       // ------------------------------------------
       // 2. Si no existe una fila previamente
       //    vinculada, buscar una fila nueva
-      //    con E vacío.
+      //    con E vacÃ­o.
       // ------------------------------------------
 
       if (indiceDetalle === -1) {
@@ -416,25 +394,12 @@ if (
           const fila =
             filasDetalle[i];
 
-          const mismoCorrelativo =
-            String(
-              fila[0] ?? ""
-            ).trim() === correlativo;
-
-          const mismoCodigo =
-            String(
-              fila[1] ?? ""
-            ).trim() === codigo;
-
-          const sinActuacion =
-            !String(
-              fila[4] ?? ""
-            ).trim();
+          const sinActuacion = !String(fila[4] ?? "").trim() &&
+            !String(fila[5] ?? "").trim() && !String(fila[6] ?? "").trim();
 
           if (
 
-            mismoCorrelativo &&
-            mismoCodigo &&
+            mismoRegistro(fila) &&
             sinActuacion
 
           ) {
@@ -453,10 +418,23 @@ if (
       // 3. Actualizar solamente la fila encontrada
       // ------------------------------------------
 
+      if (indiceDetalle === -1) {
+        return NextResponse.json({ ok: false, error: `No se encontrÃ³ una fila DetalleCaja exacta para el recibo ${correlativo}, cÃ³digo ${codigo}.` }, { status: 409 });
+      }
+      if (indicesDetalleUsados.has(indiceDetalle)) {
+        return NextResponse.json({ ok: false, error: "Dos actuaciones seleccionadas apuntan a la misma fila de DetalleCaja." }, { status: 409 });
+      }
+      indicesDetalleUsados.add(indiceDetalle);
+
       if (indiceDetalle !== -1) {
 
         const fila =
           filasDetalle[indiceDetalle];
+
+        const estadoDetalle = String(fila[6] ?? "").trim().toUpperCase();
+        if (estadoDetalle === "VINCULADO") {
+          return NextResponse.json({ ok: false, error: `La fila de DetalleCaja del recibo ${correlativo} ya estÃ¡ vinculada.` }, { status: 409 });
+        }
 
         fila[4] =
           numeroActuacion;   // E
@@ -470,29 +448,22 @@ if (
         fila[7] =
           fechaPlanilla;     // H
 
+        const filaDetalle = indiceDetalle + 1;
+        nuevasFilas[indiceActuacion][12] = filaDetalle;
+        rangosDetalle.push({ fila: filaDetalle, values: [[numeroActuacion, planilla, "VINCULADO", fechaPlanilla]] });
+
       }
 
     }
 
-    await sheets.spreadsheets.values.update({
-
-      spreadsheetId:
-        MODULO_CAJA_SHEET_ID,
-
-      range:
-        `DetalleCaja!A2:H${filasDetalle.length}`,
-
-      valueInputOption:
-        "USER_ENTERED",
-
-      requestBody: {
-
-        values:
-          filasDetalle.slice(1),
-
-      },
-
-    });
+    const primeraFilaGestion = registrosGestion.length + 1;
+    await actualizarRangosAtomico(MODULO_CAJA_SHEET_ID, [
+      ...(!encabezadoM ? [{ hoja: "GestionConsular", fila: 1, columna: 13, valores: [["FilaDetalle"]] }] : []),
+      { hoja: "GestionConsular", fila: primeraFilaGestion, columna: 1, valores: nuevasFilas },
+      ...rangosDetalle.map(({ fila, values }) => ({ hoja: "DetalleCaja", fila, columna: 5, valores: values })),
+    ]);
+    invalidarCacheHojaGoogle(MODULO_CAJA_SHEET_ID, "GestionConsular");
+    invalidarCacheHojaGoogle(MODULO_CAJA_SHEET_ID, "DetalleCaja");
 
     return NextResponse.json({
 
@@ -502,11 +473,12 @@ if (
         nuevasFilas.length,
 
       mensaje:
-        `${nuevasFilas.length} actuación(es) vinculada(s) correctamente.`,
+        `${nuevasFilas.length} actuaciÃ³n(es) vinculada(s) correctamente.`,
 
     });
+    });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
 
     return NextResponse.json(
 
@@ -515,7 +487,7 @@ if (
         ok: false,
 
         error:
-          error.message,
+          error instanceof Error ? error.message : "No fue posible vincular la actuación.",
 
       },
 

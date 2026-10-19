@@ -82,6 +82,12 @@ const [
   mostrarConfirmacion,
   setMostrarConfirmacion,
 ] = useState(false);
+const [mostrarModalSlae, setMostrarModalSlae] = useState(false);
+const [observacionesModSlae, setObservacionesModSlae] = useState<Record<string, string>>({});
+const [mensajeObservacionesSlae, setMensajeObservacionesSlae] = useState("");
+const [estadoPlanillaSlae, setEstadoPlanillaSlae] = useState<{ correlativo: string; estado: "generando" | "lista" | "error"; mensaje: string } | null>(null);
+const [planillasSlaeRecuperables, setPlanillasSlaeRecuperables] = useState<string[]>([]);
+const planillasSlaeIntentadasRef = useRef(new Set<string>());
 const [reciboPendienteTransferencia, setReciboPendienteTransferencia] = useState("");
 const [recuperandoTransferencia, setRecuperandoTransferencia] = useState(false);
 
@@ -125,6 +131,24 @@ const [cajaDestino, setCajaDestino] =
 
 const actuacionesRef =
   useRef<HTMLDivElement>(null);
+
+useEffect(() => {
+  let cancelado = false;
+  const timer = window.setTimeout(() => {
+    try {
+      const almacenadas = JSON.parse(window.localStorage.getItem("planillasSlaeRecuperables") || "[]");
+      if (!cancelado && Array.isArray(almacenadas)) {
+        setPlanillasSlaeRecuperables(almacenadas.filter((valor): valor is string => typeof valor === "string" && /^\d{1,8}\/\d{4}$/.test(valor)).slice(0, 10));
+      }
+    } catch {
+      if (!cancelado) setPlanillasSlaeRecuperables([]);
+    }
+  }, 0);
+  return () => {
+    cancelado = true;
+    window.clearTimeout(timer);
+  };
+}, []);
 
 const [
   actuacionesSeleccionadas,
@@ -294,6 +318,7 @@ setMensaje("");
 
   setMostrarActuaciones(false);
 setTitularesEspeciales([]);
+setObservacionesModSlae({});
     if (!documento.trim()) {
       setMensaje(
         "Ingrese un documento"
@@ -741,7 +766,10 @@ async function generarRecibo() {
         },
         body: JSON.stringify({
           ciudadano,
-          actuaciones: actuacionesSeleccionadas,
+          actuaciones: actuacionesSeleccionadas.map((actuacion) => ({
+            ...actuacion,
+            observacionModificacion: observacionesModSlae[String(actuacion.id)] || "",
+          })),
           totalUSD,
           usuario,
           titularesEspeciales,
@@ -766,6 +794,20 @@ async function generarRecibo() {
     // ======================================================
 
     setDatosReciboGenerado(data);
+    const contienePlanillasSlae = Array.isArray(data.actuaciones) && data.actuaciones.some(
+      (actuacion: { codigo?: string }) => ["REG-SLAE", "RES-SLAE", "MOD-SLAE", "REG-SIGESAP", "RES-SIGESAP", "MOD-SIGESAP", "RES-SAIME"].includes(String(actuacion.codigo || "").trim().toUpperCase())
+    );
+    if (contienePlanillasSlae && typeof data.correlativo === "string") {
+      const recuperables = [data.correlativo, ...planillasSlaeRecuperables.filter((valor) => valor !== data.correlativo)].slice(0, 10);
+      setPlanillasSlaeRecuperables(recuperables);
+      try {
+        window.localStorage.setItem("planillasSlaeRecuperables", JSON.stringify(recuperables));
+      } catch {}
+      setEstadoPlanillaSlae({ correlativo: data.correlativo, estado: "generando", mensaje: "Generando planilla(s) SLAE/SIGESAP/SAIME…" });
+      void descargarPlanillasSlae(data.correlativo, true);
+    } else {
+      setEstadoPlanillaSlae(null);
+    }
     setReciboPendienteTransferencia(data.transferenciaTurnosPendiente ? data.correlativo : "");
 
     setMensajeRecibo(
@@ -788,6 +830,47 @@ async function generarRecibo() {
     setMensajeRecibo(
       "Error generando recibo."
     );
+  }
+}
+
+async function descargarPlanillasSlae(correlativo: string, automatica = false) {
+  if (automatica) {
+    if (planillasSlaeIntentadasRef.current.has(correlativo)) return;
+    planillasSlaeIntentadasRef.current.add(correlativo);
+  }
+  setEstadoPlanillaSlae({ correlativo, estado: "generando", mensaje: "Generando planilla(s) SLAE/SIGESAP/SAIME…" });
+  try {
+    const response = await fetch("/api/planillas-slae", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ correlativo }),
+    });
+    if (!response.ok) {
+      let mensaje = "No fue posible generar planilla(s) SLAE/SIGESAP/SAIME.";
+      try {
+        const error = await response.json();
+        mensaje = error.error || mensaje;
+      } catch {}
+      throw new Error(mensaje);
+    }
+    const archivo = await response.blob();
+    const disposicion = response.headers.get("Content-Disposition") || "";
+    const nombreArchivo = disposicion.match(/filename="?([^";]+)"?/i)?.[1] || `Planillas_Caja_${correlativo.replace("/", "-")}`;
+    const url = window.URL.createObjectURL(archivo);
+    const enlace = document.createElement("a");
+    enlace.href = url;
+    enlace.download = nombreArchivo;
+    document.body.appendChild(enlace);
+    enlace.click();
+    enlace.remove();
+    window.setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+    setEstadoPlanillaSlae({ correlativo, estado: "lista", mensaje: "Planilla(s) SLAE/SIGESAP/SAIME descargada(s)." });
+  } catch (error) {
+    setEstadoPlanillaSlae({
+      correlativo,
+      estado: "error",
+      mensaje: error instanceof Error ? error.message : "No fue posible generar la planilla.",
+    });
   }
 }
 
@@ -929,6 +1012,8 @@ async function generarPdfFormatoRecibo(
 
     setTitularesEspeciales([]);
 
+    setObservacionesModSlae({});
+
     setDatosReciboGenerado(null);
 
     setMensaje("");
@@ -1012,6 +1097,31 @@ async function confirmarGeneracion() {
 
   await generarRecibo();
 
+}
+
+function continuarAConfirmacion() {
+  const modificacionesSlae = actuacionesSeleccionadas.filter(
+    (actuacion) => ["MOD-SLAE", "MOD-SIGESAP"].includes(String(actuacion.codigo || "").trim().toUpperCase())
+  );
+  if (modificacionesSlae.some((actuacion) => !observacionesModSlae[String(actuacion.id)]?.trim())) {
+    setMensajeObservacionesSlae("");
+    setMostrarModalSlae(true);
+    return;
+  }
+  setMostrarConfirmacion(true);
+}
+
+function confirmarObservacionesSlae() {
+  const modificacionesSlae = actuacionesSeleccionadas.filter(
+    (actuacion) => ["MOD-SLAE", "MOD-SIGESAP"].includes(String(actuacion.codigo || "").trim().toUpperCase())
+  );
+  if (modificacionesSlae.some((actuacion) => !observacionesModSlae[String(actuacion.id)]?.trim())) {
+    setMensajeObservacionesSlae("Describa la naturaleza de cada modificación para continuar.");
+    return;
+  }
+  setMensajeObservacionesSlae("");
+  setMostrarModalSlae(false);
+  setMostrarConfirmacion(true);
 }
 function seleccionarTipoImpresionCierre() {
 
@@ -1292,10 +1402,40 @@ async function generarCierreDiario() {
 
         setMostrarPopupTitulares(false);
 
-        setMostrarConfirmacion(true);
+        continuarAConfirmacion();
 
     }}
 />
+{mostrarModalSlae && (
+  <div className="fixed inset-0 z-[210] flex items-center justify-center bg-black/50 p-4">
+    <section role="dialog" aria-modal="true" aria-labelledby="modal-slae-titulo" className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl bg-white p-7 shadow-2xl">
+      <h2 id="modal-slae-titulo" className="mb-2 text-2xl font-bold text-blue-950">Naturaleza de la modificación SLAE/SIGESAP</h2>
+      <p className="mb-5 text-slate-600">Indique qué modificación solicita el ciudadano. Este detalle se guardará con el recibo y aparecerá en su planilla.</p>
+      <div className="space-y-4">
+        {actuacionesSeleccionadas.filter((actuacion) => ["MOD-SLAE", "MOD-SIGESAP"].includes(String(actuacion.codigo || "").trim().toUpperCase())).map((actuacion, indice) => {
+          const idActuacion = String(actuacion.id);
+          const codigoModificacion = String(actuacion.codigo || "").trim().toUpperCase();
+          return <label key={idActuacion} className="block rounded-xl border border-slate-200 p-4 font-semibold text-slate-700">
+            Modificación {codigoModificacion.replace("MOD-", "")} #{indice + 1}
+            <textarea
+              required
+              rows={3}
+              value={observacionesModSlae[idActuacion] || ""}
+              onChange={(event) => setObservacionesModSlae((actuales) => ({ ...actuales, [idActuacion]: event.target.value }))}
+              className="mt-2 w-full rounded-xl border border-slate-300 p-3 font-normal outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+              placeholder="Describa la modificación solicitada"
+            />
+          </label>;
+        })}
+      </div>
+      {mensajeObservacionesSlae && <p role="alert" className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">{mensajeObservacionesSlae}</p>}
+      <div className="mt-6 flex justify-end gap-3">
+        <button type="button" onClick={() => { setMostrarModalSlae(false); setMensajeObservacionesSlae(""); }} className="rounded-xl border border-slate-300 px-5 py-3 font-semibold text-slate-700">Cancelar</button>
+        <button type="button" onClick={confirmarObservacionesSlae} className="rounded-xl bg-blue-800 px-5 py-3 font-bold text-white hover:bg-blue-900">Continuar</button>
+      </div>
+    </section>
+  </div>
+)}
 {mostrarOpcionesCierre && (
 
   <div
@@ -2621,7 +2761,7 @@ async function generarCierreDiario() {
 
 }
 
-    setMostrarConfirmacion(true);
+    continuarAConfirmacion();
 
 }}
   className="
@@ -2639,6 +2779,34 @@ async function generarCierreDiario() {
       Generar Recibo
     </button>
 
+            {planillasSlaeRecuperables.length > 0 && (
+              <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <p className="text-sm font-semibold text-slate-700">Planillas SLAE/SIGESAP/SAIME recientes (se pueden volver a descargar):</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {planillasSlaeRecuperables.map((correlativo) => (
+                    <button key={correlativo} type="button" onClick={() => void descargarPlanillasSlae(correlativo)} className="rounded-lg border border-blue-300 px-3 py-2 text-sm font-semibold text-blue-800 hover:bg-blue-50">
+                      Recibo {correlativo}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {estadoPlanillaSlae && (
+              <div className="mt-3 rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-950">
+                <p role={estadoPlanillaSlae.estado === "error" ? "alert" : "status"}>
+                  {estadoPlanillaSlae.mensaje} Recibo {estadoPlanillaSlae.correlativo}.
+                  {estadoPlanillaSlae.estado === "error" && " El recibo ya fue guardado; no vuelva a generarlo."}
+                </p>
+                <button
+                  type="button"
+                  disabled={estadoPlanillaSlae.estado === "generando"}
+                  onClick={() => void descargarPlanillasSlae(estadoPlanillaSlae.correlativo)}
+                  className="mt-2 rounded-lg bg-blue-800 px-4 py-2 font-bold text-white disabled:opacity-50"
+                >
+                      {estadoPlanillaSlae.estado === "generando" ? "Generando…" : estadoPlanillaSlae.estado === "error" ? "Reintentar planillas" : "Volver a descargar planillas"}
+                </button>
+              </div>
+            )}
             {mensajeRecibo && (
 
           <p

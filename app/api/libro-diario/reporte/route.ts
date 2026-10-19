@@ -56,7 +56,16 @@ export async function POST(
 
                 spreadsheetId: MODULO_CAJA_SHEET_ID,
 
-                range: "Caja!A:N",
+                range: "Caja!A:S",
+
+            });
+
+        const detalleResponse =
+            await sheets.spreadsheets.values.get({
+
+                spreadsheetId: MODULO_CAJA_SHEET_ID,
+
+                range: "DetalleCaja!A:H",
 
             });
 
@@ -65,7 +74,7 @@ export async function POST(
 
                 spreadsheetId: MODULO_CAJA_SHEET_ID,
 
-                range: "GestionConsular!A:L",
+                range: "GestionConsular!A:M",
 
             });
 
@@ -74,6 +83,9 @@ export async function POST(
 
         const gestion =
             gestionResponse.data.values || [];
+
+        const detalleCaja =
+            detalleResponse.data.values || [];
 
         const libro =
     construirLibroDiario(
@@ -85,6 +97,8 @@ export async function POST(
         gestion,
 
         caja,
+
+        detalleCaja,
 
         movimientos,
 

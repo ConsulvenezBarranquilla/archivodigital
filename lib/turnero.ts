@@ -26,6 +26,7 @@ export interface TurnoAtencion {
   detalleId: string;
   usuario: string;
   fechaActualizacion: string;
+  llamadoEnMs?: number;
   caja: string;
   llamadaPor: string;
   llamadaCaja: string;
@@ -99,16 +100,23 @@ if not valor then return 'NO_TURNO' end
 local turno = cjson.decode(valor)
 if turno.estado == 'atendido' then return 'YA_ATENDIDO' end
 local accion = ARGV[1]
-if accion == 'llamar' and turno.estado == 'llamado' then return 'YA_LLAMADO' end
+local ahoraMs = tonumber(ARGV[7]) or 0
+if accion == 'llamar' and turno.estado == 'llamado' then
+  local ultimoLlamadoMs = tonumber(turno.llamadoEnMs) or tonumber(ARGV[8]) or 0
+  local restanteMs = 20000 - (ahoraMs - ultimoLlamadoMs)
+  if restanteMs > 0 then return 'ESPERAR_RELLAMADO:' .. tostring(restanteMs) end
+end
 local ahora = ARGV[2]
 turno.estado = accion == 'llamar' and 'llamado' or 'atendido'
 turno.usuario = ARGV[3]
 turno.fechaActualizacion = ahora
 turno.eventId = turno.id .. ':' .. ahora .. ':' .. accion
 if accion == 'llamar' then
+  turno.llamadoEnMs = ahoraMs
   turno.llamadaPor = ARGV[3]
   turno.llamadaCaja = ARGV[4]
   turno.llamadaTipo = turno.cola == 'analistas' and 'analista' or ARGV[5]
+  turno.caja = turno.llamadaTipo == 'caja' and ARGV[4] or ''
   local llamado = cjson.encode({id=turno.id, nombre=turno.nombre, tipo=turno.llamadaTipo, caja=turno.llamadaTipo == 'caja' and ARGV[4] or '', actualizadoEl=ahora, personaKey=ARGV[6]})
   redis.call('LPUSH', KEYS[3], 'CALL:' .. llamado)
   redis.call('LTRIM', KEYS[3], 0, 19)
@@ -166,17 +174,24 @@ export async function obtenerTurno(id: string) {
 export async function cambiarEstadoTurno(id: string, accion: "llamar" | "atendido", usuario: string, caja = "", tipoOperador: "recepcion" | "caja" | "analista" = "caja") {
   const keyLlamados = claveLlamadosPublicos();
   const turnoActual = accion === "llamar" ? await obtenerTurno(id) : null;
+  const ahoraMs = Date.now();
+  const fallbackUltimoLlamadoMs = turnoActual?.estado === "llamado"
+    ? Number(turnoActual.llamadoEnMs) || Date.parse(turnoActual.fechaActualizacion) || 0
+    : 0;
   const documentoNormalizado = turnoActual?.documento.trim().toUpperCase() || "";
   const nombreNormalizado = turnoActual?.nombre.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toUpperCase() || "";
   const personaKey = sha(documentoNormalizado ? "doc:" + documentoNormalizado : "nombre:" + nombreNormalizado);
   const resultado = await redis.eval(
     LUA_CAMBIAR,
     [claveTurno(id), KEY_ACTIVOS, keyLlamados, KEY_OUTBOX, `${PREFIX}:turno:`],
-    [accion, new Date().toISOString(), usuario, caja, tipoOperador, personaKey],
+    [accion, new Date(ahoraMs).toISOString(), usuario, caja, tipoOperador, personaKey, ahoraMs, fallbackUltimoLlamadoMs],
   );
   if (resultado === "NO_TURNO") throw new Error("No se encontr\u00C3\u00B3 el turno solicitado.");
   if (resultado === "YA_ATENDIDO") throw new Error("Este turno ya fue atendido por otro operador.");
-  if (resultado === "YA_LLAMADO") throw new Error("Este turno ya fue llamado por otro operador.");
+  if (typeof resultado === "string" && resultado.startsWith("ESPERAR_RELLAMADO:")) {
+    const restante = Math.max(1, Math.ceil(Number(resultado.split(":")[1]) / 1000));
+    throw new Error(`Podrás volver a llamar en ${restante} segundo${restante === 1 ? "" : "s"}.`);
+  }
   const turno = resultado && typeof resultado === "object" ? resultado as TurnoAtencion : JSON.parse(String(resultado)) as TurnoAtencion;
   await vaciarOutbox();
   return turno;
@@ -284,8 +299,10 @@ export async function sincronizarTurnosAnalista(input: {
 }) {
   const grupos = new Map<string, { etiqueta: string; actuaciones: typeof input.actuaciones }>();
   for (const actuacion of input.actuaciones) {
+    const codigo = actuacion.codigo.trim().toUpperCase();
     const nombre = actuacion.nombre.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
-    const categoria = nombre.includes("PASAPORTE") ? { clave: "pasaporte", etiqueta: "Pasaporte" }
+    const categoria = ["REG-SLAE", "RES-SLAE", "MOD-SLAE"].includes(codigo) ? { clave: "slae", etiqueta: "SLAE" }
+      : nombre.includes("PASAPORTE") ? { clave: "pasaporte", etiqueta: "Pasaporte" }
       : nombre.includes("APOSTILLA") ? { clave: "apostilla", etiqueta: "Apostilla" }
       : nombre.includes("VISA") ? { clave: "visa", etiqueta: "Visa" }
       : nombre.includes("FE DE VIDA") ? { clave: "fe_vida", etiqueta: "Fe de Vida" }

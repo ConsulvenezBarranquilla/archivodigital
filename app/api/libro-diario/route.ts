@@ -45,7 +45,7 @@ export async function GET(
 
         spreadsheetId: MODULO_CAJA_SHEET_ID,
 
-        range: "Caja!A:N",
+        range: "Caja!A:S",
 
       });
 
@@ -66,7 +66,7 @@ const detalleCaja =
 
         spreadsheetId: MODULO_CAJA_SHEET_ID,
 
-        range: "GestionConsular!A:L",
+        range: "GestionConsular!A:M",
 
       });
 

@@ -458,14 +458,7 @@ export default function SistemaGestionConsular() {
       !respuesta.ok
     ) {
 
-      alert(
-
-        respuesta.error ||
-
-        respuesta.mensaje
-
-      );
-
+      alert(respuesta.error || respuesta.mensaje);
       return;
 
     }
@@ -548,15 +541,7 @@ export default function SistemaGestionConsular() {
       !respuesta.ok
     ) {
 
-      alert(
-
-        respuesta.error ||
-
-        respuesta.mensaje
-
-      );
-
-      return;
+      throw new Error(respuesta.error || respuesta.mensaje || "No se pudo desvincular la actuación.");
 
     }
 

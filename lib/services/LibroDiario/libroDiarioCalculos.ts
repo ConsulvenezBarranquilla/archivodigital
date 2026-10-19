@@ -64,7 +64,9 @@ export function construirHaberes(
 
   fechaInicial?: string,
 
-  fechaFinal?: string
+  fechaFinal?: string,
+
+  gestionConsular: unknown[][] = []
 
 ): MovimientoLibro[] {
 
@@ -77,10 +79,24 @@ const planillas = new Map<
         fecha: string;
         descripcion: string;
         total: number;
+        titularesVisa: string[];
     }
 >();
 
   const cajaMap = new Map<string, any>();
+
+  const ultimaOperacion = new Map<string, unknown[]>();
+
+  gestionConsular.slice(1).forEach((fila) => {
+    const correlativo = String(fila[0] ?? "").trim();
+    const codigo = String(fila[1] ?? "").trim().toUpperCase();
+    const numeroActuacion = String(fila[11] ?? "").trim();
+    if (!correlativo || !codigo) return;
+
+    if (numeroActuacion) {
+      ultimaOperacion.set(`${correlativo}|${codigo}|${numeroActuacion}`, fila);
+    }
+  });
 
   caja.slice(1).forEach((fila) => {
 
@@ -108,13 +124,19 @@ detalleCaja
         const numeroActuacion =
             String(detalle[4] ?? "").trim();
 
-        const planilla =
-            String(detalle[5] ?? "").trim();
-
+        const codigo = String(detalle[1] ?? "").trim().toUpperCase();
+        const operacionActual = numeroActuacion
+          ? ultimaOperacion.get(`${correlativo}|${codigo}|${numeroActuacion}`)
+          : undefined;
+        const estadoFuente = operacionActual ?? detalle;
         const estadoGC =
-            String(detalle[6] ?? "")
+            String(operacionActual ? estadoFuente[6] : detalle[6] ?? "")
                 .trim()
                 .toUpperCase();
+
+        const planilla = String(
+            operacionActual && estadoGC === "VINCULADO" ? estadoFuente[3] : detalle[5] ?? ""
+        ).trim();
 
         // Solo actuaciones vigentes
         if (estadoGC !== "VINCULADO") {
@@ -129,8 +151,9 @@ detalleCaja
 
         }
 
-        const fechaPlanilla =
-            String(detalle[7] ?? "").trim();
+        const fechaPlanilla = String(
+            operacionActual && estadoGC === "VINCULADO" ? estadoFuente[4] : detalle[7] ?? ""
+        ).trim();
 
         if (!fechaPlanilla) {
 
@@ -211,6 +234,25 @@ detalleCaja
 
         }
 
+        let titularVisa = "";
+        if (String(detalle[2] ?? "").toUpperCase().includes("VISA")) {
+            const visasDelRecibo = detalleCaja.slice(1).filter((fila) =>
+                String(fila[0] ?? "").trim() === correlativo &&
+                String(fila[2] ?? "").toUpperCase().includes("VISA")
+            );
+            const ordinalVisa = visasDelRecibo.indexOf(detalle);
+            const titularesGuardados = String(recibo[16] ?? "")
+                .split(";")
+                .map((valor: string) => valor.trim());
+
+            // Los recibos actuales guardan una posición por cada visa.
+            // En registros antiguos sin posiciones vacías, se conserva el
+            // emparejamiento disponible cuando exista un titular para el ordinal.
+            titularVisa = titularesGuardados.length === visasDelRecibo.length
+                ? titularesGuardados[ordinalVisa] ?? ""
+                : titularesGuardados.filter(Boolean)[ordinalVisa] ?? "";
+        }
+
         // ------------------------------------------
         // Agrupar por planilla
         // ------------------------------------------
@@ -232,12 +274,17 @@ detalleCaja
                     fechaPlanilla.substring(0, 10),
 
                 descripcion:
-                    String(recibo[3] ?? ""),
+                    titularVisa || String(recibo[3] ?? ""),
 
                 total: monto,
+                titularesVisa: titularVisa ? [titularVisa] : [],
 
             });
+        }
 
+        if (titularVisa && existente && !existente.titularesVisa.includes(titularVisa)) {
+            existente.titularesVisa.push(titularVisa);
+            existente.descripcion = existente.titularesVisa.join(", ");
         }
 
     });
@@ -954,7 +1001,9 @@ detalleCaja: any[],
 
   periodoActual === periodo
     ? fechaFinal
-    : undefined
+    : undefined,
+
+  gestionConsular
 
 );
 

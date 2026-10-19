@@ -125,6 +125,49 @@ function invalidarCacheHoja(spreadsheetId: string, hoja: string) {
   }
 }
 
+export function invalidarCacheHojaGoogle(spreadsheetId: string, hoja: string) {
+  invalidarCacheHoja(spreadsheetId, hoja);
+}
+
+export async function actualizarRangosAtomico(
+  spreadsheetId: string,
+  cambios: Array<{ hoja: string; fila: number; columna: number; valores: Array<Array<string | number>> }>
+) {
+  const metadata = await sheets.spreadsheets.get({
+    spreadsheetId,
+    fields: "sheets.properties(sheetId,title)",
+  });
+  const ids = new Map(
+    (metadata.data.sheets ?? []).map((hoja) => [String(hoja.properties?.title ?? ""), hoja.properties?.sheetId])
+  );
+
+  const requests = cambios.map(({ hoja, fila, columna, valores }) => {
+    const sheetId = ids.get(hoja);
+    if (sheetId === undefined) throw new Error(`No existe la pestaña ${hoja} en la hoja de cálculo.`);
+    if (!Number.isInteger(fila) || fila < 1 || !Number.isInteger(columna) || columna < 1) {
+      throw new Error("La coordenada de actualización de Google Sheets no es válida.");
+    }
+    return {
+      updateCells: {
+        start: { sheetId, rowIndex: fila - 1, columnIndex: columna - 1 },
+        rows: valores.map((linea) => ({
+          values: linea.map((valor) => ({
+            userEnteredValue: typeof valor === "number"
+              ? { numberValue: valor }
+              : { stringValue: valor },
+          })),
+        })),
+        fields: "userEnteredValue",
+      },
+    };
+  });
+
+  return await sheets.spreadsheets.batchUpdate({
+    spreadsheetId,
+    requestBody: { requests },
+  });
+}
+
 async function leerHojaConCache(
   spreadsheetId: string,
   hoja: string,

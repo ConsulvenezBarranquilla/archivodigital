@@ -151,6 +151,8 @@ export default function ModalVincular({
         numeroActuacion:
           numerosActuacion[index].trim(),
 
+        filaDetalle: item.filaDetalle,
+
       })
     );
 

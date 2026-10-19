@@ -219,7 +219,7 @@ export async function GET(
           MODULO_CAJA_SHEET_ID,
 
         range:
-          "GestionConsular!A:L",
+          "GestionConsular!A:M",
 
       });
 
@@ -232,8 +232,17 @@ export async function GET(
     const filasCaja =
       caja.slice(1);
 
-    const filasGestion =
-      gestion.slice(1);
+    const filasGestion = gestion.slice(1);
+
+    const ultimaPorActuacion = new Map<string, { fila: unknown[]; numeroFila: number }>();
+    filasGestion.forEach((fila, indice) => {
+      const correlativo = String(fila[0] ?? "").trim();
+      const codigo = String(fila[1] ?? "").trim().toUpperCase();
+      const numero = String(fila[11] ?? "").trim();
+      const filaDetalle = String(fila[12] ?? "").trim();
+      const llave = `${correlativo}|${codigo}|${numero || filaDetalle || `LEGACY-${indice + 2}`}`;
+      ultimaPorActuacion.set(llave, { fila, numeroFila: indice + 2 });
+    });
 
     const registros: any[] = [];
 
@@ -269,7 +278,7 @@ export async function GET(
     // Construir listado de actuaciones vinculadas
     // ==================================================
 
-    filasGestion.forEach((gc) => {
+    Array.from(ultimaPorActuacion.values()).forEach(({ fila: gc, numeroFila: filaGestion }) => {
 
       // ==================================================
       // Datos Gestión Consular
@@ -530,6 +539,10 @@ export async function GET(
         observaciones,
 
         numeroActuacion,
+
+        filaGestion,
+
+        filaDetalle: Number(gc[12] || (estadoGC === "SIN PLANILLA" ? gc[11] : 0)) || null,
 
       });
 

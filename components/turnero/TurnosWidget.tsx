@@ -7,13 +7,20 @@ type Turno = {
   cola: "visitas" | "analistas"; etapa: string; actuacion: string; correlativo: string; creadoEl: string;
   cantidadActuaciones?: number;
   usuario?: string;
+  llamadoEnMs?: number;
 };
+
+function segundosParaRellamar(turno: Turno, ahora: number) {
+  if (turno.estado !== "llamado") return 0;
+  return Math.max(0, Math.ceil(((turno.llamadoEnMs || 0) + 20_000 - ahora) / 1000));
+}
 
 export default function TurnosWidget({ titulo = "Turnos pendientes", cola }: { titulo?: string; cola?: "visitas" | "analistas" }) {
   const [turnos, setTurnos] = useState<Turno[]>([]);
   const [abierto, setAbierto] = useState(false);
   const [ocupado, setOcupado] = useState("");
   const [error, setError] = useState("");
+  const [ahora, setAhora] = useState(() => Date.now());
   const canalRef = useRef<BroadcastChannel | null>(null);
 
   const cargar = useCallback(async () => {
@@ -28,6 +35,7 @@ export default function TurnosWidget({ titulo = "Turnos pendientes", cola }: { t
   }, [cola]);
 
   useEffect(() => {
+    const reloj = window.setInterval(() => setAhora(Date.now()), 1000);
     const actualizarSiVisible = () => {
       if (document.visibilityState === "visible") void cargar();
     };
@@ -46,6 +54,7 @@ export default function TurnosWidget({ titulo = "Turnos pendientes", cola }: { t
     return () => {
       window.clearTimeout(initial);
       window.clearInterval(timer);
+      window.clearInterval(reloj);
       window.removeEventListener("focus", actualizarSiVisible);
       document.removeEventListener("visibilitychange", actualizarSiVisible);
       canalRef.current?.close();
@@ -95,7 +104,7 @@ export default function TurnosWidget({ titulo = "Turnos pendientes", cola }: { t
               <p className="text-xs text-slate-500">Registrado {new Date(turno.creadoEl).toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" })}</p>
               {turno.usuario && <p className="text-xs text-slate-500">Responsable: {turno.usuario}</p>}
             </div>
-            <div className="flex gap-2"><button disabled={Boolean(ocupado) || turno.estado === "llamado"} onClick={() => void actuar(turno, "llamar")} className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">{ocupado === turno.id ? "Procesando…" : "Llamar"}</button><button disabled={Boolean(ocupado)} onClick={() => void actuar(turno, "atendido")} className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">Atendido</button></div>
+            <div className="flex gap-2"><button disabled={Boolean(ocupado) || segundosParaRellamar(turno, ahora) > 0} onClick={() => void actuar(turno, "llamar")} className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">{ocupado === turno.id ? "Procesando…" : turno.estado === "llamado" ? segundosParaRellamar(turno, ahora) > 0 ? `Rellamar en ${segundosParaRellamar(turno, ahora)}s` : "Rellamar" : "Llamar"}</button><button disabled={Boolean(ocupado)} onClick={() => void actuar(turno, "atendido")} className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">Atendido</button></div>
             </article>
           </div>)}
         </div>

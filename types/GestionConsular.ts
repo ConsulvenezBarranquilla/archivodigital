@@ -42,6 +42,8 @@ export interface ActuacionPendiente {
 
   usd: number;
 
+  filaDetalle: number;
+
 }
 
 // ======================================================
@@ -83,6 +85,10 @@ export interface ActuacionVinculada {
   observaciones: string;
 
   numeroActuacion: string;
+
+  filaGestion: number;
+
+  filaDetalle: number | null;
 
 }
 
@@ -145,6 +151,8 @@ export interface ActuacionGestion {
 
   numeroActuacion: string;
 
+  filaDetalle?: number;
+
 }
 // ======================================================
 // Formularios del Frontend
@@ -173,7 +181,15 @@ export interface SinPlanillaForm {
 
 export interface DesvincularPlanillaForm {
 
-  numeroActuacion: string;
+  numeroActuacion?: string;
+
+  filaGestion: number;
+
+  filaDetalle?: number;
+
+  recibo: string;
+
+  codigo: string;
 
   observaciones: string;
 
@@ -208,7 +224,15 @@ export interface SinPlanillaRequest {
 
 export interface DesvincularPlanillaRequest {
 
-  numeroActuacion: string;
+  numeroActuacion?: string;
+
+  filaGestion: number;
+
+  filaDetalle?: number;
+
+  recibo: string;
+
+  codigo: string;
 
   usuario: string;
 

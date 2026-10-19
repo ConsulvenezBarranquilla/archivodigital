@@ -255,6 +255,8 @@ const registrosMostrados = useMemo(() => {
 
       numeroActuacion: "",
 
+      filaDetalle: item.filaDetalle,
+
     }));
 
   try {

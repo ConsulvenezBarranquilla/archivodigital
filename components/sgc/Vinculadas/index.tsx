@@ -161,9 +161,7 @@ export default function Vinculadas({
   row: ActuacionVinculada,
   index: number
 ) =>
-  row.numeroActuacion?.trim()
-    ? row.numeroActuacion
-    : `LEGACY-${row.recibo}-${row.codigo}-${row.documento}-${index}`;
+  `GESTION-${row.filaGestion || `${row.recibo}-${row.codigo}-${index}`}`;
   const selectedKeys = useMemo(
 
   () =>
@@ -230,20 +228,29 @@ const confirmar = window.confirm(
 
   }
 
-  for (const item of seleccion) {
-
-    await onDesvincular({
+  try {
+    for (const item of seleccion) {
+      await onDesvincular({
 
   numeroActuacion:
     item.numeroActuacion,
 
+  filaGestion: item.filaGestion,
+
+  filaDetalle: item.filaDetalle ?? undefined,
+
+  recibo: item.recibo,
+
+  codigo: item.codigo,
+
   observaciones: "",
 
 });
-
+    }
+    setSeleccion([]);
+  } catch (error) {
+    window.alert(error instanceof Error ? error.message : "No fue posible desvincular la actuación.");
   }
-
-  setSeleccion([]);
 
 }
 

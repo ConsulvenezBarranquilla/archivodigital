@@ -318,20 +318,9 @@ export async function GET(
           .toString()
           .trim();
 
-      const detallesRecibo =
-        filasDetalle.filter(
-
-          (d) =>
-
-            (
-              d[0] ||
-              ""
-            )
-              .toString()
-              .trim() ===
-            correlativo
-
-        );
+      const detallesRecibo = filasDetalle
+        .map((fila, indice) => ({ fila, filaDetalle: indice + 2 }))
+        .filter(({ fila }) => String(fila[0] || "").trim() === correlativo);
 
       // ================================================
       // Titulares especiales
@@ -374,7 +363,7 @@ export async function GET(
       // ================================================
 
       detallesRecibo.forEach(
-        (detalle) => {
+        ({ fila: detalle, filaDetalle }) => {
 
           const codigo =
             detalle[1] || "";
@@ -509,6 +498,8 @@ export async function GET(
               Number(
                 detalle[3] || 0
               ),
+
+            filaDetalle,
 
           });
 

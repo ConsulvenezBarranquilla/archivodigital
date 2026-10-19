@@ -12,10 +12,13 @@ import {
   sheets,
 
   MODULO_CAJA_SHEET_ID,
+  invalidarCacheHojaGoogle,
+  actualizarRangosAtomico,
 
 } from "@/lib/googleSheets";
 
 import { exigirPermiso } from "@/lib/autorizacion";
+import { conBloqueoGestionConsular } from "@/lib/bloqueo-sgc";
 
 export async function POST(
 
@@ -84,21 +87,16 @@ export async function POST(
 
     }
 
+    return await conBloqueoGestionConsular(async () => {
     const ahora = fechaHoraActual();
             // ===============================
     // Verificar actuaciones ya registradas
     // ===============================
 
-    const gestionResponse =
-      await sheets.spreadsheets.values.get({
-
-        spreadsheetId:
-          MODULO_CAJA_SHEET_ID,
-
-        range:
-          "GestionConsular!A:K",
-
-      });
+    const [gestionResponse, detalleResponse] = await Promise.all([
+      sheets.spreadsheets.values.get({ spreadsheetId: MODULO_CAJA_SHEET_ID, range: "GestionConsular!A:M" }),
+      sheets.spreadsheets.values.get({ spreadsheetId: MODULO_CAJA_SHEET_ID, range: "DetalleCaja!A:H" }),
+    ]);
 
     const registrosGestion =
       gestionResponse.data.values || [];
@@ -106,7 +104,14 @@ export async function POST(
     const filasGestion =
       registrosGestion.slice(1);
 
-    const nuevasFilas: any[] = [];
+    const filasDetalle = detalleResponse.data.values || [];
+    const encabezadoM = String(registrosGestion[0]?.[12] ?? "").trim();
+    if (encabezadoM && encabezadoM !== "FilaDetalle") {
+      return NextResponse.json({ ok: false, error: "La columna M de GestionConsular ya está ocupada." }, { status: 409 });
+    }
+
+    const nuevasFilas: Array<Array<string | number>> = [];
+    const accionesVistas = new Set<string>();
 
     for (const actuacion of actuaciones) {
 
@@ -120,14 +125,38 @@ export async function POST(
           .toString()
           .trim();
 
+      const filaDetalle = Number(actuacion.filaDetalle);
+      if (!Number.isInteger(filaDetalle) || filaDetalle < 2) {
+        return NextResponse.json({ ok: false, error: `No se recibió una fila DetalleCaja válida para ${correlativo} / ${codigo}. Actualiza la lista.` }, { status: 400 });
+      }
+      const detalle = filasDetalle[filaDetalle - 1];
+      if (!detalle || String(detalle[0] ?? "").trim() !== correlativo || String(detalle[1] ?? "").trim().toUpperCase() !== codigo.toUpperCase()) {
+        return NextResponse.json({ ok: false, error: "La fila DetalleCaja seleccionada ya no corresponde a esta actuación." }, { status: 409 });
+      }
+      const estadoDetalle = String(detalle[6] ?? "").trim().toUpperCase();
+      if (
+        String(detalle[4] ?? "").trim() || String(detalle[5] ?? "").trim() ||
+        (estadoDetalle && estadoDetalle !== "DESVINCULADO")
+      ) {
+        return NextResponse.json({ ok: false, error: "La actuación seleccionada ya tiene un estado operativo en DetalleCaja." }, { status: 409 });
+      }
+
+      const llave = `${correlativo}|${codigo.toUpperCase()}|${filaDetalle}`;
+      if (accionesVistas.has(llave)) {
+        return NextResponse.json({ ok: false, error: "La selección contiene repetida una misma fila de detalle." }, { status: 409 });
+      }
+      accionesVistas.add(llave);
+
       const existente =
         filasGestion.find((row) => {
 
           return (
 
-            (row[0] || "") === correlativo &&
+            String(row[0] || "").trim() === correlativo &&
 
-            (row[1] || "") === codigo &&
+            String(row[1] || "").trim().toUpperCase() === codigo.toUpperCase() &&
+
+            (String(row[12] || "").trim() === String(filaDetalle) || !String(row[12] || "").trim()) &&
 
             (
 
@@ -178,6 +207,10 @@ export async function POST(
 
         observaciones || "",
 
+        "",
+
+        filaDetalle,
+
       ]);
 
     }
@@ -185,28 +218,13 @@ export async function POST(
     // Registrar actuaciones
     // ===============================
 
-    await sheets.spreadsheets.values.append({
-
-      spreadsheetId:
-        MODULO_CAJA_SHEET_ID,
-
-      range:
-        "GestionConsular!A:K",
-
-      valueInputOption:
-        "USER_ENTERED",
-
-      insertDataOption:
-        "INSERT_ROWS",
-
-      requestBody: {
-
-        values:
-          nuevasFilas,
-
-      },
-
-    });
+    const primeraFilaGestion = registrosGestion.length + 1;
+    await actualizarRangosAtomico(MODULO_CAJA_SHEET_ID, [
+      ...(!encabezadoM ? [{ hoja: "GestionConsular", fila: 1, columna: 13, valores: [["FilaDetalle"]] }] : []),
+      { hoja: "GestionConsular", fila: primeraFilaGestion, columna: 1, valores: nuevasFilas },
+    ]);
+    invalidarCacheHojaGoogle(MODULO_CAJA_SHEET_ID, "GestionConsular");
+    invalidarCacheHojaGoogle(MODULO_CAJA_SHEET_ID, "DetalleCaja");
 
     return NextResponse.json({
 
@@ -219,8 +237,9 @@ export async function POST(
         `${nuevasFilas.length} actuación(es) registrada(s) como SIN PLANILLA.`,
 
     });
+    });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
 
     return NextResponse.json(
 
@@ -229,7 +248,7 @@ export async function POST(
         ok: false,
 
         error:
-          error.message,
+          error instanceof Error ? error.message : "No fue posible registrar las actuaciones SIN PLANILLA.",
 
       },
 
