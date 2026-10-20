@@ -4,11 +4,38 @@ import { actualizarDocumentoExpedienteCiudadano, buscarExpedienteCiudadano, guar
 import { obtenerDocumentoPrincipal } from "@/lib/googleSheets";
 import { subirArchivoDrive } from "@/lib/googleDrive";
 import { sheets, REGISTRO_CONSULAR_SHEET_ID, MODULO_CAJA_SHEET_ID } from "@/lib/googleSheets";
+import { listarCasosConsularesSoloLectura } from "@/lib/casosConsulares";
+import type { CasoConsular } from "@/lib/casosConsularesTypes";
 
 export const runtime = "nodejs";
 
 function limitarTexto(valor: unknown, maximo = 500): string {
   return String(valor ?? "").trim().slice(0, maximo);
+}
+
+function identificadoresCaso(caso: CasoConsular): string[] {
+  const datos = caso.datos;
+  const valores: unknown[] = [datos.cedula, datos.numeroDocumento, datos.documentoIdentidad, datos.nui, datos.pasaporte];
+  for (const verificacion of Array.isArray(datos.verificaciones) ? datos.verificaciones : []) {
+    if (verificacion && typeof verificacion === "object") valores.push((verificacion as Record<string, unknown>).numeroDocumento);
+  }
+  for (const persona of Array.isArray(datos.personasInvolucradas) ? datos.personasInvolucradas : []) {
+    if (persona && typeof persona === "object") valores.push((persona as Record<string, unknown>).cedula);
+  }
+  for (const presentante of Array.isArray(datos.presentantes) ? datos.presentantes : []) {
+    if (presentante && typeof presentante === "object") valores.push((presentante as Record<string, unknown>).documento);
+  }
+  return valores.map(normalizarDocumentoExpediente).filter(Boolean);
+}
+
+function nombreCasoParaTabla(caso: CasoConsular): string {
+  if (caso.categoria !== "Registro Civil") return caso.nombre;
+  const titulares = Array.isArray(caso.datos.titulares) ? caso.datos.titulares : [];
+  const titular = titulares.find((valor) => typeof valor === "string" && valor.trim());
+  if (typeof titular === "string") return titular;
+  const presentantes = Array.isArray(caso.datos.presentantes) ? caso.datos.presentantes : [];
+  const presentante = presentantes.find((valor) => valor && typeof valor === "object" && typeof (valor as Record<string, unknown>).nombre === "string" && String((valor as Record<string, unknown>).nombre).trim());
+  return presentante ? String((presentante as Record<string, unknown>).nombre) : caso.nombre;
 }
 
 export async function GET(request: NextRequest) {
@@ -21,14 +48,28 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ ok: false, error: "Ingrese el número de documento." }, { status: 400 });
     }
 
+    const documentoNormalizado = normalizarDocumentoExpediente(documento);
+    const casos = await listarCasosConsularesSoloLectura();
+    const casosRelacionados = casos
+      .filter((caso) => identificadoresCaso(caso).includes(documentoNormalizado))
+      .map((caso) => ({
+        correlativo: caso.correlativo,
+        nombre: nombreCasoParaTabla(caso),
+        tipo: caso.tipo,
+        categoria: String(caso.categoria),
+        fecha: caso.fecha,
+        estado: caso.estado,
+      }));
+
     const { expediente } = await buscarExpedienteCiudadano(documento);
     if (!expediente) {
-      return NextResponse.json({ ok: true, encontrado: false });
+      return NextResponse.json({ ok: true, encontrado: false, casos: casosRelacionados });
     }
 
     return NextResponse.json({
       ok: true,
       encontrado: true,
+      casos: casosRelacionados,
       puedeEditar: ['admin', 'analista'].includes(autorizacion.sesion.rol),
       expediente: {
         ...expediente,

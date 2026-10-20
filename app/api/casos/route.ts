@@ -8,7 +8,9 @@ import {
   ErrorValidacionCaso,
   listarPendientesRegistroCivil,
   listarCasosConsulares,
+  listarCasosConsularesConEliminados,
   crearCasoRegistroCivilDesdeCaja,
+  registrarVerificacionIdentidad,
 } from "@/lib/casosConsulares";
 import { CATEGORIAS_CASO } from "@/lib/casosConsularesTypes";
 
@@ -20,8 +22,9 @@ export async function GET(request: NextRequest) {
     if (categoria && !CATEGORIAS_CASO.includes(categoria as (typeof CATEGORIAS_CASO)[number])) {
       return NextResponse.json({ ok: false, error: "Categoría no válida." }, { status: 400 });
     }
-    const casos = await listarCasosConsulares();
-    const pendientesRegistroCivil = await listarPendientesRegistroCivil(casos);
+    const casosConEliminados = await listarCasosConsularesConEliminados();
+    const casos = casosConEliminados.filter((caso) => caso.estado !== "Eliminado");
+    const pendientesRegistroCivil = await listarPendientesRegistroCivil(casosConEliminados);
     return NextResponse.json({ ok: true, casos: categoria ? casos.filter((caso) => caso.categoria === categoria) : casos, pendientesRegistroCivil });
   } catch (error) {
     console.error("Error GET /api/casos:", error);
@@ -47,6 +50,10 @@ export async function POST(request: NextRequest) {
         body.datos,
         acceso.sesion.usuario
       );
+      return NextResponse.json({ ok: true, caso }, { status: 201 });
+    }
+    if (body.categoria === "Verificación de Identidad") {
+      const caso = await registrarVerificacionIdentidad(body.datos, acceso.sesion.usuario);
       return NextResponse.json({ ok: true, caso }, { status: 201 });
     }
     const caso = await crearCasoConsular(body.categoria, body.datos, acceso.sesion.usuario);

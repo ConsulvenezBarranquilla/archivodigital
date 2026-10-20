@@ -35,14 +35,10 @@ export default function TurnosWidget({ titulo = "Turnos pendientes", cola }: { t
   }, [cola]);
 
   useEffect(() => {
+    const initial = window.setTimeout(() => void cargar(), 0);
     const reloj = window.setInterval(() => setAhora(Date.now()), 1000);
-    const actualizarSiVisible = () => {
-      if (document.visibilityState === "visible") void cargar();
-    };
-    const initial = window.setTimeout(actualizarSiVisible, 0);
-    const timer = window.setInterval(actualizarSiVisible, 2000);
-    window.addEventListener("focus", actualizarSiVisible);
-    document.addEventListener("visibilitychange", actualizarSiVisible);
+    const eventos = new EventSource("/api/turnos/eventos");
+    eventos.onmessage = () => { void cargar(); };
 
     if (typeof BroadcastChannel !== "undefined") {
       canalRef.current = new BroadcastChannel("consulnet-turnero");
@@ -53,16 +49,16 @@ export default function TurnosWidget({ titulo = "Turnos pendientes", cola }: { t
 
     return () => {
       window.clearTimeout(initial);
-      window.clearInterval(timer);
       window.clearInterval(reloj);
-      window.removeEventListener("focus", actualizarSiVisible);
-      document.removeEventListener("visibilitychange", actualizarSiVisible);
+      eventos.close();
       canalRef.current?.close();
       canalRef.current = null;
     };
   }, [cargar]);
 
   async function actuar(turno: Turno, accion: "llamar" | "atendido") {
+    if (accion === "llamar" && turno.estado === "llamado" &&
+      !window.confirm(`${turno.nombre} ya fue llamado. ¿Quieres volver a llamarlo?`)) return;
     setOcupado(turno.id);
     setError("");
     try {
@@ -87,7 +83,7 @@ export default function TurnosWidget({ titulo = "Turnos pendientes", cola }: { t
   if (!turnos.length) return null;
 
   return <>
-    <button type="button" onClick={() => setAbierto(true)} className="fixed bottom-5 left-5 z-40 flex items-center gap-3 rounded-full bg-blue-950 px-5 py-3 font-bold text-white shadow-xl hover:bg-blue-900">
+    <button type="button" onClick={() => { setAbierto(true); void cargar(); }} className="fixed bottom-5 left-5 z-40 flex items-center gap-3 rounded-full bg-blue-950 px-5 py-3 font-bold text-white shadow-xl hover:bg-blue-900">
       <span>{titulo}</span><span className="rounded-full bg-amber-400 px-3 py-1 text-sm text-blue-950">{pendientes}</span>
     </button>
     {abierto && <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-950/50 p-3" onMouseDown={(event) => { if (event.target === event.currentTarget) setAbierto(false); }}>

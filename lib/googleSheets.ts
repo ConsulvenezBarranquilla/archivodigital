@@ -314,6 +314,15 @@ export async function obtenerFilasCasosConsulares(omitirCache = false) {
   );
 }
 
+export async function leerFilasCasosConsularesSoloLectura() {
+  if (!REGISTRO_CONSULAR_SHEET_ID) throw new Error("Falta configurar REGISTRO_CONSULAR_SHEET_ID.");
+  const respuesta = await sheets.spreadsheets.values.get({
+    spreadsheetId: REGISTRO_CONSULAR_SHEET_ID,
+    range: `${HOJA_CASOS_CONSULARES}!A:N`,
+  });
+  return respuesta.data.values || [];
+}
+
 export async function agregarCasoConsular(fila: unknown[]) {
   await asegurarHojaCasosConsulares();
   await sheets.spreadsheets.values.append({
@@ -326,6 +335,19 @@ export async function agregarCasoConsular(fila: unknown[]) {
   invalidarCacheHoja(REGISTRO_CONSULAR_SHEET_ID, HOJA_CASOS_CONSULARES);
 }
 
+export async function agregarCasosConsularesEnLote(filas: unknown[][]) {
+  if (!filas.length) return;
+  await asegurarHojaCasosConsulares();
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: REGISTRO_CONSULAR_SHEET_ID,
+    range: `${HOJA_CASOS_CONSULARES}!A:N`,
+    valueInputOption: "RAW",
+    insertDataOption: "INSERT_ROWS",
+    requestBody: { values: filas },
+  });
+  invalidarCacheHoja(REGISTRO_CONSULAR_SHEET_ID, HOJA_CASOS_CONSULARES);
+}
+
 export async function actualizarCasoConsular(filaNumero: number, fila: unknown[]) {
   await asegurarHojaCasosConsulares();
   await sheets.spreadsheets.values.update({
@@ -333,6 +355,22 @@ export async function actualizarCasoConsular(filaNumero: number, fila: unknown[]
     range: `${HOJA_CASOS_CONSULARES}!A${filaNumero}:N${filaNumero}`,
     valueInputOption: "RAW",
     requestBody: { values: [fila] },
+  });
+  invalidarCacheHoja(REGISTRO_CONSULAR_SHEET_ID, HOJA_CASOS_CONSULARES);
+}
+
+export async function actualizarCasosConsularesEnLote(cambios: Array<{ filaNumero: number; fila: unknown[] }>) {
+  if (!cambios.length) return;
+  await asegurarHojaCasosConsulares();
+  await sheets.spreadsheets.values.batchUpdate({
+    spreadsheetId: REGISTRO_CONSULAR_SHEET_ID,
+    requestBody: {
+      valueInputOption: "RAW",
+      data: cambios.map(({ filaNumero, fila }) => ({
+        range: `${HOJA_CASOS_CONSULARES}!A${filaNumero}:N${filaNumero}`,
+        values: [fila],
+      })),
+    },
   });
   invalidarCacheHoja(REGISTRO_CONSULAR_SHEET_ID, HOJA_CASOS_CONSULARES);
 }
@@ -525,7 +563,7 @@ export async function obtenerRegistroConsular() {
   );
 }
 
-async function asegurarColumnasReportesEntregados(
+export async function asegurarColumnasReportesEntregados(
   cantidadRequerida: number
 ) {
   const resultado = await sheets.spreadsheets.get({

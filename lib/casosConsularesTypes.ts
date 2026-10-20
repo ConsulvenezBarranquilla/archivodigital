@@ -10,7 +10,27 @@ export const CATEGORIAS_CASO = [
 
 export type CategoriaCaso = (typeof CATEGORIAS_CASO)[number];
 export type EventoCaso = { fecha: string; descripcion: string; usuario: string };
-export type EstadoCaso = "Abierto" | "Finalizado";
+export type VerificacionIdentidad = {
+  id: string;
+  nombreCompleto?: string;
+  fechaComunicacion: string;
+  fechaOriginal?: string;
+  tipoDocumento: string;
+  numeroDocumento: string;
+  sexo: string;
+  delito: string;
+  organismoSolicitante: string;
+  resultadoIdentidad: string;
+  observacion: string;
+  numeroComunicacion: string;
+  registroDactiloscopico: string;
+  usuario: string;
+  idImportacion?: string;
+  hojaOrigen?: string;
+  filaOrigen?: number;
+  valoresOrigen?: string[];
+};
+export type EstadoCaso = "Abierto" | "Finalizado" | "Eliminado";
 export type PendienteRegistroCivil = {
   recibo: string;
   codigoActuacion: "INSER-N" | "REG-REC" | "REG-MAT" | "REG-DEF";

@@ -19,6 +19,11 @@ import {
 } from "@/lib/googleSheets";
 import { conBloqueoGestionConsular } from "@/lib/bloqueo-sgc";
 
+function claveNumeroConsular(valor: unknown): string {
+  const numero = String(valor ?? "").trim().replace(/\.0+$/, "");
+  return numero.replace(/^0+(?=\d)/, "");
+}
+
 export async function POST(
 
   req: NextRequest
@@ -51,7 +56,7 @@ export async function POST(
 
     if (
 
-      !actuaciones ||
+      !Array.isArray(actuaciones) ||
 
       actuaciones.length === 0
 
@@ -179,6 +184,20 @@ if (
     const encabezadoM =
       String(registrosGestion[0]?.[12] ?? "").trim();
 
+    // Se permite compartir la planilla dentro de esta solicitud, pero no
+    // reutilizar una planilla que ya tenga una vinculacion activa.
+    const planillaClave = claveNumeroConsular(planilla);
+    const planillaExistente = filasGestion.find((fila) =>
+      claveNumeroConsular(fila[3]) === planillaClave &&
+      String(fila[6] ?? "").trim().toUpperCase() !== "DESVINCULADO"
+    );
+    if (planillaExistente) {
+      return NextResponse.json({
+        ok: false,
+        error: `El numero de planilla ${planilla.trim()} ya esta asignado a una vinculacion activa.`,
+      }, { status: 409 });
+    }
+
     if (encabezadoM && encabezadoM !== "FilaDetalle") {
       return NextResponse.json({ ok: false, error: "La columna M de GestionConsular ya estÃ¡ ocupada." }, { status: 409 });
     }
@@ -190,6 +209,7 @@ if (
     });
 
     const nuevasFilas: Array<Array<string | number>> = [];
+    const numerosActuacionSolicitud = new Set<string>();
 
     for (const actuacion of actuaciones) {
 
@@ -232,6 +252,33 @@ if (
 
         });
 
+      }
+
+      const numeroActuacionClave = claveNumeroConsular(numeroActuacion);
+      if (numerosActuacionSolicitud.has(numeroActuacionClave)) {
+        return NextResponse.json({
+          ok: false,
+          error: `El numero de actuacion ${numeroActuacion} esta repetido en la solicitud.`,
+        }, { status: 409 });
+      }
+      numerosActuacionSolicitud.add(numeroActuacionClave);
+
+      const usosActuacionExistentes = filasGestion.filter((fila) =>
+        claveNumeroConsular(fila[11]) === numeroActuacionClave
+      );
+      const usoNoPermitido = usosActuacionExistentes.some((fila) => {
+        const mismaAccion =
+          String(fila[0] ?? "").trim() === correlativo &&
+          String(fila[1] ?? "").trim().toUpperCase() === codigo.toUpperCase();
+        const estaDesvinculada =
+          String(fila[6] ?? "").trim().toUpperCase() === "DESVINCULADO";
+        return !mismaAccion || !estaDesvinculada;
+      });
+      if (usoNoPermitido) {
+        return NextResponse.json({
+          ok: false,
+          error: `El numero de actuacion ${numeroActuacion} ya esta asignado a otra vinculacion.`,
+        }, { status: 409 });
       }
 
       const llaveActuacion = [correlativo, codigo, numeroActuacion]

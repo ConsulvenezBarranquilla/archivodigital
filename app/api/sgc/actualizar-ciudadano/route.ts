@@ -13,9 +13,15 @@ import {
   sheets,
   REGISTRO_CONSULAR_SHEET_ID,
   MODULO_CAJA_SHEET_ID,
+  invalidarCacheHojaGoogle,
+  asegurarColumnasReportesEntregados,
 } from "@/lib/googleSheets";
 
 import { exigirPermiso } from "@/lib/autorizacion";
+
+function normalizarDocumento(valor: unknown) {
+  return String(valor ?? "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
 
 export async function POST(
 
@@ -74,10 +80,10 @@ export async function POST(
 
     let fila = -1;
 
-    const buscado =
-      body.documentoOriginal
-        ?.trim()
-        .toUpperCase();
+    const buscado = normalizarDocumento(body.documentoOriginal);
+    if (!buscado) {
+      return NextResponse.json({ ok: false, error: "No se recibió el documento original del ciudadano." }, { status: 400 });
+    }
 
     // ===============================
     // Buscar la fila del ciudadano
@@ -91,17 +97,9 @@ export async function POST(
 
       }
 
-      const cedula =
-        (row[1] || "")
-          .toString()
-          .trim()
-          .toUpperCase();
+      const cedula = normalizarDocumento(row[1]);
 
-      const pasaporte =
-        (row[14] || "")
-          .toString()
-          .trim()
-          .toUpperCase();
+      const pasaporte = normalizarDocumento(row[14]);
 
       if (
 
@@ -186,24 +184,15 @@ export async function POST(
 
       }
 
-      const cedulaExistente =
-        (rows[i][1] || "")
-          .toString()
-          .trim()
-          .toUpperCase();
+      const cedulaExistente = normalizarDocumento(rows[i][1]);
 
-      const pasaporteExistente =
-        (rows[i][14] || "")
-          .toString()
-          .trim()
-          .toUpperCase();
+      const pasaporteExistente = normalizarDocumento(rows[i][14]);
 
       if (
 
         cedulaNueva &&
 
-        cedulaNueva ===
-        cedulaExistente
+        normalizarDocumento(cedulaNueva) === cedulaExistente
 
       ) {
 
@@ -222,8 +211,7 @@ export async function POST(
 
         pasaporteNuevo &&
 
-        pasaporteNuevo ===
-        pasaporteExistente
+        normalizarDocumento(pasaporteNuevo) === pasaporteExistente
 
       ) {
 
@@ -295,6 +283,8 @@ export async function POST(
 
     });
 
+    invalidarCacheHojaGoogle(REGISTRO_CONSULAR_SHEET_ID, "Respuestas de formulario 1");
+
     // ===============================
     // Determinar documento principal
     // ===============================
@@ -355,23 +345,11 @@ export async function POST(
       .slice(1)
       .forEach((row, index) => {
 
-        const documento =
-          (row[2] || "")
-            .toString()
-            .trim()
-            .toUpperCase();
+        const documento = normalizarDocumento(row[2]);
 
-        const cedula =
-          (row[11] || "")
-            .toString()
-            .trim()
-            .toUpperCase();
+        const cedula = normalizarDocumento(row[11]);
 
-        const pasaporte =
-          (row[12] || "")
-            .toString()
-            .trim()
-            .toUpperCase();
+        const pasaporte = normalizarDocumento(row[12]);
 
         if (
 
@@ -447,13 +425,70 @@ export async function POST(
 
     }
 
+    const correoNuevo = String(body.correo ?? "").trim();
+    if (correoNuevo) await asegurarColumnasReportesEntregados(64);
+    const reportesResponse = await sheets.spreadsheets.values.get({
+      spreadsheetId: MODULO_CAJA_SHEET_ID,
+      range: "ReportesEntregados!A:H",
+    });
+    const reportesRows = reportesResponse.data.values || [];
+    const correosResponse = correoNuevo ? await sheets.spreadsheets.values.get({
+      spreadsheetId: MODULO_CAJA_SHEET_ID,
+      range: "ReportesEntregados!BL:BL",
+    }) : null;
+    const reportesCorreos = correosResponse?.data.values || [];
+    const actualizacionesReportes: Array<{ range: string; values: string[][] }> = [];
+    const correoAnterior = String(rows[fila - 1]?.[11] ?? "").trim().toLowerCase();
+    let actualizarCorreoReportes = false;
+
+    reportesRows.slice(1).forEach((reporte, index) => {
+      if (normalizarDocumento(reporte[7]) !== buscado) return;
+      const filaReporte = index + 2;
+      actualizacionesReportes.push({
+        range: `ReportesEntregados!H${filaReporte}`,
+        values: [[documentoPrincipal]],
+      });
+      const correoGuardado = String(reportesCorreos[index + 1]?.[0] ?? "").trim().toLowerCase();
+      if (correoNuevo && (!correoGuardado || (correoAnterior && correoGuardado === correoAnterior))) {
+        actualizarCorreoReportes = true;
+        actualizacionesReportes.push({
+          range: `ReportesEntregados!BL${filaReporte}`,
+          values: [[correoNuevo]],
+        });
+      }
+    });
+
+    if (actualizacionesReportes.length) {
+      if (actualizarCorreoReportes) {
+        const encabezadoCorreo = await sheets.spreadsheets.values.get({
+          spreadsheetId: MODULO_CAJA_SHEET_ID,
+          range: "ReportesEntregados!BL1",
+        });
+        if (!String(encabezadoCorreo.data.values?.[0]?.[0] ?? "").trim()) {
+          await sheets.spreadsheets.values.update({
+            spreadsheetId: MODULO_CAJA_SHEET_ID,
+            range: "ReportesEntregados!BL1",
+            valueInputOption: "RAW",
+            requestBody: { values: [["CORREO SOLICITANTE CONSTANCIA CONSULAR"]] },
+          });
+        }
+      }
+      await sheets.spreadsheets.values.batchUpdate({
+        spreadsheetId: MODULO_CAJA_SHEET_ID,
+        requestBody: {
+          valueInputOption: "RAW",
+          data: actualizacionesReportes,
+        },
+      });
+      invalidarCacheHojaGoogle(MODULO_CAJA_SHEET_ID, "ReportesEntregados");
+    }
+    invalidarCacheHojaGoogle(MODULO_CAJA_SHEET_ID, "Caja");
+
     return NextResponse.json({
-
       ok: true,
-
-      mensaje:
-        "Ciudadano actualizado correctamente.",
-
+      mensaje: actualizacionesReportes.length
+        ? "Ciudadano actualizado correctamente. Se sincronizaron los datos de los reportes asociados."
+        : "Ciudadano actualizado correctamente. No se encontraron reportes asociados que requirieran sincronización.",
     });
 
   } catch (error: any) {

@@ -41,6 +41,17 @@ const PREFIX = "registro-consular:turnero:v1";
 const KEY_ACTIVOS = `${PREFIX}:activos`;
 const KEY_OUTBOX = `${PREFIX}:outbox`;
 const KEY_SECUENCIA = `${PREFIX}:secuencia`;
+export const CANAL_EVENTOS_TURNERO = `${PREFIX}:eventos`;
+
+async function publicarEventoTurnero(evento: Record<string, unknown>) {
+  try {
+    await redis.publish(CANAL_EVENTOS_TURNERO, JSON.stringify(evento));
+  } catch (error) {
+    // La persistencia del turno tiene prioridad; el cliente recupera el estado
+    // completo al reconectar o abrir nuevamente el widget.
+    console.error("No fue posible publicar el evento del turnero:", error);
+  }
+}
 
 function fechaActualBogota() {
   const partes = new Intl.DateTimeFormat("en-CA", {
@@ -154,6 +165,7 @@ export async function crearTurno(input: Omit<TurnoAtencion, "id" | "eventId" | "
   const existente = respuesta && typeof respuesta === "object"
     ? respuesta as TurnoAtencion
     : respuestaTexto.startsWith("{") ? JSON.parse(respuestaTexto) as TurnoAtencion : turno;
+  await publicarEventoTurnero({ tipo: "actualizacion" });
   await vaciarOutbox();
   return existente;
 }
@@ -193,6 +205,7 @@ export async function cambiarEstadoTurno(id: string, accion: "llamar" | "atendid
     throw new Error(`Podrás volver a llamar en ${restante} segundo${restante === 1 ? "" : "s"}.`);
   }
   const turno = resultado && typeof resultado === "object" ? resultado as TurnoAtencion : JSON.parse(String(resultado)) as TurnoAtencion;
+  await publicarEventoTurnero({ tipo: "actualizacion", accion });
   await vaciarOutbox();
   return turno;
 }
@@ -269,12 +282,14 @@ export async function vincularDispositivo(codigo: string) {
   await redis.set(`${DEVICE_PREFIX}:pair:${deviceId}`, { tokenHash, linkedAt: new Date().toISOString() });
   await redis.sadd(DEVICE_IDS, deviceId);
   await redis.del(codeKey, pendingKey);
+  await publicarEventoTurnero({ tipo: "dispositivo", deviceId });
   return { deviceId };
 }
 
 export async function desvincularDispositivo(deviceId: string) {
   await redis.del(`${DEVICE_PREFIX}:pair:${deviceId}`);
   await redis.srem(DEVICE_IDS, deviceId);
+  await publicarEventoTurnero({ tipo: "dispositivo", deviceId });
 }
 
 export async function dispositivoEstaVinculado(deviceId: string, token: string) {

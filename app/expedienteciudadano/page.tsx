@@ -32,6 +32,15 @@ interface Expediente {
   tramites: Array<{ fecha: string; tipo: string; referencia: string; estado?: string; detalle?: string }>;
 }
 
+interface CasoResumen {
+  correlativo: string;
+  nombre: string;
+  tipo: string;
+  categoria: string;
+  fecha: string;
+  estado: string;
+}
+
 interface Hijo {
   nombre: string;
   genero: "Masculino" | "Femenino" | "";
@@ -125,6 +134,34 @@ function Historial({ titulo, items, vacio }: {
   );
 }
 
+function CasosRelacionados({ casos }: { casos: CasoResumen[] }) {
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <h2 className="mb-4 text-xl font-bold text-blue-950">Casos consulares <span className="text-sm font-medium text-slate-500">({casos.length})</span></h2>
+      {casos.length === 0 ? <p className="rounded-lg bg-slate-50 p-4 text-sm text-slate-500">No hay casos asociados a este documento.</p> : (
+        <div className="overflow-x-auto rounded-xl border border-slate-200">
+          <table className="min-w-[720px] w-full border-collapse text-left text-sm">
+            <thead className="bg-slate-100 text-xs uppercase tracking-wide text-slate-600">
+              <tr><th className="px-4 py-3">Recibo / Caso</th><th className="px-4 py-3">Nombre</th><th className="px-4 py-3">Tipo</th><th className="px-4 py-3">Fecha</th><th className="px-4 py-3">Estado</th></tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {casos.map((caso) => (
+                <tr key={`${caso.correlativo}-${caso.categoria}`}>
+                  <td className="px-4 py-3 font-bold text-blue-800">{caso.correlativo || "—"}</td>
+                  <td className="px-4 py-3 font-medium text-slate-800">{caso.nombre || "—"}</td>
+                  <td className="px-4 py-3 text-slate-700"><span>{caso.tipo || "—"}</span><span className="mt-1 block text-xs text-slate-500">{caso.categoria}</span></td>
+                  <td className="px-4 py-3 text-slate-600">{caso.fecha ? new Date(caso.fecha).toLocaleDateString("es-CO") : "—"}</td>
+                  <td className="px-4 py-3"><span className={`rounded-full px-3 py-1 text-xs font-semibold ${caso.estado === "Finalizado" ? "bg-slate-200 text-slate-700" : caso.estado === "Eliminado" ? "bg-red-100 text-red-800" : "bg-emerald-100 text-emerald-800"}`}>{caso.estado || "—"}</span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
 function datosComplementariosNormalizados(datos: Partial<FormularioExpediente> | undefined) {
   return {
     direccionColombia: datos?.direccionColombia ?? "",
@@ -147,6 +184,7 @@ function datosComplementariosNormalizados(datos: Partial<FormularioExpediente> |
 export default function ExpedienteCiudadanoPage() {
   const [numeroDocumento, setNumeroDocumento] = useState("");
   const [expediente, setExpediente] = useState<Expediente | null>(null);
+  const [casosRelacionados, setCasosRelacionados] = useState<CasoResumen[]>([]);
   const [formulario, setFormulario] = useState<FormularioExpediente>(formularioVacio);
   const [datosGenerales, setDatosGenerales] = useState<string[]>(Array(18).fill(""));
   const [buscando, setBuscando] = useState(false);
@@ -166,6 +204,7 @@ export default function ExpedienteCiudadanoPage() {
   function limpiarBusqueda() {
     setNumeroDocumento("");
     setExpediente(null);
+    setCasosRelacionados([]);
     setFormulario(formularioVacio);
     setDatosGenerales(Array(18).fill(""));
     setPuedeEditar(false);
@@ -225,6 +264,7 @@ export default function ExpedienteCiudadanoPage() {
     setError("");
     setMensaje("");
     setExpediente(null);
+    setCasosRelacionados([]);
     try {
       const response = await fetch(`/api/expedienteciudadano?documento=${encodeURIComponent(numeroDocumento.trim())}`, {
         credentials: "include",
@@ -232,9 +272,12 @@ export default function ExpedienteCiudadanoPage() {
       });
       const data = await response.json();
       if (!response.ok || !data.ok) throw new Error(data.error || "No se pudo buscar el expediente.");
+      setCasosRelacionados(Array.isArray(data.casos) ? data.casos : []);
       if (!data.encontrado) {
         setFormulario(formularioVacio);
-        setError("No se encontró el ciudadano en el Registro Consular.");
+        setError(Array.isArray(data.casos) && data.casos.length > 0
+          ? "No se encontró al ciudadano en el Registro Consular; sí hay casos consulares asociados al documento."
+          : "No se encontró al ciudadano en el Registro Consular ni hay casos consulares asociados.");
         return;
       }
       const item = data.expediente as Expediente;
@@ -326,6 +369,7 @@ export default function ExpedienteCiudadanoPage() {
     const data = await response.json();
     if (response.ok && data.ok && data.encontrado) {
       const item = data.expediente as Expediente;
+      setCasosRelacionados(Array.isArray(data.casos) ? data.casos : []);
       setPuedeEditar(data.puedeEditar === true);
       setExpediente(item);
       setDatosGenerales(Array.from({ length: 18 }, (_, indice) => item.datosRegistro.find((dato) => dato.indice === indice + 1)?.valor ?? ""));
@@ -531,8 +575,10 @@ export default function ExpedienteCiudadanoPage() {
               <Historial titulo="Historial de visitas" items={expediente.visitas} vacio="No hay visitas registradas para este ciudadano." />
               <Historial titulo="Historial de trámites" items={expediente.tramites} vacio="No hay trámites registrados para este ciudadano." />
             </div>
+            <CasosRelacionados casos={casosRelacionados} />
           </>
         )}
+        {!expediente && numeroDocumento.trim() && !buscando && casosRelacionados.length > 0 && <CasosRelacionados casos={casosRelacionados} />}
       </div>
     </SistemaLayout>
   );

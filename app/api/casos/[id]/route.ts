@@ -6,6 +6,7 @@ import {
   actualizarCasoConsularPorId,
   actualizarEstadoCaso,
   consultarCasoConsular,
+  eliminarCasoConsular,
   ErrorCasoOcupado,
   ErrorValidacionCaso,
 } from "@/lib/casosConsulares";
@@ -36,7 +37,13 @@ export async function PUT(request: NextRequest, contexto: ContextoRuta) {
     if (!CATEGORIAS_CASO.includes(body?.categoria)) {
       return NextResponse.json({ ok: false, error: "Categoría no válida." }, { status: 400 });
     }
-    const caso = await actualizarCasoConsularPorId(id, body.categoria, body.datos, acceso.sesion.usuario);
+    const caso = await actualizarCasoConsularPorId(
+      id,
+      body.categoria,
+      body.datos,
+      acceso.sesion.usuario,
+      typeof body.verificacionId === "string" ? body.verificacionId : undefined,
+    );
     if (!caso) return NextResponse.json({ ok: false, error: "No se encontró el caso." }, { status: 404 });
     return NextResponse.json({ ok: true, caso });
   } catch (error) {
@@ -67,5 +74,23 @@ export async function PATCH(request: NextRequest, contexto: ContextoRuta) {
     const ocupado = error instanceof ErrorCasoOcupado;
     console.error("Error PATCH /api/casos/[id]:", error);
     return NextResponse.json({ ok: false, error: ocupado ? error.message : "No fue posible actualizar el estado del caso." }, { status: ocupado ? 409 : 500 });
+  }
+}
+
+export async function DELETE(_request: NextRequest, contexto: ContextoRuta) {
+  const acceso = await exigirPermiso(MODULOS.CASOS);
+  if (acceso.respuesta) return acceso.respuesta;
+  if (acceso.sesion.rol !== "admin") {
+    return NextResponse.json({ ok: false, error: "Solo un administrador puede eliminar casos." }, { status: 403 });
+  }
+  try {
+    const { id } = await contexto.params;
+    const eliminado = await eliminarCasoConsular(id, acceso.sesion.usuario);
+    if (!eliminado) return NextResponse.json({ ok: false, error: "No se encontró el caso o ya fue eliminado." }, { status: 404 });
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    const ocupado = error instanceof ErrorCasoOcupado;
+    console.error("Error DELETE /api/casos/[id]:", error);
+    return NextResponse.json({ ok: false, error: ocupado ? error.message : "No fue posible eliminar el caso." }, { status: ocupado ? 409 : 500 });
   }
 }

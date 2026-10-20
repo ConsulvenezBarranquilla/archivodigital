@@ -3,13 +3,18 @@ import { Redis } from "@upstash/redis";
 
 import {
   actualizarCasoConsular,
+  actualizarCasosConsularesEnLote,
   agregarCasoConsular,
+  agregarCasosConsularesEnLote,
   HOJA_DETALLE,
   leerHoja,
   obtenerCaja,
   obtenerFilasCasosConsulares,
+  leerFilasCasosConsularesSoloLectura,
 } from "@/lib/googleSheets";
-import type { CasoConsular, CategoriaCaso, EventoCaso, EstadoCaso, PendienteRegistroCivil } from "@/lib/casosConsularesTypes";
+import type { CasoConsular, CategoriaCaso, EventoCaso, EstadoCaso, PendienteRegistroCivil, VerificacionIdentidad } from "@/lib/casosConsularesTypes";
+import { claveDocumentoIdentidad, type FilaVerificacionImportada } from "@/lib/verificacionIdentidadImport";
+import type { FilaPplImportada } from "@/lib/pplImport";
 
 const REDIS_KEY_CORRELATIVO = "registro-consular:casos:ultimo-correlativo";
 const ACTUACIONES_REGISTRO_CIVIL = {
@@ -98,16 +103,31 @@ export function validarDatosCaso(categoria: CategoriaCaso, entrada: unknown): Re
   } else if (categoria === "Personas Privadas de Libertad") {
     normalizados.genero = campoObligatorio(datos, "genero", "género");
     if (!["Masculino", "Femenino"].includes(String(normalizados.genero))) throw new ErrorValidacionCaso("Selecciona Masculino o Femenino para el género.");
-    normalizados.cedula = campoObligatorio(datos, "cedula", "cédula");
+    normalizados.cedula = cadena(datos.cedula);
+    normalizados.nui = cadena(datos.nui);
     normalizados.centroPenitenciario = campoObligatorio(datos, "centroPenitenciario", "centro penitenciario");
-    for (const campo of ["motivo", "estatus", "sentencia", "fechaCulminacion"]) normalizados[campo] = cadena(datos[campo]);
+    normalizados.situacionJuridica = campoObligatorio(datos, "situacionJuridica", "situación jurídica");
+    if (!["Sindicado", "Condenado"].includes(String(normalizados.situacionJuridica))) throw new ErrorValidacionCaso("Selecciona una situación jurídica válida.");
+    normalizados.estadoPenitenciario = campoObligatorio(datos, "estadoPenitenciario", "estado");
+    if (!["Detención Domiciliaria", "Intramural", "Prisión Domiciliaria", "Vigilancia Electrónica", "Otros"].includes(String(normalizados.estadoPenitenciario))) throw new ErrorValidacionCaso("Selecciona un estado penitenciario válido.");
+    for (const campo of ["motivo", "estatus", "sentencia", "fechaCulminacion", "verificadoFuente", "pplImportacionId"]) normalizados[campo] = cadena(datos[campo]);
     if (normalizados.fechaCulminacion && !esFechaISOValida(String(normalizados.fechaCulminacion))) {
       throw new ErrorValidacionCaso("La fecha de culminación no es válida.");
     }
   } else if (categoria === "Verificación de Identidad") {
-    normalizados.cedula = campoObligatorio(datos, "cedula", "cédula");
-    normalizados.registroDactiloscopico = campoObligatorio(datos, "registroDactiloscopico", "registro dactiloscópico");
-    if (!["Sí", "No"].includes(String(normalizados.registroDactiloscopico))) throw new ErrorValidacionCaso("Indica si cuenta con registro dactiloscópico.");
+    normalizados.cedula = cadena(datos.cedula ?? datos.numeroDocumento);
+    normalizados.tipoDocumento = cadena(datos.tipoDocumento ?? datos.documentoIdentidad);
+    normalizados.registroDactiloscopico = cadena(datos.registroDactiloscopico);
+    if (!["", "Sí", "No", "SI", "NO"].includes(String(normalizados.registroDactiloscopico))) {
+      throw new ErrorValidacionCaso("El registro dactiloscópico debe ser Sí, No o quedar vacío.");
+    }
+    for (const campo of ["sexo", "delito", "organismoSolicitante", "observacion", "numeroComunicacion", "fechaComunicacion", "resultadoIdentidad"]) {
+      normalizados[campo] = cadena(datos[campo]);
+    }
+    if (normalizados.fechaComunicacion && !esFechaISOValida(String(normalizados.fechaComunicacion))) {
+      throw new ErrorValidacionCaso("La fecha de comunicación no es válida.");
+    }
+    normalizados.verificaciones = Array.isArray(datos.verificaciones) ? datos.verificaciones : [];
   } else if (categoria === "Fallecidos") {
     normalizados.cedula = campoObligatorio(datos, "cedula", "cédula");
     normalizados.motivo = campoObligatorio(datos, "motivo", "motivo");
@@ -180,16 +200,25 @@ function leerCaso(fila: unknown[]): CasoConsular | null {
     nombre: String(fila[3] ?? ""), tipo: String(fila[4] ?? fila[2] ?? ""), fecha: String(fila[5] ?? ""),
     creadoPor: String(fila[6] ?? ""), creadoEl: String(fila[7] ?? ""),
     actualizadoPor: String(fila[8] ?? ""), actualizadoEl: String(fila[9] ?? ""),
-    estado: fila[11] === "Finalizado" ? "Finalizado" : "Abierto", datos,
+    estado: fila[11] === "Finalizado" ? "Finalizado" : fila[11] === "Eliminado" ? "Eliminado" : "Abierto", datos,
     reciboCaja: String(fila[12] ?? "") || undefined,
     codigoActuacion: String(fila[13] ?? "") || undefined,
   };
 }
 
-export async function listarCasosConsulares() {
+export async function listarCasosConsularesConEliminados() {
   const filas = await obtenerFilasCasosConsulares();
   return filas.slice(1).map((fila) => leerCaso(fila)).filter((caso): caso is CasoConsular => caso !== null)
     .sort((a, b) => b.correlativo.localeCompare(a.correlativo, undefined, { numeric: true }));
+}
+
+export async function listarCasosConsulares() {
+  return (await listarCasosConsularesConEliminados()).filter((caso) => caso.estado !== "Eliminado");
+}
+
+export async function listarCasosConsularesSoloLectura() {
+  const filas = await leerFilasCasosConsularesSoloLectura();
+  return filas.map((fila) => leerCaso(fila)).filter((caso): caso is CasoConsular => caso !== null && caso.estado !== "Eliminado");
 }
 
 export async function listarPendientesRegistroCivil(casosRegistrados?: CasoConsular[]): Promise<PendienteRegistroCivil[]> {
@@ -242,7 +271,8 @@ async function encontrarCaso(id: string) {
 }
 
 export async function consultarCasoConsular(id: string) {
-  return (await encontrarCaso(id))?.caso ?? null;
+  const caso = (await encontrarCaso(id))?.caso ?? null;
+  return caso?.estado === "Eliminado" ? null : caso;
 }
 
 async function adquirirBloqueo(id: string) {
@@ -276,7 +306,8 @@ export async function crearCasoConsular(
   entrada: unknown,
   usuario: string,
   tipo: string = categoria,
-  referenciaCaja?: { reciboCaja: string; codigoActuacion: string }
+  referenciaCaja?: { reciboCaja: string; codigoActuacion: string },
+  estadoInicial: EstadoCaso = "Abierto"
 ) {
   const datos = validarDatosCaso(categoria, entrada);
   if (Array.isArray(datos.eventos)) {
@@ -298,12 +329,311 @@ export async function crearCasoConsular(
   const caso: CasoConsular = {
     id: crypto.randomUUID(), correlativo: `CASO-${String(numero).padStart(6, "0")}`,
     categoria, nombre, tipo, fecha: ahora, creadoPor: usuario, creadoEl: ahora,
-    actualizadoPor: usuario, actualizadoEl: ahora, estado: "Abierto", datos,
+    actualizadoPor: usuario, actualizadoEl: ahora, estado: estadoInicial, datos,
     reciboCaja: referenciaCaja?.reciboCaja,
     codigoActuacion: referenciaCaja?.codigoActuacion,
   };
   await agregarCasoConsular(filaDeCaso(caso));
   return caso;
+}
+
+function convertirEntradaVerificacion(datos: Record<string, unknown>, usuario: string): VerificacionIdentidad {
+  return {
+    id: crypto.randomUUID(),
+    nombreCompleto: cadena(datos.nombre),
+    fechaComunicacion: cadena(datos.fechaComunicacion),
+    tipoDocumento: cadena(datos.tipoDocumento ?? datos.documentoIdentidad),
+    numeroDocumento: cadena(datos.cedula ?? datos.numeroDocumento),
+    sexo: cadena(datos.sexo),
+    delito: cadena(datos.delito),
+    organismoSolicitante: cadena(datos.organismoSolicitante),
+    resultadoIdentidad: cadena(datos.resultadoIdentidad),
+    observacion: cadena(datos.observacion),
+    numeroComunicacion: cadena(datos.numeroComunicacion),
+    registroDactiloscopico: cadena(datos.registroDactiloscopico),
+    usuario,
+  };
+}
+
+function agregarVerificacion(caso: CasoConsular, verificacion: VerificacionIdentidad, usuario: string): CasoConsular {
+  const historial = Array.isArray(caso.datos.verificaciones) ? caso.datos.verificaciones as VerificacionIdentidad[] : [];
+  const datos: Record<string, unknown> = { ...caso.datos, verificaciones: [...historial, verificacion] };
+  for (const [campo, valor] of Object.entries({
+    tipoDocumento: verificacion.tipoDocumento, sexo: verificacion.sexo, delito: verificacion.delito,
+    organismoSolicitante: verificacion.organismoSolicitante, resultadoIdentidad: verificacion.resultadoIdentidad,
+    observacion: verificacion.observacion, numeroComunicacion: verificacion.numeroComunicacion,
+    fechaComunicacion: verificacion.fechaComunicacion, registroDactiloscopico: verificacion.registroDactiloscopico,
+  })) if (valor) datos[campo] = valor;
+  const ahora = new Date().toISOString();
+  return {
+    ...caso,
+    fecha: verificacion.fechaComunicacion ? `${verificacion.fechaComunicacion}T12:00:00.000Z` : caso.fecha,
+    estado: "Finalizado",
+    datos,
+    actualizadoPor: usuario,
+    actualizadoEl: ahora,
+  };
+}
+
+export async function registrarVerificacionIdentidad(entrada: unknown, usuario: string) {
+  const datos = validarDatosCaso("Verificación de Identidad", entrada);
+  const documento = claveDocumentoIdentidad(datos.cedula);
+  if (!documento) {
+    const verificacion = convertirEntradaVerificacion(datos, usuario);
+    return await crearCasoConsular("Verificación de Identidad", {
+      ...datos,
+      verificaciones: [verificacion],
+    }, usuario, "Verificación de Identidad", undefined, "Finalizado");
+  }
+
+  const claveBloqueo = `identidad-${crypto.createHash("sha256").update(documento).digest("hex")}`;
+  const bloqueo = await adquirirBloqueo(claveBloqueo);
+  try {
+    const filas = await obtenerFilasCasosConsulares(true);
+    const candidatos = filas.slice(1).flatMap((fila, indice) => {
+      const caso = leerCaso(fila);
+      if (!caso || caso.estado === "Eliminado" || caso.categoria !== "Verificación de Identidad") return [];
+      const docExistente = claveDocumentoIdentidad(caso.datos.cedula ?? caso.datos.numeroDocumento);
+      return docExistente === documento ? [{ caso, filaNumero: indice + 2 }] : [];
+    }).sort((a, b) => b.caso.actualizadoEl.localeCompare(a.caso.actualizadoEl));
+    const existente = candidatos[0];
+    const verificacion = convertirEntradaVerificacion(datos, usuario);
+    if (!existente) {
+      return await crearCasoConsular("Verificación de Identidad", {
+        ...datos,
+        verificaciones: [verificacion],
+      }, usuario, "Verificación de Identidad", undefined, "Finalizado");
+    }
+    const actualizado = agregarVerificacion(existente.caso, verificacion, usuario);
+    await actualizarCasoConsular(existente.filaNumero, filaDeCaso(actualizado));
+    return actualizado;
+  } finally {
+    await liberarBloqueo(bloqueo);
+  }
+}
+
+export async function importarLoteVerificacionesIdentidad(registros: FilaVerificacionImportada[], usuario: string) {
+  const documentos = Array.from(new Set(registros.map((registro) => claveDocumentoIdentidad(registro.numeroDocumento)).filter(Boolean))).sort();
+  const bloqueos: Array<{ redis: Redis; clave: string; token: string }> = [];
+  try {
+    for (const documento of documentos) {
+      const hashDocumento = crypto.createHash("sha256").update(documento).digest("hex");
+      bloqueos.push(await adquirirBloqueo(`identidad-${hashDocumento}`));
+    }
+    const filas = await obtenerFilasCasosConsulares(true);
+    const existentes: Array<{ caso: CasoConsular; filaNumero?: number }> = filas.slice(1).flatMap((fila, indice) => {
+      const caso = leerCaso(fila);
+      return caso?.categoria === "Verificación de Identidad" ? [{ caso, filaNumero: indice + 2 }] : [];
+    });
+    const idsImportados = new Set<string>();
+    for (const entidad of existentes) {
+      const historial = Array.isArray(entidad.caso.datos.verificaciones) ? entidad.caso.datos.verificaciones as VerificacionIdentidad[] : [];
+      historial.forEach((evento) => { if (evento.idImportacion) idsImportados.add(evento.idImportacion); });
+    }
+    const porDocumento = new Map<string, { caso: CasoConsular; filaNumero?: number }>();
+    for (const entidad of existentes) {
+      if (entidad.caso.estado === "Eliminado") continue;
+      const documento = claveDocumentoIdentidad(entidad.caso.datos.cedula ?? entidad.caso.datos.numeroDocumento);
+      if (!documento) continue;
+      const anterior = porDocumento.get(documento);
+      if (!anterior || entidad.caso.actualizadoEl > anterior.caso.actualizadoEl) porDocumento.set(documento, entidad);
+    }
+    const nuevos: CasoConsular[] = [];
+    const actualizados = new Map<number, CasoConsular>();
+    let importadas = 0;
+    let omitidas = 0;
+    for (const registro of registros) {
+      if (!registro.idImportacion || idsImportados.has(registro.idImportacion)) { omitidas += 1; continue; }
+      const verificacion: VerificacionIdentidad = {
+        id: registro.id,
+        idImportacion: registro.idImportacion,
+        nombreCompleto: registro.nombreCompleto,
+        fechaComunicacion: registro.fechaComunicacion,
+        fechaOriginal: registro.fechaOriginal,
+        tipoDocumento: registro.tipoDocumento,
+        numeroDocumento: registro.numeroDocumento,
+        sexo: registro.sexo,
+        delito: registro.delito,
+        organismoSolicitante: registro.organismoSolicitante,
+        resultadoIdentidad: registro.resultadoIdentidad,
+        observacion: registro.observacion,
+        numeroComunicacion: registro.numeroComunicacion,
+        registroDactiloscopico: registro.registroDactiloscopico,
+        usuario,
+        hojaOrigen: registro.hojaOrigen,
+        filaOrigen: registro.filaOrigen,
+        valoresOrigen: registro.datosOrigen,
+      };
+      const documento = claveDocumentoIdentidad(registro.numeroDocumento);
+      let entidad = documento ? porDocumento.get(documento) : undefined;
+      if (!entidad) {
+        const ahora = new Date().toISOString();
+        const datos: Record<string, unknown> = {
+          nombre: registro.nombreCompleto,
+          cedula: registro.numeroDocumento,
+          tipoDocumento: registro.tipoDocumento,
+          registroDactiloscopico: "",
+          verificaciones: [verificacion],
+        };
+        const caso: CasoConsular = {
+          id: crypto.randomUUID(), correlativo: "", categoria: "Verificación de Identidad",
+          nombre: registro.nombreCompleto, tipo: "Verificación de Identidad",
+          fecha: registro.fechaComunicacion ? `${registro.fechaComunicacion}T12:00:00.000Z` : ahora, creadoPor: usuario, creadoEl: ahora,
+          actualizadoPor: usuario, actualizadoEl: ahora, estado: "Finalizado", datos,
+        };
+        nuevos.push(caso);
+        entidad = { caso };
+        if (documento) porDocumento.set(documento, entidad);
+      } else {
+        entidad.caso = agregarVerificacion(entidad.caso, verificacion, usuario);
+        if (entidad.filaNumero) actualizados.set(entidad.filaNumero, entidad.caso);
+      }
+      if (documento) porDocumento.set(documento, entidad);
+      idsImportados.add(registro.idImportacion);
+      importadas += 1;
+    }
+    const ultimoEnHoja = filas.slice(1).reduce((maximo, fila) => {
+      const coincidencia = String(fila[1] ?? "").match(/^CASO-(\d+)$/i);
+      return coincidencia ? Math.max(maximo, Number(coincidencia[1])) : maximo;
+    }, 0);
+    if (nuevos.length) {
+      const redis = obtenerRedis();
+      const primero = Number(await redis.eval(
+        `local actual = tonumber(redis.call("GET", KEYS[1]) or "0") or 0; local hoja = tonumber(ARGV[1]) or 0; if hoja > actual then actual = hoja end; local primero = actual + 1; actual = actual + tonumber(ARGV[2]); redis.call("SET", KEYS[1], actual); return primero`,
+        [REDIS_KEY_CORRELATIVO],
+        [String(ultimoEnHoja), String(nuevos.length)]
+      ));
+      nuevos.forEach((caso, indice) => { caso.correlativo = `CASO-${String(primero + indice).padStart(6, "0")}`; });
+    }
+    await actualizarCasosConsularesEnLote(Array.from(actualizados, ([filaNumero, caso]) => ({ filaNumero, fila: filaDeCaso(caso) })));
+    await agregarCasosConsularesEnLote(nuevos.map(filaDeCaso));
+    return { importadas, omitidas, personasNuevas: nuevos.length };
+  } finally {
+    for (const bloqueo of bloqueos.reverse()) await liberarBloqueo(bloqueo);
+  }
+}
+
+export async function importarLoteCasosPpl(registros: FilaPplImportada[], usuario: string) {
+  const identificadores = Array.from(new Set(registros.flatMap((registro) => [
+    registro.cedula ? `DOC:${claveDocumentoIdentidad(registro.cedula)}` : "",
+    registro.nui ? `NUI:${claveDocumentoIdentidad(registro.nui)}` : "",
+  ]).filter(Boolean))).sort();
+  const bloqueos: Array<{ redis: Redis; clave: string; token: string }> = [];
+  try {
+    for (const identificador of identificadores) {
+      const hash = crypto.createHash("sha256").update(identificador).digest("hex");
+      bloqueos.push(await adquirirBloqueo(`ppl-${hash}`));
+    }
+    const filas = await obtenerFilasCasosConsulares(true);
+    const existentes = filas.slice(1).flatMap((fila, indice) => {
+      const caso = leerCaso(fila);
+      return caso?.categoria === "Personas Privadas de Libertad"
+        ? [{ caso, filaNumero: indice + 2 }]
+        : [];
+    });
+    const porDocumento = new Map<string, typeof existentes>();
+    const porNui = new Map<string, typeof existentes>();
+    for (const entidad of existentes) {
+      if (entidad.caso.estado === "Eliminado") continue;
+      const documento = claveDocumentoIdentidad(entidad.caso.datos.cedula);
+      const nui = claveDocumentoIdentidad(entidad.caso.datos.nui);
+      if (documento) porDocumento.set(documento, [...(porDocumento.get(documento) ?? []), entidad]);
+      if (nui) porNui.set(nui, [...(porNui.get(nui) ?? []), entidad]);
+    }
+
+    const paraActualizar = new Map<number, CasoConsular>();
+    const paraCrear: CasoConsular[] = [];
+    const errores: Array<{ hoja: string; fila: number; error: string }> = [];
+    let omitidos = 0;
+    let actualizados = 0;
+    for (const registro of registros) {
+      const doc = claveDocumentoIdentidad(registro.cedula);
+      const nui = claveDocumentoIdentidad(registro.nui);
+      const porDoc = doc ? porDocumento.get(doc) ?? [] : [];
+      const porNuiEncontrado = nui ? porNui.get(nui) ?? [] : [];
+      const coincidencias = new Map([...porDoc, ...porNuiEncontrado].map((entidad) => [entidad.caso.id, entidad]));
+      if (porDoc.length > 1 || porNuiEncontrado.length > 1 || coincidencias.size > 1) {
+        errores.push({ hoja: registro.hoja, fila: registro.fila, error: "Los identificadores coinciden con más de un caso PPL; se requiere revisión manual." });
+        continue;
+      }
+      const existente = coincidencias.values().next().value as (typeof existentes)[number] | undefined;
+      if (existente?.caso.datos.pplImportacionId === registro.idImportacion) {
+        omitidos += 1;
+        continue;
+      }
+      const ahora = new Date().toISOString();
+      const valoresImportados: Record<string, string> = {
+        nui: registro.nui,
+        cedula: registro.cedula,
+        genero: registro.genero,
+        centroPenitenciario: registro.centroPenitenciario,
+        situacionJuridica: registro.situacionJuridica,
+        estadoPenitenciario: registro.estadoPenitenciario,
+        verificadoFuente: registro.verificadoFuente,
+        pplImportacionId: registro.idImportacion,
+      };
+      if (existente) {
+        const datos = { ...existente.caso.datos };
+        for (const [campo, valor] of Object.entries(valoresImportados)) if (valor || !datos[campo]) datos[campo] = valor;
+        const actualizado: CasoConsular = {
+          ...existente.caso,
+          nombre: registro.nombre || existente.caso.nombre,
+          datos: { ...datos, nombre: registro.nombre || String(datos.nombre ?? existente.caso.nombre) },
+          actualizadoPor: usuario,
+          actualizadoEl: ahora,
+        };
+        paraActualizar.set(existente.filaNumero, actualizado);
+        existente.caso = actualizado;
+        actualizados += 1;
+      } else {
+        const datos: Record<string, unknown> = {
+          nombre: registro.nombre,
+          nui: registro.nui,
+          cedula: registro.cedula,
+          genero: registro.genero,
+          centroPenitenciario: registro.centroPenitenciario,
+          situacionJuridica: registro.situacionJuridica,
+          estadoPenitenciario: registro.estadoPenitenciario,
+          motivo: "",
+          estatus: "",
+          sentencia: "",
+          fechaCulminacion: "",
+          verificadoFuente: registro.verificadoFuente,
+          pplImportacionId: registro.idImportacion,
+        };
+        const nuevo: CasoConsular = {
+          id: crypto.randomUUID(), correlativo: "", categoria: "Personas Privadas de Libertad",
+          nombre: registro.nombre, tipo: "Personas Privadas de Libertad", fecha: ahora,
+          creadoPor: usuario, creadoEl: ahora, actualizadoPor: usuario, actualizadoEl: ahora,
+          estado: "Abierto", datos,
+        };
+        paraCrear.push(nuevo);
+        const entidad = { caso: nuevo, filaNumero: 0 };
+        existentes.push(entidad);
+        if (doc) porDocumento.set(doc, [...(porDocumento.get(doc) ?? []), entidad]);
+        if (nui) porNui.set(nui, [...(porNui.get(nui) ?? []), entidad]);
+      }
+    }
+
+    if (paraCrear.length) {
+      const ultimoEnHoja = filas.slice(1).reduce((maximo, fila) => {
+        const coincidencia = String(fila[1] ?? "").match(/^CASO-(\d+)$/i);
+        return coincidencia ? Math.max(maximo, Number(coincidencia[1])) : maximo;
+      }, 0);
+      const redis = obtenerRedis();
+      const primero = Number(await redis.eval(
+        `local actual = tonumber(redis.call("GET", KEYS[1]) or "0") or 0; local hoja = tonumber(ARGV[1]) or 0; if hoja > actual then actual = hoja end; local primero = actual + 1; actual = actual + tonumber(ARGV[2]); redis.call("SET", KEYS[1], actual); return primero`,
+        [REDIS_KEY_CORRELATIVO],
+        [String(ultimoEnHoja), String(paraCrear.length)]
+      ));
+      paraCrear.forEach((caso, indice) => { caso.correlativo = `CASO-${String(primero + indice).padStart(6, "0")}`; });
+    }
+    await actualizarCasosConsularesEnLote(Array.from(paraActualizar, ([filaNumero, caso]) => ({ filaNumero, fila: filaDeCaso(caso) })));
+    await agregarCasosConsularesEnLote(paraCrear.map(filaDeCaso));
+    return { importados: paraCrear.length, actualizados, omitidos, errores };
+  } finally {
+    for (const bloqueo of bloqueos.reverse()) await liberarBloqueo(bloqueo);
+  }
 }
 
 export async function crearCasoRegistroCivilDesdeCaja(
@@ -364,11 +694,11 @@ export async function crearCasoRegistroCivilDesdeCaja(
   }
 }
 
-export async function actualizarCasoConsularPorId(id: string, categoria: CategoriaCaso, entrada: unknown, usuario: string) {
+export async function actualizarCasoConsularPorId(id: string, categoria: CategoriaCaso, entrada: unknown, usuario: string, verificacionId?: string) {
   const bloqueo = await adquirirBloqueo(id);
   try {
     const encontrado = await encontrarCaso(id);
-    if (!encontrado) return null;
+    if (!encontrado || encontrado.caso.estado === "Eliminado") return null;
     if (encontrado.caso.categoria !== categoria) throw new ErrorValidacionCaso("La categoría de un caso no se puede cambiar.");
     const datosRecibidos = entrada && typeof entrada === "object" && !Array.isArray(entrada)
       ? entrada as Record<string, unknown>
@@ -376,12 +706,37 @@ export async function actualizarCasoConsularPorId(id: string, categoria: Categor
     const datos = validarDatosCaso(categoria, {
       ...datosRecibidos,
       ...( "eventos" in encontrado.caso.datos ? { eventos: encontrado.caso.datos.eventos } : {}),
+      ...(categoria === "Verificación de Identidad" ? { verificaciones: encontrado.caso.datos.verificaciones ?? [] } : {}),
     });
+    if (categoria === "Verificación de Identidad" && verificacionId) {
+      const verificaciones = Array.isArray(encontrado.caso.datos.verificaciones)
+        ? encontrado.caso.datos.verificaciones as VerificacionIdentidad[]
+        : [];
+      const indiceVerificacion = verificaciones.findIndex((verificacion) => verificacion.id === verificacionId);
+      if (indiceVerificacion < 0) throw new ErrorValidacionCaso("La verificación seleccionada ya no existe. Recarga el caso e inténtalo de nuevo.");
+      const anterior = verificaciones[indiceVerificacion];
+      const actualizada: VerificacionIdentidad = {
+        ...anterior,
+        nombreCompleto: String(datos.nombre ?? ""),
+        tipoDocumento: String(datos.tipoDocumento ?? ""),
+        numeroDocumento: String(datos.cedula ?? ""),
+        registroDactiloscopico: String(datos.registroDactiloscopico ?? ""),
+        sexo: String(datos.sexo ?? ""),
+        delito: String(datos.delito ?? ""),
+        organismoSolicitante: String(datos.organismoSolicitante ?? ""),
+        resultadoIdentidad: String(datos.resultadoIdentidad ?? ""),
+        observacion: String(datos.observacion ?? ""),
+        numeroComunicacion: String(datos.numeroComunicacion ?? ""),
+        fechaComunicacion: String(datos.fechaComunicacion ?? ""),
+      };
+      datos.verificaciones = verificaciones.map((verificacion, indice) => indice === indiceVerificacion ? actualizada : verificacion);
+    }
     const ahora = new Date().toISOString();
     const actualizado: CasoConsular = {
       ...encontrado.caso,
       nombre: String(datos.nombre),
       datos,
+      ...(categoria === "Verificación de Identidad" ? { estado: "Finalizado" as const } : {}),
       actualizadoPor: usuario,
       actualizadoEl: ahora,
     };
@@ -396,7 +751,7 @@ export async function agregarEventoCaso(id: string, eventoEntrada: unknown, usua
   const bloqueo = await adquirirBloqueo(id);
   try {
     const encontrado = await encontrarCaso(id);
-    if (!encontrado) return null;
+    if (!encontrado || encontrado.caso.estado === "Eliminado") return null;
     if (!["NNA", "Casos Especiales", "Registro Civil"].includes(encontrado.caso.categoria)) throw new ErrorValidacionCaso("Esta categoría no admite bitácora de eventos.");
     const nuevo = normalizarEventos([eventoEntrada])[0];
     nuevo.usuario = usuario;
@@ -416,7 +771,7 @@ export async function actualizarEstadoCaso(id: string, estado: EstadoCaso, usuar
   const bloqueo = await adquirirBloqueo(id);
   try {
     const encontrado = await encontrarCaso(id);
-    if (!encontrado) return null;
+    if (!encontrado || encontrado.caso.estado === "Eliminado") return null;
     const actualizado: CasoConsular = {
       ...encontrado.caso,
       estado,
@@ -425,6 +780,24 @@ export async function actualizarEstadoCaso(id: string, estado: EstadoCaso, usuar
     };
     await actualizarCasoConsular(encontrado.filaNumero, filaDeCaso(actualizado));
     return actualizado;
+  } finally {
+    await liberarBloqueo(bloqueo);
+  }
+}
+
+export async function eliminarCasoConsular(id: string, usuario: string) {
+  const bloqueo = await adquirirBloqueo(id);
+  try {
+    const encontrado = await encontrarCaso(id);
+    if (!encontrado || encontrado.caso.estado === "Eliminado") return false;
+    const eliminado: CasoConsular = {
+      ...encontrado.caso,
+      estado: "Eliminado",
+      actualizadoPor: usuario,
+      actualizadoEl: new Date().toISOString(),
+    };
+    await actualizarCasoConsular(encontrado.filaNumero, filaDeCaso(eliminado));
+    return true;
   } finally {
     await liberarBloqueo(bloqueo);
   }

@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type Llamado = { id: string; nombre: string; tipo: "analista" | "caja" | "recepcion"; caja: string; actualizadoEl: string };
 type Dispositivo = { deviceId: string; token: string };
+const llaveLlamado = (llamado: Llamado) => `${llamado.id}:${llamado.actualizadoEl}`;
 
 function credencialesLocales(): Dispositivo {
   const key = "consulnet-turnero-device-v1";
@@ -42,37 +43,11 @@ export default function TurneroPublicoPage() {
   const [llamadoNuevo, setLlamadoNuevo] = useState("");
   const vistos = useRef<Set<string> | null>(null);
   const timeout = useRef<number | null>(null);
+  const sonidoRef = useRef(sonidoActivo);
 
-  const actualizar = useCallback(async () => {
-    if (!device) return;
-    try {
-      const estadoRes = await fetch("/api/turnero/dispositivo", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(device), cache: "no-store" });
-      const estado = await estadoRes.json();
-      if (!estadoRes.ok || !estado.ok) throw new Error(estado.error || "No fue posible registrar esta pantalla.");
-      setVinculado(Boolean(estado.vinculado)); setCodigo(estado.codigo || "");
-      if (!estado.vinculado) { setLlamados([]); return; }
-      const response = await fetch("/api/turnos/publico", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(device), cache: "no-store" });
-      const data = await response.json();
-      if (!response.ok || !data.ok) {
-        if (response.status === 403 || response.status === 401) { setVinculado(false); setCodigo(""); setLlamados([]); return; }
-        throw new Error(data.error || "No fue posible consultar los llamados.");
-      }
-      const next = (Array.isArray(data.llamados) ? data.llamados : []) as Llamado[];
-      const ids = new Set(next.map((item) => item.id));
-      const prev = vistos.current;
-      if (prev) {
-        const fresh = next.find((item) => !prev.has(item.id));
-        if (fresh) {
-          setLlamadoNuevo(fresh.id);
-          if (sonidoActivo) sonar();
-          if (timeout.current) window.clearTimeout(timeout.current);
-          timeout.current = window.setTimeout(() => setLlamadoNuevo(""), 4500);
-        }
-      }
-      vistos.current = ids;
-      setLlamados(next); setError("");
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Error de conexión con el turnero."); }
-  }, [device, sonidoActivo]);
+  useEffect(() => {
+    sonidoRef.current = sonidoActivo;
+  }, [sonidoActivo]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setDevice(credencialesLocales()), 0);
@@ -81,10 +56,122 @@ export default function TurneroPublicoPage() {
 
   useEffect(() => {
     if (!device) return;
-    const initial = window.setTimeout(() => void actualizar(), 0);
-    const timer = window.setInterval(() => void actualizar(), 3000);
-    return () => { window.clearTimeout(initial); window.clearInterval(timer); if (timeout.current) window.clearTimeout(timeout.current); };
-  }, [device, actualizar]);
+    let cancelado = false;
+    let controlador: AbortController | null = null;
+    let esperaReconectar: number | null = null;
+
+    const procesar = (evento: { tipo?: string; vinculado?: boolean; codigo?: string; llamados?: Llamado[] }) => {
+      if (evento.tipo === "estado") {
+        setVinculado(Boolean(evento.vinculado));
+        setCodigo(evento.codigo || "");
+        const next = evento.vinculado && Array.isArray(evento.llamados) ? evento.llamados : [];
+        vistos.current = new Set(next.map(llaveLlamado));
+        setLlamados(next);
+      } else if (evento.tipo === "llamados" && Array.isArray(evento.llamados)) {
+        const next = evento.llamados;
+        const nuevo = next.find((item) => !vistos.current?.has(llaveLlamado(item)));
+        if (nuevo) {
+          setLlamadoNuevo(llaveLlamado(nuevo));
+          if (sonidoRef.current) sonar();
+          if (timeout.current) window.clearTimeout(timeout.current);
+          timeout.current = window.setTimeout(() => setLlamadoNuevo(""), 4500);
+        }
+        vistos.current = new Set(next.map(llaveLlamado));
+        setLlamados(next);
+      }
+      setError("");
+    };
+
+    const conectar = async () => {
+      let demoraMs = 1000;
+      while (!cancelado) {
+        controlador = new AbortController();
+        try {
+          const response = await fetch("/api/turnos/publico/eventos", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(device),
+            cache: "no-store",
+            signal: controlador.signal,
+          });
+          if (!response.ok || !response.body) throw new Error("No fue posible conectar con el turnero.");
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = "";
+          while (!cancelado) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const bloques = buffer.split(/\r?\n\r?\n/);
+            buffer = bloques.pop() ?? "";
+            for (const bloque of bloques) {
+              const data = bloque.split(/\r?\n/).find((linea) => linea.startsWith("data: "))?.slice(6);
+              if (!data) continue;
+              try { procesar(JSON.parse(data) as { tipo?: string; vinculado?: boolean; codigo?: string; llamados?: Llamado[] }); }
+              catch { /* Ignorar mensajes incompletos. */ }
+            }
+          }
+        } catch (cause) {
+          if (!cancelado) setError(cause instanceof Error ? cause.message : "Error de conexion con el turnero.");
+        } finally {
+          controlador = null;
+        }
+        if (!cancelado) {
+          await new Promise<void>((resolve) => { esperaReconectar = window.setTimeout(resolve, demoraMs); });
+          demoraMs = Math.min(demoraMs * 2, 30_000);
+        }
+      }
+    };
+
+    void conectar();
+    return () => {
+      cancelado = true;
+      controlador?.abort();
+      if (esperaReconectar) window.clearTimeout(esperaReconectar);
+      if (timeout.current) window.clearTimeout(timeout.current);
+    };
+  }, [device]);
+
+  // El codigo de vinculacion vence a los 10 minutos. Solo mientras la pantalla
+  // siga sin vincularse se renueva una vez despues del vencimiento.
+  useEffect(() => {
+    if (!device || vinculado || !codigo) return;
+    let cancelado = false;
+    const timer = window.setTimeout(async () => {
+      try {
+        const response = await fetch("/api/turnero/dispositivo", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(device),
+          cache: "no-store",
+        });
+        const data = await response.json();
+        if (cancelado || !response.ok || !data.ok) return;
+        setVinculado(Boolean(data.vinculado));
+        setCodigo(data.codigo || "");
+        if (data.vinculado) {
+          const llamadosResponse = await fetch("/api/turnos/publico", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(device),
+            cache: "no-store",
+          });
+          const llamadosData = await llamadosResponse.json();
+          if (!cancelado && llamadosResponse.ok && llamadosData.ok) {
+            const next = Array.isArray(llamadosData.llamados) ? llamadosData.llamados as Llamado[] : [];
+            vistos.current = new Set(next.map(llaveLlamado));
+            setLlamados(next);
+          }
+        }
+      } catch {
+        if (!cancelado) setError("No fue posible renovar el codigo de vinculacion.");
+      }
+    }, 10 * 60 * 1000 + 1500);
+    return () => {
+      cancelado = true;
+      window.clearTimeout(timer);
+    };
+  }, [device, vinculado, codigo]);
 
   return <main className="flex min-h-screen flex-col bg-slate-950 p-5 text-white md:p-8">
     <header className="mb-6 text-center text-lg font-semibold uppercase tracking-[0.25em] text-amber-300">Consulado de Venezuela · Barranquilla</header>
@@ -104,7 +191,7 @@ export default function TurneroPublicoPage() {
         {[0, 1, 2, 3].map((index) => {
           const llamado = llamados[index];
           const esUltimoLlamado = index === 0;
-          return llamado ? <article key={llamado.id} className={`flex min-h-[30vh] flex-col items-center justify-center rounded-3xl border-2 p-5 text-center text-blue-950 shadow-2xl md:p-8 ${llamadoNuevo === llamado.id ? "animate-pulse" : ""} ${esUltimoLlamado ? "border-amber-400 bg-amber-200 ring-2 ring-amber-400" : "border-white bg-white"}`}>
+          return llamado ? <article key={llaveLlamado(llamado)} className={`flex min-h-[30vh] flex-col items-center justify-center rounded-3xl border-2 p-5 text-center text-blue-950 shadow-2xl md:p-8 ${llamadoNuevo === llaveLlamado(llamado) ? "animate-pulse" : ""} ${esUltimoLlamado ? "border-amber-400 bg-amber-200 ring-2 ring-amber-400" : "border-white bg-white"}`}>
             <p className="text-lg font-bold uppercase tracking-widest text-slate-500 md:text-2xl">{llamado.tipo === "analista" ? "Atención consular" : "Pase por favor"}</p>
             <h2 className="mt-4 break-words text-3xl font-extrabold md:text-5xl">{llamado.nombre}</h2>
             {llamado.tipo === "analista" ? <p className="mt-5 text-2xl font-extrabold text-amber-600 md:text-4xl">Espere llamado</p> : llamado.tipo === "recepcion" ? <p className="mt-5 text-2xl font-extrabold text-amber-600 md:text-4xl">Diríjase a Recepción</p> : <p className="mt-5 text-3xl font-extrabold text-amber-600 md:text-5xl">{llamado.caja}</p>}
