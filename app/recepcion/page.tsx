@@ -130,14 +130,8 @@ const [toastColor, setToastColor] =
   useState("green");
 
  useEffect(() => {
-    cargarEstadisticas();
-    cargarCatalogos();
-
-    const intervalo = setInterval(() => {
-        cargarEstadisticas();
-    }, 60000);
-
-    return () => clearInterval(intervalo);
+    void cargarEstadisticas();
+    void cargarCatalogos();
 }, []);
 
  async function buscarCiudadano() {
@@ -912,8 +906,6 @@ await cargarEstadisticas();
 await cargarHistorialTramites(
   documentoBusqueda
 );
-
-await cargarEstadisticas();
 
   } catch {
 

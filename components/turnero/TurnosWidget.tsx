@@ -22,39 +22,114 @@ export default function TurnosWidget({ titulo = "Turnos pendientes", cola }: { t
   const [error, setError] = useState("");
   const [ahora, setAhora] = useState(() => Date.now());
   const canalRef = useRef<BroadcastChannel | null>(null);
+  const timerCargaRef = useRef<number | null>(null);
+  const solicitudRef = useRef<Promise<void> | null>(null);
+  const errorPermanenteRef = useRef(false);
 
   const cargar = useCallback(async () => {
+    if (solicitudRef.current) return solicitudRef.current;
+    if (errorPermanenteRef.current) return;
+    const solicitud = (async () => {
     try {
       const response = await fetch(`/api/turnos${cola ? `?cola=${cola}` : ""}`, { cache: "no-store" });
+      if (response.status === 401 || response.status === 403) {
+        errorPermanenteRef.current = true;
+        setError("La sesión no tiene permiso para consultar esta cola. Inicia sesión nuevamente.");
+        return;
+      }
       const data = await response.json();
       if (!response.ok || !data.ok) throw new Error(data.error || "No fue posible cargar la cola.");
       setTurnos(data.turnos || []);
+      setError("");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No fue posible cargar la cola.");
     }
+    })();
+    solicitudRef.current = solicitud;
+    try { await solicitud; } finally { solicitudRef.current = null; }
   }, [cola]);
 
+  const programarCarga = useCallback(() => {
+    if (timerCargaRef.current !== null || errorPermanenteRef.current) return;
+    timerCargaRef.current = window.setTimeout(() => {
+      timerCargaRef.current = null;
+      void cargar();
+    }, 100);
+  }, [cargar]);
+
   useEffect(() => {
-    const initial = window.setTimeout(() => void cargar(), 0);
+    const initial = window.setTimeout(programarCarga, 0);
     const reloj = window.setInterval(() => setAhora(Date.now()), 1000);
-    const eventos = new EventSource("/api/turnos/eventos");
-    eventos.onmessage = () => { void cargar(); };
+    let cancelado = false;
+    let controlador: AbortController | null = null;
+    let reintento: number | null = null;
+    const eventos = async () => {
+      let demoraMs = 1000;
+      while (!cancelado) {
+        controlador = new AbortController();
+        try {
+          const response = await fetch("/api/turnos/eventos", {
+            headers: { Accept: "text/event-stream" }, cache: "no-store", signal: controlador.signal,
+          });
+          if (response.status === 401 || response.status === 403) {
+            errorPermanenteRef.current = true;
+            setError("La sesión no tiene permiso para recibir actualizaciones del turnero. Inicia sesión nuevamente.");
+            break;
+          }
+          if (!response.ok || !response.body) throw new Error("No fue posible recibir actualizaciones del turnero.");
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = "";
+          try {
+            while (!cancelado) {
+              const { value, done } = await reader.read();
+              if (done) break;
+              buffer += decoder.decode(value, { stream: true });
+              const bloques = buffer.split(/\r?\n\r?\n/);
+              buffer = bloques.pop() ?? "";
+              if (bloques.some((bloque) => bloque.split(/\r?\n/).some((linea) => linea.startsWith("data:")))) {
+                demoraMs = 1000;
+                programarCarga();
+              }
+            }
+          } finally {
+            try { reader.releaseLock(); } catch { /* La respuesta se canceló. */ }
+          }
+          if (!cancelado) throw new Error("La conexión de eventos del turnero se cerró.");
+        } catch (cause) {
+          if (!cancelado && !errorPermanenteRef.current) {
+            setError(cause instanceof Error ? cause.message : "No fue posible conectar con el turnero.");
+          }
+        } finally {
+          controlador = null;
+        }
+        if (!cancelado && !errorPermanenteRef.current) {
+          await new Promise<void>((resolve) => { reintento = window.setTimeout(resolve, demoraMs); });
+          demoraMs = Math.min(demoraMs * 2, 30_000);
+        }
+      }
+    };
+    void eventos();
 
     if (typeof BroadcastChannel !== "undefined") {
       canalRef.current = new BroadcastChannel("consulnet-turnero");
       canalRef.current.onmessage = (event: MessageEvent<{ tipo?: string }>) => {
-        if (event.data?.tipo === "cola-actualizada") void cargar();
+        if (event.data?.tipo === "cola-actualizada") programarCarga();
       };
     }
 
     return () => {
       window.clearTimeout(initial);
       window.clearInterval(reloj);
-      eventos.close();
+      cancelado = true;
+      controlador?.abort();
+      if (reintento !== null) window.clearTimeout(reintento);
+      if (timerCargaRef.current !== null) window.clearTimeout(timerCargaRef.current);
+      timerCargaRef.current = null;
       canalRef.current?.close();
       canalRef.current = null;
     };
-  }, [cargar]);
+  }, [programarCarga]);
 
   async function actuar(turno: Turno, accion: "llamar" | "atendido") {
     if (accion === "llamar" && turno.estado === "llamado" &&
@@ -69,10 +144,14 @@ export default function TurnosWidget({ titulo = "Turnos pendientes", cola }: { t
       const data = await response.json();
       if (!response.ok || !data.ok) throw new Error(data.error || "No fue posible actualizar el turno.");
       canalRef.current?.postMessage({ tipo: "cola-actualizada" });
-      await cargar();
+      if (data.turno) {
+        setTurnos((actuales) => actuales.map((item) => item.id === turno.id ? data.turno as Turno : item));
+      } else {
+        programarCarga();
+      }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No fue posible actualizar el turno.");
-      await cargar();
+      programarCarga();
     } finally {
       setOcupado("");
     }
@@ -83,7 +162,7 @@ export default function TurnosWidget({ titulo = "Turnos pendientes", cola }: { t
   if (!turnos.length) return null;
 
   return <>
-    <button type="button" onClick={() => { setAbierto(true); void cargar(); }} className="fixed bottom-5 left-5 z-40 flex items-center gap-3 rounded-full bg-blue-950 px-5 py-3 font-bold text-white shadow-xl hover:bg-blue-900">
+    <button type="button" onClick={() => { setAbierto(true); programarCarga(); }} className="fixed bottom-5 left-5 z-40 flex items-center gap-3 rounded-full bg-blue-950 px-5 py-3 font-bold text-white shadow-xl hover:bg-blue-900">
       <span>{titulo}</span><span className="rounded-full bg-amber-400 px-3 py-1 text-sm text-blue-950">{pendientes}</span>
     </button>
     {abierto && <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-950/50 p-3" onMouseDown={(event) => { if (event.target === event.currentTarget) setAbierto(false); }}>

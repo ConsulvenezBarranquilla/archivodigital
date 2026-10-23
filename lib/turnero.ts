@@ -171,9 +171,12 @@ export async function crearTurno(input: Omit<TurnoAtencion, "id" | "eventId" | "
 }
 
 export async function listarTurnos(filtro: { cola?: ColaTurno; tipos?: TipoVisitaTurnero[] } = {}): Promise<TurnoAtencion[]> {
-  await vaciarOutbox();
   const ids = await redis.zrange(KEY_ACTIVOS, 0, -1) as unknown as string[];
-  const resultados: Array<TurnoAtencion | null> = await Promise.all((ids || []).map((id) => redis.get<TurnoAtencion>(claveTurno(String(id)))));
+  if (!ids?.length) return [];
+  // MGET sustituye una petición HTTP por cada turno por una sola lectura Redis.
+  const resultados = await redis.mget<(TurnoAtencion | null)[]>(
+    ...ids.map((id) => claveTurno(String(id)))
+  );
   return resultados.filter((turno): turno is TurnoAtencion => Boolean(turno))
     .filter((turno) => !filtro.cola || turno.cola === filtro.cola)
     .filter((turno) => !filtro.tipos || filtro.tipos.includes(turno.tipoVisita));

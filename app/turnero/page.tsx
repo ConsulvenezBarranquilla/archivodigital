@@ -86,6 +86,7 @@ export default function TurneroPublicoPage() {
       let demoraMs = 1000;
       while (!cancelado) {
         controlador = new AbortController();
+        let esperarVinculacion = false;
         try {
           const response = await fetch("/api/turnos/publico/eventos", {
             method: "POST",
@@ -94,7 +95,22 @@ export default function TurneroPublicoPage() {
             cache: "no-store",
             signal: controlador.signal,
           });
-          if (!response.ok || !response.body) throw new Error("No fue posible conectar con el turnero.");
+          if (response.status === 401 || response.status === 403) {
+            setError("Esta pantalla no está autorizada para consultar el turnero.");
+            break;
+          }
+          if (!response.ok) throw new Error("No fue posible conectar con el turnero.");
+          if (response.headers.get("content-type")?.includes("application/json")) {
+            const estado = await response.json() as { tipo?: string; vinculado?: boolean; codigo?: string; llamados?: Llamado[] };
+            procesar(estado);
+            esperarVinculacion = !estado.vinculado;
+          } else if (!response.body) {
+            throw new Error("La conexión del turnero no entregó un flujo de eventos.");
+          }
+          if (esperarVinculacion) {
+            // Las pantallas no vinculadas solo consultan su estado cada 15 s;
+            // no mantienen una función Vercel ni una suscripción Redis abierta.
+          } else if (response.body) {
           const reader = response.body.getReader();
           const decoder = new TextDecoder();
           let buffer = "";
@@ -107,9 +123,13 @@ export default function TurneroPublicoPage() {
             for (const bloque of bloques) {
               const data = bloque.split(/\r?\n/).find((linea) => linea.startsWith("data: "))?.slice(6);
               if (!data) continue;
-              try { procesar(JSON.parse(data) as { tipo?: string; vinculado?: boolean; codigo?: string; llamados?: Llamado[] }); }
+              try {
+                procesar(JSON.parse(data) as { tipo?: string; vinculado?: boolean; codigo?: string; llamados?: Llamado[] });
+                demoraMs = 1000;
+              }
               catch { /* Ignorar mensajes incompletos. */ }
             }
+          }
           }
         } catch (cause) {
           if (!cancelado) setError(cause instanceof Error ? cause.message : "Error de conexion con el turnero.");
@@ -117,8 +137,10 @@ export default function TurneroPublicoPage() {
           controlador = null;
         }
         if (!cancelado) {
-          await new Promise<void>((resolve) => { esperaReconectar = window.setTimeout(resolve, demoraMs); });
-          demoraMs = Math.min(demoraMs * 2, 30_000);
+          const espera = esperarVinculacion ? 30_000 : demoraMs;
+          await new Promise<void>((resolve) => { esperaReconectar = window.setTimeout(resolve, espera); });
+          if (esperarVinculacion) demoraMs = 1000;
+          else demoraMs = Math.min(demoraMs * 2, 30_000);
         }
       }
     };

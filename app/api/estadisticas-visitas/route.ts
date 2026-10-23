@@ -6,6 +6,7 @@ import {
   leerHoja,
   leerHojaRegistro,
 } from "@/lib/googleSheets";
+import { exigirPermiso } from "@/lib/autorizacion";
 
 import {
   convertirFecha,
@@ -16,16 +17,13 @@ export async function GET() {
 
   try {
 
-    const rows =
-  await leerHoja(
-    "BitacoraVisitas",
-    "A:F",
-  );
+    const autorizacion = await exigirPermiso("recepcion");
+    if (autorizacion.respuesta) return autorizacion.respuesta;
 
-const registroRows =
-  await leerHojaRegistro(
-    "Respuestas de formulario 1!B:G",
-  );
+    const [rows, registroRows] = await Promise.all([
+      leerHoja("BitacoraVisitas", "A:F"),
+      leerHojaRegistro("Respuestas de formulario 1!B:G"),
+    ]);
 
     const hoy =
   hoyISO();
@@ -223,13 +221,16 @@ if (nacionalidad === "VENEZOLANO") {
 
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
+
+    console.error("Error calculando estadísticas de visitas:", {
+      tipo: error instanceof Error ? error.name : "unknown",
+    });
 
     return NextResponse.json({
       ok: false,
-      error:
-        error.message,
-    });
+      error: "No fue posible calcular las estadísticas de visitas.",
+    }, { status: 500 });
 
   }
 

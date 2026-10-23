@@ -4,6 +4,7 @@ import {
   rgb,
 } from "pdf-lib";
 
+import { obtenerLogoRecibo } from "@/lib/logoRecibo";
 import fs from "fs";
 import path from "path";
 
@@ -85,7 +86,7 @@ export async function generarPdfReciboTermico(
     path.join(
       process.cwd(),
       "public",
-      "logo.png"
+      "logo-recibo.png"
     );
 
   if (
@@ -96,10 +97,7 @@ export async function generarPdfReciboTermico(
     );
   }
 
-  const logoBytes =
-    fs.readFileSync(
-      logoPath
-    );
+  const logoBytes = obtenerLogoRecibo();
 
   const logo =
     await pdfDoc.embedPng(

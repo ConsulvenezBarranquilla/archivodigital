@@ -8,8 +8,7 @@ import {
   formatoFechaHoraRecibo,
 } from "@/lib/fechas";
 
-import fs from "fs";
-import path from "path";
+import { obtenerLogoRecibo } from "@/lib/logoRecibo";
 
 type Actuacion = {
   actuacion: string;
@@ -53,20 +52,9 @@ export async function generarPdfRecibo(
   // LOGO
   // ======================================================
 
-  const logoPath = path.join(
-    process.cwd(),
-    "public",
-    "logo.png"
-  );
-
-  const logoBytes =
-    fs.readFileSync(
-      logoPath
-    );
-
   const logo =
     await pdfDoc.embedPng(
-      logoBytes
+      obtenerLogoRecibo()
     );
 
   // ======================================================
