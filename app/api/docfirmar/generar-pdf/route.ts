@@ -442,7 +442,13 @@ export async function POST(
         ""
       ).trim();
 
-    const posicionesFirma = body?.posicionesFirma;
+    const posicionesSolicitadas = body?.posicionesFirma;
+    const posicionesFirma = {
+      firma: posicionesSolicitadas?.firma ?? null,
+      sello: posicionesSolicitadas?.sello ?? null,
+      qr: posicionesSolicitadas?.qr ?? null,
+      legal: posicionesSolicitadas?.legal ?? null,
+    };
     const ubicacionValida = (valor: any) =>
       Number.isInteger(valor?.pagina) &&
       Number.isFinite(valor?.x) && valor.x >= 0 && valor.x <= 1 &&

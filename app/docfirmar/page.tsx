@@ -2078,12 +2078,12 @@ export default function DocFirmarPage() {
                                     )}
 
                                     {solicitandoTotp && (
-                                        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3">
+                                        <form onSubmit={event => { event.preventDefault(); void firmarYEnviar(codigoTotp); }} className="flex flex-wrap items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3">
                                             <label htmlFor="codigo-totp-firma" className="text-sm font-semibold text-slate-700">Código de Google Authenticator</label>
                                             <input id="codigo-totp-firma" type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={codigoTotp} onChange={event => setCodigoTotp(event.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="000000" className="w-28 rounded-lg border border-slate-300 bg-white px-3 py-2 text-center font-mono text-lg tracking-widest outline-none focus:ring-2 focus:ring-amber-400" />
-                                            <button type="button" onClick={() => firmarYEnviar(codigoTotp)} disabled={codigoTotp.length !== 6 || enviandoCorreo} className="rounded-lg bg-emerald-600 px-4 py-2 font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">{enviandoCorreo ? "Validando…" : "Confirmar firma"}</button>
+                                            <button type="submit" disabled={codigoTotp.length !== 6 || enviandoCorreo} className="rounded-lg bg-emerald-600 px-4 py-2 font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">{enviandoCorreo ? "Validando…" : "Confirmar firma"}</button>
                                             <button type="button" onClick={() => { setSolicitandoTotp(false); setCodigoTotp(""); }} disabled={enviandoCorreo} className="rounded-lg border border-slate-300 bg-white px-4 py-2 font-semibold text-slate-700">Cancelar</button>
-                                        </div>
+                                        </form>
                                     )}
 
                                     {requiereUbicacionesPersonalizadas(documentoSeleccionado) && (
