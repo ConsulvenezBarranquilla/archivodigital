@@ -16,6 +16,7 @@ interface Props {
   url: string;
   iniciales: PosicionesFirma;
   incluirTextoLegal?: boolean;
+  paginaPermitida?: number | null;
   onCancelar: () => void;
   onConfirmar: (posiciones: PosicionesFirma) => void;
 }
@@ -43,6 +44,7 @@ function PaginaPdf({
   posiciones,
   elementoActivo,
   incluirTextoLegal,
+  paginaPermitida,
   onElegir,
 }: {
   documento: PdfDocument;
@@ -50,6 +52,7 @@ function PaginaPdf({
   posiciones: PosicionesFirma;
   elementoActivo: ElementoFirma;
   incluirTextoLegal: boolean;
+  paginaPermitida?: number | null;
   onElegir: (pagina: number, x: number, y: number) => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -88,18 +91,24 @@ function PaginaPdf({
   }, [documento, numero]);
 
   function elegir(event: React.MouseEvent<HTMLDivElement>) {
+    if (paginaPermitida !== undefined && paginaPermitida !== null && paginaPermitida !== numero - 1) return;
     const bounds = event.currentTarget.getBoundingClientRect();
     const x = Math.max(0, Math.min(1, (event.clientX - bounds.left) / bounds.width));
     const y = Math.max(0, Math.min(1, (event.clientY - bounds.top) / bounds.height));
     onElegir(numero - 1, x, y);
   }
 
+  const paginaBloqueada = paginaPermitida !== undefined && paginaPermitida !== null && paginaPermitida !== numero - 1;
+
   return (
     <div ref={marcoRef} className="rounded-xl border border-slate-300 bg-slate-200 p-3">
+      {paginaBloqueada && <div className="mb-2 w-fit rounded-full bg-slate-300 px-2 py-1 text-xs font-semibold">Solo vista previa; las ubicaciones se colocan en la página SAIME.</div>}
+      {!paginaBloqueada && paginaPermitida !== undefined && paginaPermitida !== null && <div className="mb-2 w-fit rounded-full bg-emerald-200 px-2 py-1 text-xs font-semibold text-emerald-900">Ficha SAIME: ubica aquí firma, sello o QR.</div>}
       <div className="mb-2 text-sm font-bold text-slate-700">Página {numero}</div>
       <div
         className="relative mx-auto w-fit max-w-full cursor-crosshair overflow-hidden bg-white shadow-lg"
-        onClick={elegir}
+        onClick={paginaBloqueada ? undefined : elegir}
+        style={paginaBloqueada ? { cursor: "default" } : undefined}
         aria-label={`Página ${numero}. Haz clic para ubicar ${nombres[elementoActivo]}.`}
       >
         <canvas ref={canvasRef} className="block max-w-full" />
@@ -121,7 +130,7 @@ function PaginaPdf({
   );
 }
 
-export default function PdfColocacionEditor({ url, iniciales, onCancelar, onConfirmar, incluirTextoLegal = false }: Props) {
+export default function PdfColocacionEditor({ url, iniciales, onCancelar, onConfirmar, incluirTextoLegal = false, paginaPermitida }: Props) {
   const [documento, setDocumento] = useState<PdfDocument | null>(null);
   const [posiciones, setPosiciones] = useState<PosicionesFirma>(iniciales);
   const [elementoActivo, setElementoActivo] = useState<ElementoFirma>("firma");
@@ -173,7 +182,7 @@ export default function PdfColocacionEditor({ url, iniciales, onCancelar, onConf
           <div className="flex items-start justify-between gap-4">
             <div>
               <h2 id="titulo-ubicaciones" className="text-xl font-bold text-blue-950">Ubicar firma, sello y QR</h2>
-              <p className="mt-1 text-sm text-slate-600">Elige un elemento y haz clic sobre la página donde debe aparecer. Puedes ubicar cada uno en una página diferente.</p>
+              <p className="mt-1 text-sm text-slate-600">{paginaPermitida !== undefined && paginaPermitida !== null ? `La primera página conserva la constancia con sus elementos precargados. Ubica firma, sello y QR en la página ${paginaPermitida + 1} (Ficha SAIME).` : "Elige un elemento y haz clic sobre la página donde debe aparecer. Puedes ubicar cada uno en una página diferente."}</p>
             </div>
             <button type="button" onClick={onCancelar} className="rounded-lg px-3 py-1 text-2xl text-slate-500 hover:bg-slate-100" aria-label="Cerrar">×</button>
           </div>
@@ -189,9 +198,10 @@ export default function PdfColocacionEditor({ url, iniciales, onCancelar, onConf
         <div className="min-h-0 flex-1 overflow-y-auto bg-slate-100 p-4">
           {cargando && <p className="p-8 text-center text-slate-600">Cargando páginas del PDF…</p>}
           {error && <p role="alert" className="rounded-lg bg-red-50 p-4 text-red-700">{error}</p>}
+          {documento && paginaPermitida !== undefined && paginaPermitida !== null && paginaPermitida >= documento.numPages && <p role="alert" className="rounded-lg bg-red-50 p-4 text-red-700">No se encontró la página de la Ficha SAIME en el PDF combinado.</p>}
           {documento && Array.from({ length: documento.numPages }, (_, indice) => (
             <div key={indice} className="mx-auto mb-5 max-w-4xl">
-              <PaginaPdf documento={documento} numero={indice + 1} posiciones={posiciones} elementoActivo={elementoActivo} incluirTextoLegal={incluirTextoLegal} onElegir={elegirUbicacion} />
+              <PaginaPdf documento={documento} numero={indice + 1} posiciones={posiciones} elementoActivo={elementoActivo} incluirTextoLegal={incluirTextoLegal} paginaPermitida={paginaPermitida} onElegir={elegirUbicacion} />
             </div>
           ))}
         </div>

@@ -307,7 +307,7 @@ useEffect(() => {
 }, []);
 
 
-  async function buscarCiudadano() {
+  async function buscarCiudadano(documentoBuscado = documento) {
 
 setMensaje("");
  setMensajeRecibo("");
@@ -319,17 +319,20 @@ setMensaje("");
   setMostrarActuaciones(false);
 setTitularesEspeciales([]);
 setObservacionesModSlae({});
-    if (!documento.trim()) {
+    const documentoNormalizado = documentoBuscado.trim();
+    if (!documentoNormalizado) {
       setMensaje(
         "Ingrese un documento"
       );
       return;
     }
 
+    setDocumento(documentoNormalizado);
+    setCiudadano(null);
     setMensaje("Buscando...");
 
     const response = await fetch(
-      `/api/detalle-ciudadano-caja?documento=${documento}`
+      `/api/detalle-ciudadano-caja?documento=${encodeURIComponent(documentoNormalizado)}`
     );
 
     const data = await response.json();
@@ -344,6 +347,10 @@ setObservacionesModSlae({});
 
     setCiudadano(data);
     setMensaje("");
+  }
+
+  async function cargarCiudadanoDesdeTurno(turno: { documento: string }) {
+    await buscarCiudadano(turno.documento || "");
   }
 
   if (!usuario) {
@@ -1836,7 +1843,7 @@ async function generarCierreDiario() {
 
 <div className="space-y-8">
 
-<TurnosWidget titulo="Turnos pendientes" cola="visitas" />
+<TurnosWidget titulo="Turnos pendientes" cola="visitas" onIniciarAtencion={cargarCiudadanoDesdeTurno} />
 
       {usuario && (
   <div className="bg-amber-50 border-l-4 border-amber-500 rounded-2xl shadow-sm p-5 flex items-center justify-between">
@@ -1955,7 +1962,7 @@ async function generarCierreDiario() {
   />
 
   <button
-    onClick={buscarCiudadano}
+    onClick={() => void buscarCiudadano()}
     className="
       ml-3
       bg-blue-950

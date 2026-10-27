@@ -3,7 +3,7 @@ import { Redis } from "@upstash/redis";
 import { guardarEventoTurnoEnSheet } from "@/lib/googleSheets";
 
 export type TipoVisitaTurnero = "Informaci\u00F3n" | "Tr\u00E1mite";
-export type EstadoTurno = "pendiente" | "llamado" | "atendido";
+export type EstadoTurno = "pendiente" | "llamado" | "en_atencion" | "atendido";
 export type ColaTurno = "visitas" | "analistas";
 
 export interface TurnoAtencion {
@@ -111,6 +111,7 @@ if not valor then return 'NO_TURNO' end
 local turno = cjson.decode(valor)
 if turno.estado == 'atendido' then return 'YA_ATENDIDO' end
 local accion = ARGV[1]
+if accion == 'llamar' and turno.estado == 'en_atencion' then return 'YA_EN_ATENCION' end
 local ahoraMs = tonumber(ARGV[7]) or 0
 if accion == 'llamar' and turno.estado == 'llamado' then
   local ultimoLlamadoMs = tonumber(turno.llamadoEnMs) or tonumber(ARGV[8]) or 0
@@ -118,7 +119,13 @@ if accion == 'llamar' and turno.estado == 'llamado' then
   if restanteMs > 0 then return 'ESPERAR_RELLAMADO:' .. tostring(restanteMs) end
 end
 local ahora = ARGV[2]
-turno.estado = accion == 'llamar' and 'llamado' or 'atendido'
+if accion == 'llamar' then
+  turno.estado = 'llamado'
+elseif accion == 'iniciar_atencion' then
+  turno.estado = 'en_atencion'
+else
+  turno.estado = 'atendido'
+end
 turno.usuario = ARGV[3]
 turno.fechaActualizacion = ahora
 turno.eventId = turno.id .. ':' .. ahora .. ':' .. accion
@@ -132,7 +139,7 @@ if accion == 'llamar' then
   redis.call('LPUSH', KEYS[3], 'CALL:' .. llamado)
   redis.call('LTRIM', KEYS[3], 0, 19)
   redis.call('EXPIRE', KEYS[3], 604800)
-else
+elseif accion == 'atendido' or accion == 'finalizar_atencion' then
   redis.call('ZREM', KEYS[2], turno.id)
 end
 turno.evento = accion
@@ -186,7 +193,7 @@ export async function obtenerTurno(id: string) {
   return await redis.get<TurnoAtencion>(claveTurno(id));
 }
 
-export async function cambiarEstadoTurno(id: string, accion: "llamar" | "atendido", usuario: string, caja = "", tipoOperador: "recepcion" | "caja" | "analista" = "caja") {
+export async function cambiarEstadoTurno(id: string, accion: "llamar" | "iniciar_atencion" | "finalizar_atencion" | "atendido", usuario: string, caja = "", tipoOperador: "recepcion" | "caja" | "analista" = "caja") {
   const keyLlamados = claveLlamadosPublicos();
   const turnoActual = accion === "llamar" ? await obtenerTurno(id) : null;
   const ahoraMs = Date.now();
@@ -203,6 +210,7 @@ export async function cambiarEstadoTurno(id: string, accion: "llamar" | "atendid
   );
   if (resultado === "NO_TURNO") throw new Error("No se encontr\u00C3\u00B3 el turno solicitado.");
   if (resultado === "YA_ATENDIDO") throw new Error("Este turno ya fue atendido por otro operador.");
+  if (resultado === "YA_EN_ATENCION") throw new Error("Este turno ya está en atención.");
   if (typeof resultado === "string" && resultado.startsWith("ESPERAR_RELLAMADO:")) {
     const restante = Math.max(1, Math.ceil(Number(resultado.split(":")[1]) / 1000));
     throw new Error(`Podrás volver a llamar en ${restante} segundo${restante === 1 ? "" : "s"}.`);
@@ -306,8 +314,16 @@ export async function buscarVisitaReciente(documento: string, fechaReferencia?: 
   const candidatos = await Promise.all((ids || []).map((id) => redis.get<TurnoAtencion>(claveTurno(String(id)))));
   const referencia = fechaReferencia ? epoch(fechaReferencia) : Date.now();
   return candidatos.filter((turno): turno is TurnoAtencion => Boolean(turno) && turno!.cola === "visitas")
+    .filter((turno) => turno.estado !== "atendido")
     .filter((turno) => Math.abs(referencia - epoch(turno.creadoEl)) <= 24 * 60 * 60 * 1000)
     .sort((a, b) => epoch(b.creadoEl) - epoch(a.creadoEl))[0]?.id || "";
+}
+
+export async function finalizarTurnoAlGenerarRecibo(id: string, usuario: string, caja = "") {
+  if (!id) return;
+  const turno = await obtenerTurno(id);
+  if (!turno || turno.estado === "atendido") return;
+  await cambiarEstadoTurno(id, "finalizar_atencion", usuario, caja, "caja");
 }
 
 export async function sincronizarTurnosAnalista(input: {

@@ -84,6 +84,21 @@ function texto(
 
 }
 
+function documentoParaExcel(
+    documento: string,
+    tipoDocumento: string
+): string {
+    const esPasaporte =
+        tipoDocumento === "PASAPORTE_ADULTO" ||
+        tipoDocumento === "PASAPORTE_NNA";
+
+    if (!esPasaporte || !/^\d+$/.test(documento)) {
+        return documento;
+    }
+
+    return documento.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+}
+
 // ======================================================
 // GET
 // ======================================================
@@ -275,6 +290,12 @@ export async function GET(
             {
                 header: "Documento",
                 key: "documento",
+                width: 35,
+            },
+
+            {
+                header: "Correo electrónico",
+                key: "correoElectronico",
                 width: 35,
             },
 
@@ -586,8 +607,14 @@ export async function GET(
                     ),
 
                 documento:
+                    documentoParaExcel(
+                        texto(documento.documento),
+                        texto(documento.tipoDocumento)
+                    ),
+
+                correoElectronico:
                     texto(
-                        documento.documento
+                        documento.correoSolicitante || documento.correoDestino
                     ),
 
                 estado:

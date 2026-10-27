@@ -608,7 +608,7 @@ async function guardarNuevaConstancia(
 
         try {
 
-            await registrarValija({
+            const resultado = await registrarValija({
 
                 usuario,
 
@@ -624,6 +624,11 @@ async function guardarNuevaConstancia(
             );
 
             await cargarDocumentos();
+
+            alert(
+                resultado.mensaje ||
+                "Valija registrada correctamente."
+            );
 
         }
 

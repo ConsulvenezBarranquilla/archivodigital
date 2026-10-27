@@ -178,6 +178,7 @@ export default function DocFirmarPage() {
         setPdfPrevisualizacionUrl,
     ] = useState("");
     const [pdfOriginalUrl, setPdfOriginalUrl] = useState("");
+    const [paginaFichaSaime, setPaginaFichaSaime] = useState<number | null>(null);
     const [mostrarEditorUbicaciones, setMostrarEditorUbicaciones] = useState(false);
     const [posicionesFirma, setPosicionesFirma] = useState<PosicionesFirma>({ firma: null, sello: null, qr: null, legal: null });
     const [previsualizacionLista, setPrevisualizacionLista] = useState(false);
@@ -415,6 +416,15 @@ export default function DocFirmarPage() {
         if (pdfOriginalUrl) URL.revokeObjectURL(pdfOriginalUrl);
     }, [pdfOriginalUrl]);
 
+    function invalidarBaseVerificacionIdentidad() {
+        if (documentoSeleccionado?.codigoActuacion !== "VER-I") return;
+        if (pdfOriginalUrl) URL.revokeObjectURL(pdfOriginalUrl);
+        setPdfOriginalUrl("");
+        setPaginaFichaSaime(null);
+        setPosicionesFirma({ firma: null, sello: null, qr: null, legal: null });
+        setPrevisualizacionLista(false);
+    }
+
     function abrirDocumento(
         documento: Documento
     ) {
@@ -432,6 +442,7 @@ export default function DocFirmarPage() {
         setPdfPrevisualizacionUrl("");
         if (pdfOriginalUrl) URL.revokeObjectURL(pdfOriginalUrl);
         setPdfOriginalUrl("");
+        setPaginaFichaSaime(null);
         setMostrarEditorUbicaciones(false);
         setPosicionesFirma({ firma: null, sello: null, qr: null, legal: null });
         setPrevisualizacionLista(false);
@@ -457,6 +468,7 @@ export default function DocFirmarPage() {
         setPdfPrevisualizacionUrl("");
         if (pdfOriginalUrl) URL.revokeObjectURL(pdfOriginalUrl);
         setPdfOriginalUrl("");
+        setPaginaFichaSaime(null);
         setMostrarEditorUbicaciones(false);
         setPosicionesFirma({ firma: null, sello: null, qr: null, legal: null });
         setPrevisualizacionLista(false);
@@ -481,12 +493,22 @@ export default function DocFirmarPage() {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     credentials: "include",
-                    body: JSON.stringify({ accion: "original", documentoId: documentoSeleccionado.id }),
+                    body: JSON.stringify({
+                        accion: "original",
+                        documentoId: documentoSeleccionado.id,
+                        ...(documentoSeleccionado.codigoActuacion === "VER-I" ? { idFirma: idFirmaSeleccionada, idSello: idSelloSeleccionado } : {}),
+                    }),
                 });
                 if (!response.ok) {
                     const data = await response.json().catch(() => null);
                     throw new Error(data?.error || "No fue posible abrir el PDF original.");
                 }
+                const paginaFicha = response.headers.get("X-Verificacion-Saime-Page");
+                const paginaFichaIndex = paginaFicha !== null && Number.isInteger(Number(paginaFicha)) ? Number(paginaFicha) : null;
+                if (documentoSeleccionado.codigoActuacion === "VER-I" && paginaFichaIndex === null) {
+                    throw new Error("El PDF combinado no indicó la página de la Ficha SAIME.");
+                }
+                setPaginaFichaSaime(paginaFichaIndex);
                 url = URL.createObjectURL(await response.blob());
                 setPdfOriginalUrl(url);
             }
@@ -1801,6 +1823,7 @@ export default function DocFirmarPage() {
                                                         setIdFirmaSeleccionada(
                                                             event.target.value
                                                         );
+                                                        invalidarBaseVerificacionIdentidad();
                                                         setPrevisualizacionLista(false);
                                                     }}
                                                     disabled={
@@ -1863,6 +1886,7 @@ export default function DocFirmarPage() {
                                                         setIdSelloSeleccionado(
                                                             event.target.value
                                                         );
+                                                        invalidarBaseVerificacionIdentidad();
                                                         setPrevisualizacionLista(false);
                                                     }}
                                                     disabled={
@@ -2106,6 +2130,7 @@ export default function DocFirmarPage() {
                     url={pdfOriginalUrl}
                     iniciales={posicionesFirma}
                     incluirTextoLegal={requiereUbicacionTextoLegal(documentoSeleccionado)}
+                    paginaPermitida={documentoSeleccionado?.codigoActuacion === "VER-I" ? paginaFichaSaime : null}
                     onCancelar={() => setMostrarEditorUbicaciones(false)}
                     onConfirmar={(nuevasPosiciones) => {
                         setPosicionesFirma(nuevasPosiciones);

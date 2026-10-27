@@ -13,6 +13,7 @@ import {
   sheets,
 
   MODULO_CAJA_SHEET_ID,
+  HOJA_REPORTES_ENTREGADOS,
   invalidarCacheHojaGoogle,
   actualizarRangosAtomico,
 
@@ -50,6 +51,7 @@ export async function POST(
       observaciones,
 
     } = await req.json();
+    const observacionVinculacion = String(observaciones ?? "").trim();
 
     const usuario =
       autorizacion.sesion.nombre;
@@ -177,6 +179,14 @@ if (
 
     const detalleCaja =
       detalleResponse.data.values || [];
+
+    const reportesResponse = observacionVinculacion
+      ? await sheets.spreadsheets.values.get({
+          spreadsheetId: MODULO_CAJA_SHEET_ID,
+          range: `${HOJA_REPORTES_ENTREGADOS}!A:M`,
+        })
+      : null;
+    const filasReportes = reportesResponse?.data.values || [];
 
     const filasGestion =
       registrosGestion.slice(1);
@@ -333,7 +343,7 @@ if (
 
         "",
 
-        observaciones || "",
+        observacionVinculacion,
 
         numeroActuacion,
 
@@ -351,6 +361,57 @@ if (
 
     const rangosDetalle: Array<{ fila: number; values: Array<Array<string | number>> }> = [];
     const indicesDetalleUsados = new Set<number>();
+    const cambiosObservacionesReportes: Array<{
+      hoja: string;
+      fila?: number;
+      columna?: number;
+      valores?: Array<Array<string | number>>;
+      anexar?: Array<string | number>;
+    }> = [];
+    const filasReportesActualizadas = new Set<number>();
+
+    if (observacionVinculacion) {
+      for (let i = 0; i < nuevasFilas.length; i++) {
+        const idReporte = String(nuevasFilas[i][11] ?? "").trim();
+        const filaReporteIndice = filasReportes.findIndex((fila, indice) =>
+          indice > 0 && String(fila[0] ?? "").trim() === idReporte
+        );
+        const observacionActual = filaReporteIndice >= 0
+          ? String(filasReportes[filaReporteIndice][12] ?? "")
+          : "";
+        const observacionNueva = observacionVinculacion;
+
+        if (filaReporteIndice >= 0) {
+          const numeroFila = filaReporteIndice + 1;
+          if (filasReportesActualizadas.has(numeroFila)) continue;
+          filasReportesActualizadas.add(numeroFila);
+
+          const observacionFinal = observacionActual.trim()
+            ? observacionActual.includes(observacionNueva)
+              ? observacionActual
+              : `${observacionActual.trim()}\n${observacionNueva}`
+            : observacionNueva;
+
+          if (observacionFinal !== observacionActual) {
+            cambiosObservacionesReportes.push({
+              hoja: HOJA_REPORTES_ENTREGADOS,
+              fila: numeroFila,
+              columna: 13,
+              valores: [[observacionFinal]],
+            });
+          }
+          continue;
+        }
+
+        const filaReporte = new Array<string | number>(53).fill("");
+        filaReporte[0] = idReporte;
+        filaReporte[12] = observacionNueva;
+        cambiosObservacionesReportes.push({
+          hoja: HOJA_REPORTES_ENTREGADOS,
+          anexar: filaReporte,
+        });
+      }
+    }
 
     const filasDetalle =
       detalleCaja.map((fila) => [...fila]);
@@ -508,9 +569,13 @@ if (
       ...(!encabezadoM ? [{ hoja: "GestionConsular", fila: 1, columna: 13, valores: [["FilaDetalle"]] }] : []),
       { hoja: "GestionConsular", fila: primeraFilaGestion, columna: 1, valores: nuevasFilas },
       ...rangosDetalle.map(({ fila, values }) => ({ hoja: "DetalleCaja", fila, columna: 5, valores: values })),
+      ...cambiosObservacionesReportes,
     ]);
     invalidarCacheHojaGoogle(MODULO_CAJA_SHEET_ID, "GestionConsular");
     invalidarCacheHojaGoogle(MODULO_CAJA_SHEET_ID, "DetalleCaja");
+    if (cambiosObservacionesReportes.length > 0) {
+      invalidarCacheHojaGoogle(MODULO_CAJA_SHEET_ID, HOJA_REPORTES_ENTREGADOS);
+    }
 
     return NextResponse.json({
 

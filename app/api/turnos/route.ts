@@ -17,6 +17,7 @@ function turnoVisible(turno: Awaited<ReturnType<typeof listarTurnos>>[number]) {
   return {
     id: turno.id,
     nombre: turno.nombre,
+    documento: turno.documento,
     tipoVisita: turno.tipoVisita,
     estado: turno.estado,
     cola: turno.cola,
@@ -63,7 +64,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const id = typeof body.id === "string" ? body.id : "";
     const accion = body.accion;
-    if (!/^T-[a-f0-9]{24}$/.test(id) || !["llamar", "atendido"].includes(accion)) {
+    if (!/^T-[a-f0-9]{24}$/.test(id) || !["llamar", "iniciar_atencion", "finalizar_atencion", "atendido"].includes(accion)) {
       return NextResponse.json({ ok: false, error: "Identificador o acción no válidos." }, { status: 400 });
     }
     const turno = await obtenerTurno(id);
@@ -76,6 +77,18 @@ export async function POST(req: NextRequest) {
     }
     if (sesion.rol === "caja" && turno.cola !== "visitas") {
       return NextResponse.json({ ok: false, error: "Caja no puede modificar atenciones de analistas." }, { status: 403 });
+    }
+    if ((accion === "iniciar_atencion" || accion === "finalizar_atencion") && !["caja", "admin"].includes(sesion.rol)) {
+      return NextResponse.json({ ok: false, error: "Solo Caja puede iniciar o finalizar esta atención." }, { status: 403 });
+    }
+    if ((accion === "iniciar_atencion" || accion === "finalizar_atencion") && turno.cola !== "visitas") {
+      return NextResponse.json({ ok: false, error: "Esta acción solo aplica a la cola de Caja." }, { status: 403 });
+    }
+    if (accion === "atendido" && sesion.rol === "caja") {
+      return NextResponse.json({ ok: false, error: "En Caja, inicia la atención y luego usa Finalizar atención." }, { status: 403 });
+    }
+    if (accion === "finalizar_atencion" && turno.estado !== "en_atencion") {
+      return NextResponse.json({ ok: false, error: "La atención todavía no se ha iniciado." }, { status: 409 });
     }
     const tipoOperador = turno.cola === "analistas" ? "analista" : sesion.rol === "recepcion" ? "recepcion" : "caja";
     const actualizado = await cambiarEstadoTurno(id, accion, sesion.usuario, turno.cola === "analistas" ? "" : sesion.caja || "", tipoOperador);

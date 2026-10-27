@@ -10,7 +10,7 @@ import {
   obtenerDocumentoPrincipal,
   obtenerActuaciones,
 } from "@/lib/googleSheets";
-import { buscarVisitaReciente, sincronizarTurnosAnalista } from "@/lib/turnero";
+import { buscarVisitaReciente, finalizarTurnoAlGenerarRecibo, sincronizarTurnosAnalista } from "@/lib/turnero";
 
 import { generarPdfRecibo } from "@/lib/generarPdfRecibo";
 import { enviarReciboPorCorreo } from "@/lib/gmail";
@@ -460,6 +460,15 @@ const usuario = {
         obtenerActuaciones(),
         buscarVisitaReciente(documentoImpreso, fecha),
       ]);
+      if (visitaId) {
+        try {
+          await finalizarTurnoAlGenerarRecibo(visitaId, sesion.usuario, sesion.caja || "");
+        } catch (errorFinalizarTurno) {
+          // El recibo ya se persistió; si el cierre del turno falla, no debe
+          // impedir la transferencia independiente a Analistas.
+          console.error("RECIBO GUARDADO; no se pudo finalizar el turno de Caja:", errorFinalizarTurno);
+        }
+      }
       const catalogoActuaciones: unknown[][] = catalogoActuacionesRaw;
       const paresCatalogo = catalogoActuaciones.slice(1)
         .filter((row: unknown[]) => String(row[3] || "").trim().toUpperCase() === "SI")

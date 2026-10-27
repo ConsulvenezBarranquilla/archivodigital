@@ -131,7 +131,13 @@ export function invalidarCacheHojaGoogle(spreadsheetId: string, hoja: string) {
 
 export async function actualizarRangosAtomico(
   spreadsheetId: string,
-  cambios: Array<{ hoja: string; fila: number; columna: number; valores: Array<Array<string | number>> }>
+  cambios: Array<{
+    hoja: string;
+    fila?: number;
+    columna?: number;
+    valores?: Array<Array<string | number>>;
+    anexar?: Array<string | number>;
+  }>
 ) {
   const metadata = await sheets.spreadsheets.get({
     spreadsheetId,
@@ -141,8 +147,27 @@ export async function actualizarRangosAtomico(
     (metadata.data.sheets ?? []).map((hoja) => [String(hoja.properties?.title ?? ""), hoja.properties?.sheetId])
   );
 
-  const requests = cambios.map(({ hoja, fila, columna, valores }) => {
+  const requests = cambios.map(({ hoja, fila, columna, valores, anexar }) => {
     const sheetId = ids.get(hoja);
+    if (anexar) {
+      if (sheetId === undefined) throw new Error(`No existe la pestaña ${hoja} en la hoja de cálculo.`);
+      return {
+        appendCells: {
+          sheetId,
+          rows: [{
+            values: anexar.map((valor) => ({
+              userEnteredValue: typeof valor === "number"
+                ? { numberValue: valor }
+                : { stringValue: valor },
+            })),
+          }],
+          fields: "userEnteredValue",
+        },
+      };
+    }
+    if (fila === undefined || columna === undefined || !valores) {
+      throw new Error("La coordenada de actualización de Google Sheets no es válida.");
+    }
     if (sheetId === undefined) throw new Error(`No existe la pestaña ${hoja} en la hoja de cálculo.`);
     if (!Number.isInteger(fila) || fila < 1 || !Number.isInteger(columna) || columna < 1) {
       throw new Error("La coordenada de actualización de Google Sheets no es válida.");

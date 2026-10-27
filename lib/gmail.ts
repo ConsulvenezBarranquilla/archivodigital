@@ -399,6 +399,55 @@ Consulado General de la República Bolivariana de Venezuela en Barranquilla
   };
 }
 
+export async function enviarAvisoPasaporteRecibido(
+  destinatario: string
+) {
+  const correo = String(destinatario || "").trim();
+  if (!correo) throw new Error("El ciudadano no tiene correo electrónico registrado.");
+  if (!process.env.RESEND_API_KEY) throw new Error("Falta RESEND_API_KEY.");
+
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  const asunto = "Pasaporte Recibido en Oficina";
+  const mensaje = "Buenos dias estimado usuario, se le informa que su pasaporte se encuentra en nuestra oficina, podrá hacer el retiro de su documento presentando su cedula original o denuncia de la perdida de documento si no la tiene además del recibo de pago que le fue emitido electronicamente por el pago del arancel consular, recuerde nuestro horario de atención de lunes a viernes de 8:30am a 3:30 pm corrido";
+  const logoBuffer = await readFile(path.join(process.cwd(), "public", "logo.png"));
+
+  const resultado = await resend.emails.send({
+    from: RESEND_FROM,
+    to: [correo],
+    subject: asunto,
+    text: `${mensaje}\n\nAtentamente,\nConsulado General de la República Bolivariana de Venezuela en Barranquilla\n\nEste mensaje fue generado automáticamente. Por favor, no responda.`,
+    html: `
+<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0;padding:30px 12px;background:#f3f5f7;font-family:Arial,Helvetica,sans-serif;color:#263238">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:620px;margin:0 auto"><tr><td>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:8px;overflow:hidden;border:1px solid #e5e7eb">
+      <tr><td style="height:5px;background:#cfaa46;font-size:0">&nbsp;</td></tr>
+      <tr><td align="center" style="padding:30px 25px 15px">
+        <img src="cid:logo-consulado" alt="Logo del Consulado General de Venezuela" width="105" style="display:block;max-width:105px;height:auto;border:0;margin:0 auto 18px" />
+        <div style="font-size:17px;font-weight:bold;color:#19385a;line-height:1.5">Consulado General de la República<br>Bolivariana de Venezuela<br>en Barranquilla</div>
+        <div style="width:65px;height:2px;background:#cfaa46;margin:22px auto 0"></div>
+      </td></tr>
+      <tr><td style="padding:15px 35px 35px;font-size:14px;line-height:1.8">
+        <p>${escaparHtml(mensaje)}</p>
+        <p style="margin-top:30px">Atentamente,</p>
+        <p style="color:#19385a;font-weight:bold;line-height:1.6">Consulado General de la República<br>Bolivariana de Venezuela en Barranquilla</p>
+      </td></tr>
+      <tr><td style="background:#f5f7fa;border-top:1px solid #e5e7eb;padding:20px;text-align:center;font-size:11px;line-height:1.7;color:#64748b">Comunicación automática del sistema de Registro Consular.<br>Consulado General de la República Bolivariana de Venezuela en Barranquilla.<br>Por favor, no responda a este correo.</td></tr>
+    </table>
+  </td></tr></table>
+</body></html>`.trim(),
+    attachments: [
+      { filename: "logo.png", content: logoBuffer, contentId: "logo-consulado" },
+    ],
+  });
+
+  if (resultado.error) {
+    throw new Error(resultado.error.message || "No fue posible enviar el aviso de pasaporte recibido.");
+  }
+
+  return { ok: true, messageId: resultado.data?.id || null };
+}
+
 export async function enviarDocumentoFirmadoPorCorreo({
   destinatario,
   nombre,

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 type Turno = {
-  id: string; nombre: string; tipoVisita: string; estado: "pendiente" | "llamado" | "atendido";
+  id: string; nombre: string; documento: string; tipoVisita: string; estado: "pendiente" | "llamado" | "en_atencion" | "atendido";
   cola: "visitas" | "analistas"; etapa: string; actuacion: string; correlativo: string; creadoEl: string;
   cantidadActuaciones?: number;
   usuario?: string;
@@ -15,7 +15,11 @@ function segundosParaRellamar(turno: Turno, ahora: number) {
   return Math.max(0, Math.ceil(((turno.llamadoEnMs || 0) + 20_000 - ahora) / 1000));
 }
 
-export default function TurnosWidget({ titulo = "Turnos pendientes", cola }: { titulo?: string; cola?: "visitas" | "analistas" }) {
+export default function TurnosWidget({ titulo = "Turnos pendientes", cola, onIniciarAtencion }: {
+  titulo?: string;
+  cola?: "visitas" | "analistas";
+  onIniciarAtencion?: (turno: Turno) => void | Promise<void>;
+}) {
   const [turnos, setTurnos] = useState<Turno[]>([]);
   const [abierto, setAbierto] = useState(false);
   const [ocupado, setOcupado] = useState("");
@@ -131,7 +135,7 @@ export default function TurnosWidget({ titulo = "Turnos pendientes", cola }: { t
     };
   }, [programarCarga]);
 
-  async function actuar(turno: Turno, accion: "llamar" | "atendido") {
+  async function actuar(turno: Turno, accion: "llamar" | "iniciar_atencion" | "finalizar_atencion" | "atendido") {
     if (accion === "llamar" && turno.estado === "llamado" &&
       !window.confirm(`${turno.nombre} ya fue llamado. ¿Quieres volver a llamarlo?`)) return;
     setOcupado(turno.id);
@@ -144,10 +148,16 @@ export default function TurnosWidget({ titulo = "Turnos pendientes", cola }: { t
       const data = await response.json();
       if (!response.ok || !data.ok) throw new Error(data.error || "No fue posible actualizar el turno.");
       canalRef.current?.postMessage({ tipo: "cola-actualizada" });
-      if (data.turno) {
+      if (data.turno?.estado === "atendido") {
+        setTurnos((actuales) => actuales.filter((item) => item.id !== turno.id));
+      } else if (data.turno) {
         setTurnos((actuales) => actuales.map((item) => item.id === turno.id ? data.turno as Turno : item));
       } else {
         programarCarga();
+      }
+      if (accion === "iniciar_atencion") {
+        setAbierto(false);
+        await onIniciarAtencion?.((data.turno || turno) as Turno);
       }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No fue posible actualizar el turno.");
@@ -174,12 +184,12 @@ export default function TurnosWidget({ titulo = "Turnos pendientes", cola }: { t
           {turnos.map((turno, indice) => <div key={turno.id}>
             {turno.cola === "analistas" && (indice === 0 || turnos[indice - 1]?.actuacion !== turno.actuacion) && <h3 className="mb-2 mt-4 border-b border-slate-200 pb-2 text-sm font-bold uppercase tracking-wide text-blue-800">{turno.actuacion}</h3>}
             <article className="grid gap-3 rounded-xl border border-slate-200 p-4 md:grid-cols-[1fr_auto] md:items-center">
-            <div><div className="flex flex-wrap items-center gap-2"><h3 className="font-bold text-blue-950">{turno.nombre}</h3><span className={`rounded-full px-3 py-1 text-xs font-semibold ${turno.estado === "llamado" ? "bg-blue-100 text-blue-800" : "bg-amber-100 text-amber-800"}`}>{turno.estado === "llamado" ? "Llamado" : "Pendiente"}</span></div>
+            <div><div className="flex flex-wrap items-center gap-2"><h3 className="font-bold text-blue-950">{turno.nombre}</h3><span className={`rounded-full px-3 py-1 text-xs font-semibold ${turno.estado === "llamado" ? "bg-blue-100 text-blue-800" : turno.estado === "en_atencion" ? "bg-orange-100 text-orange-800" : "bg-amber-100 text-amber-800"}`}>{turno.estado === "llamado" ? "Llamado" : turno.estado === "en_atencion" ? "En atención" : "Pendiente"}</span></div>
               <p className="mt-1 text-sm text-slate-600">{turno.cola === "analistas" ? <>{turno.actuacion}{(turno.cantidadActuaciones || 1) > 1 ? ` (${turno.cantidadActuaciones})` : ""}</> : turno.tipoVisita}{turno.correlativo ? ` · Recibo ${turno.correlativo}` : ""}</p>
               <p className="text-xs text-slate-500">Registrado {new Date(turno.creadoEl).toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" })}</p>
               {turno.usuario && <p className="text-xs text-slate-500">Responsable: {turno.usuario}</p>}
             </div>
-            <div className="flex gap-2"><button disabled={Boolean(ocupado) || segundosParaRellamar(turno, ahora) > 0} onClick={() => void actuar(turno, "llamar")} className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">{ocupado === turno.id ? "Procesando…" : turno.estado === "llamado" ? segundosParaRellamar(turno, ahora) > 0 ? `Rellamar en ${segundosParaRellamar(turno, ahora)}s` : "Rellamar" : "Llamar"}</button><button disabled={Boolean(ocupado)} onClick={() => void actuar(turno, "atendido")} className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">Atendido</button></div>
+            <div className="flex gap-2"><button disabled={Boolean(ocupado) || turno.estado === "en_atencion" || segundosParaRellamar(turno, ahora) > 0} onClick={() => void actuar(turno, "llamar")} className="rounded-lg bg-blue-700 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">{ocupado === turno.id ? "Procesando…" : turno.estado === "llamado" ? segundosParaRellamar(turno, ahora) > 0 ? `Rellamar en ${segundosParaRellamar(turno, ahora)}s` : "Rellamar" : "Llamar"}</button><button disabled={Boolean(ocupado)} onClick={() => void actuar(turno, onIniciarAtencion ? turno.estado === "en_atencion" ? "finalizar_atencion" : "iniciar_atencion" : "atendido")} className={`rounded-lg px-4 py-2 text-sm font-bold text-white disabled:opacity-50 ${onIniciarAtencion && turno.estado === "en_atencion" ? "bg-red-700 hover:bg-red-800" : "bg-emerald-700"}`}>{onIniciarAtencion ? turno.estado === "en_atencion" ? "Finalizar atención" : "Atender" : "Atendido"}</button></div>
             </article>
           </div>)}
         </div>

@@ -72,6 +72,8 @@ const ESTADO_PENDIENTE =
 const ESTADO_FIRMADO_PENDIENTE_ENVIO =
   "FIRMADO_PENDIENTE_ENVIO";
 
+class ErrorPdfVerificacion extends Error {}
+
 function normalizarDocumento(valor: unknown) {
   return String(valor ?? "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
 }
@@ -109,7 +111,7 @@ async function obtenerCorreoCiudadano(documento: ReporteEntregado, preferirDesti
 
 async function cargarPdfFuenteFirma(documento: ReporteEntregado, archivoPrincipalId: string, anexarFichaSaime: boolean) {
   const pdfPrincipal = await descargarArchivoDrive(archivoPrincipalId);
-  if (!anexarFichaSaime) return pdfPrincipal;
+  if (!anexarFichaSaime) return { bytes: pdfPrincipal, paginaFichaSaime: null as number | null };
 
   const fichaSaimeId = String(documento.pdfFichaIdentidadSaime || "").trim();
   if (!fichaSaimeId) {
@@ -120,13 +122,53 @@ async function cargarPdfFuenteFirma(documento: ReporteEntregado, archivoPrincipa
   const combinado = await PDFDocument.create();
   const principal = await PDFDocument.load(new Uint8Array(pdfPrincipal));
   const ficha = await PDFDocument.load(new Uint8Array(pdfSaime));
+  if (principal.getPageCount() !== 1 || ficha.getPageCount() !== 1) {
+    throw new ErrorPdfVerificacion("Para VER-I, el PDF de Registro Consular y la Ficha SAIME deben tener una página cada uno.");
+  }
+  const paginaFichaSaime = principal.getPageCount();
 
   for (const fuente of [principal, ficha]) {
     const paginas = await combinado.copyPages(fuente, fuente.getPageIndices());
     paginas.forEach((pagina) => combinado.addPage(pagina));
   }
 
-  return Buffer.from(await combinado.save());
+  return { bytes: Buffer.from(await combinado.save()), paginaFichaSaime };
+}
+
+async function prepararPrimeraPaginaVerificacion(
+  pdf: PDFDocument,
+  documento: ReporteEntregado,
+  firmaBuffer: Buffer,
+  selloBuffer: Buffer,
+  nombreFuncionario: string,
+) {
+  const primeraPagina = pdf.getPages()[0];
+  if (!primeraPagina) throw new Error("El PDF de Verificación de Identidad no tiene página de Registro Consular.");
+
+  const fotoId = String(documento.fotoCarnet || "").trim();
+  if (!fotoId) throw new Error("La Verificación de Identidad no tiene una foto de carnet asociada.");
+  const fotoBuffer = await descargarArchivoDrive(fotoId);
+  const { width, height } = primeraPagina.getSize();
+
+  await insertarImagen(pdf, primeraPagina, fotoBuffer, 50, height - 105 - 145, 85, 105);
+  await insertarImagen(pdf, primeraPagina, firmaBuffer, 60, 125, Math.min(190, width * 0.28), 75);
+  await insertarImagen(pdf, primeraPagina, selloBuffer, 180, 115, Math.min(120, width * 0.18), 100);
+
+  const fuente = await pdf.embedFont("Helvetica");
+  primeraPagina.drawText(nombreFuncionario, {
+    x: 60,
+    y: 111,
+    size: 8,
+    font: fuente,
+    color: rgb(0.15, 0.15, 0.15),
+  });
+  primeraPagina.drawText("Funcionario autorizado", {
+    x: 60,
+    y: 100,
+    size: 7,
+    font: fuente,
+    color: rgb(0.25, 0.25, 0.25),
+  });
 }
 
 
@@ -548,12 +590,38 @@ export async function POST(
       if (!requiereUbicaciones || !archivoPdfOriginalId) {
         return NextResponse.json({ ok: false, error: "No se encontró el PDF original de la Constancia Consular." }, { status: 404 });
       }
-      const pdfOriginal = await cargarPdfFuenteFirma(documento, archivoPdfOriginalId, esVerificacionIdentidad);
-      return new NextResponse(new Uint8Array(pdfOriginal), {
+      const fuentePdf = await cargarPdfFuenteFirma(documento, archivoPdfOriginalId, esVerificacionIdentidad);
+      let bytesOriginal = fuentePdf.bytes;
+      if (esVerificacionIdentidad) {
+        const firmaSeleccionada = await obtenerFirmaPorId(idFirma);
+        const selloSeleccionado = await obtenerSelloPorId(idSello);
+        if (!firmaSeleccionada || !selloSeleccionado) {
+          return NextResponse.json({ ok: false, error: "Seleccione una firma y un sello institucional válidos." }, { status: 400 });
+        }
+        if (firmaSeleccionada.usuario.trim().toLowerCase() !== sesion.usuario.trim().toLowerCase()) {
+          return NextResponse.json({ ok: false, error: "No puede utilizar una firma perteneciente a otro usuario." }, { status: 403 });
+        }
+        if (firmaSeleccionada.activo !== "SI" || selloSeleccionado.activo !== "SI") {
+          return NextResponse.json({ ok: false, error: "La firma o el sello seleccionado está inactivo." }, { status: 400 });
+        }
+        const pdfBase = await PDFDocument.load(new Uint8Array(bytesOriginal));
+        const firmaBase = await descargarArchivoDrive(firmaSeleccionada.archivoFirmaDriveId);
+        const selloBase = await descargarArchivoDrive(selloSeleccionado.archivoSelloDriveId);
+        await prepararPrimeraPaginaVerificacion(
+          pdfBase,
+          documento,
+          firmaBase,
+          selloBase,
+          sesion.nombre || sesion.usuario,
+        );
+        bytesOriginal = Buffer.from(await pdfBase.save());
+      }
+      return new NextResponse(new Uint8Array(bytesOriginal), {
         headers: {
           "Content-Type": "application/pdf",
           "Content-Disposition": `inline; filename="${esVerificacionIdentidad ? "verificacion-identidad" : "constancia-consular"}-original.pdf"`,
           "Cache-Control": "no-store",
+          ...(fuentePdf.paginaFichaSaime === null ? {} : { "X-Verificacion-Saime-Page": String(fuentePdf.paginaFichaSaime) }),
         },
       });
     }
@@ -853,8 +921,10 @@ export async function POST(
     DESCARGAR PDF ORIGINAL
     --------------------------------------*/
 
-    const pdfOriginal =
+    const fuentePdf =
       await cargarPdfFuenteFirma(documento, archivoPdfId, esVerificacionIdentidad);
+
+    const pdfOriginal = fuentePdf.bytes;
 
 
     if (
@@ -907,6 +977,11 @@ export async function POST(
       );
     }
 
+    const ubicacionesVerificacion = [posicionesFirma.firma, posicionesFirma.sello, posicionesFirma.qr] as { pagina: number; x: number; y: number }[];
+    if (esVerificacionIdentidad && ubicacionesVerificacion.some((ubicacion) => ubicacion.pagina !== fuentePdf.paginaFichaSaime)) {
+      return NextResponse.json({ ok: false, error: "En VER-I, firma, sello y QR deben ubicarse en la primera página de la Ficha SAIME." }, { status: 400 });
+    }
+
     if (requiereUbicaciones && [posicionesFirma.firma, posicionesFirma.sello, posicionesFirma.qr].some((ubicacion: any) => ubicacion.pagina >= paginas.length)) {
       return NextResponse.json({ ok: false, error: "Una ubicación seleccionada apunta a una página que no existe en el PDF." }, { status: 400 });
     }
@@ -922,11 +997,7 @@ export async function POST(
       ];
 
 
-    const {
-      width,
-      height,
-    } =
-      pagina.getSize();
+      const { width } = pagina.getSize();
 
         /*--------------------------------------
     INSERTAR FOTO DE CARNET
@@ -960,18 +1031,15 @@ export async function POST(
 
           const fotoAnchoMaximo = 85;
 
+          const paginaFoto = pagina;
+          const { height: altoPaginaFoto } = paginaFoto.getSize();
           const fotoAltoMaximo = 105;
-
           const fotoX = 50;
-
-          const fotoY =
-            height -
-            fotoAltoMaximo -
-            145;
+          const fotoY = altoPaginaFoto - fotoAltoMaximo - 145;
 
           await insertarImagen(
             pdf,
-            pagina,
+            paginaFoto,
             fotoBuffer,
             fotoX,
             fotoY,
@@ -1269,6 +1337,15 @@ const selloY =
 
     if (requiereUbicaciones) {
       const selloBuffer = await descargarArchivoDrive(sello.archivoSelloDriveId);
+      if (esVerificacionIdentidad) {
+        await prepararPrimeraPaginaVerificacion(
+          pdf,
+          documento,
+          firmaBuffer,
+          selloBuffer,
+          sesion.nombre || sesion.usuario,
+        );
+      }
       const qrPng = await QRCode.toBuffer(urlValidacion || "https://consultaconsulvenezbarranquilla.app", {
         type: "png",
         errorCorrectionLevel: "M",
@@ -1636,7 +1713,7 @@ const selloY =
             : "No fue posible generar la previsualización del PDF.",
       },
       {
-        status: 500,
+        status: error instanceof ErrorPdfVerificacion ? 400 : 500,
       }
     );
   }
