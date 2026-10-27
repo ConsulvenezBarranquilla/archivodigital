@@ -622,6 +622,50 @@ export async function asegurarColumnasReportesEntregados(
   }
 }
 
+export async function sincronizarCorreoReportesEntregados(
+  documentos: unknown[],
+  correo: string
+): Promise<number> {
+  const clavesDocumento = new Set(
+    documentos
+      .map((documento) => String(documento ?? "").trim().toUpperCase().replace(/[^A-Z0-9]/g, ""))
+      .filter(Boolean)
+  );
+  if (clavesDocumento.size === 0) return 0;
+
+  await asegurarColumnasReportesEntregados(64);
+  const respuesta = await sheets.spreadsheets.values.get({
+    spreadsheetId: MODULO_CAJA_SHEET_ID,
+    range: `${HOJA_REPORTES_ENTREGADOS}!A:BL`,
+  });
+  const filas = respuesta.data.values ?? [];
+  const encabezadoCorreo = String(filas[0]?.[63] ?? "").trim();
+  const actualizaciones = filas.slice(1).flatMap((fila, indice) => {
+    const documento = String(fila[7] ?? "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+    if (!documento || !clavesDocumento.has(documento)) return [];
+    if (String(fila[63] ?? "").trim() === correo.trim()) return [];
+    return [{
+      range: `${HOJA_REPORTES_ENTREGADOS}!BL${indice + 2}`,
+      values: [[correo.trim()]],
+    }];
+  });
+
+  if (!encabezadoCorreo) {
+    actualizaciones.unshift({
+      range: `${HOJA_REPORTES_ENTREGADOS}!BL1`,
+      values: [["CORREO SOLICITANTE CONSTANCIA CONSULAR"]],
+    });
+  }
+  if (actualizaciones.length > 0) {
+    await sheets.spreadsheets.values.batchUpdate({
+      spreadsheetId: MODULO_CAJA_SHEET_ID,
+      requestBody: { valueInputOption: "RAW", data: actualizaciones },
+    });
+    invalidarCacheHojaGoogle(MODULO_CAJA_SHEET_ID, HOJA_REPORTES_ENTREGADOS);
+  }
+  return actualizaciones.length - (!encabezadoCorreo && actualizaciones.length > 0 ? 1 : 0);
+}
+
 export async function actualizarDatosFirmaConstancia(
   id: string,
   datos: {

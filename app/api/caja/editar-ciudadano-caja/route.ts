@@ -8,6 +8,7 @@ import {
     MODULO_CAJA_SHEET_ID,
     leerHojaRegistro,
     leerHoja,
+    sincronizarCorreoReportesEntregados,
 } from "@/lib/googleSheets";
 
 
@@ -968,6 +969,13 @@ export async function POST(
                 )
                 .join(" ")
                 .trim();
+
+        if (campo === "correo") {
+            await sincronizarCorreoReportesEntregados(
+                [documentoOriginal, cedulaAnterior, pasaporteAnterior, cedula, pasaporte],
+                correo
+            );
+        }
 
 
         /*------------------------------------------

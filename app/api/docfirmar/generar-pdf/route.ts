@@ -80,7 +80,7 @@ function normalizarDocumento(valor: unknown) {
 
 async function obtenerCorreoCiudadano(documento: ReporteEntregado, preferirDestinoGuardado = false) {
   const correoPrioritario = preferirDestinoGuardado
-    ? documento.correoDestino || documento.correoSolicitante
+    ? documento.correoSolicitante || documento.correoDestino
     : documento.correoSolicitante;
   if (correoPrioritario && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correoPrioritario.trim())) {
     return {

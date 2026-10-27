@@ -14,7 +14,7 @@ import {
   REGISTRO_CONSULAR_SHEET_ID,
   MODULO_CAJA_SHEET_ID,
   invalidarCacheHojaGoogle,
-  asegurarColumnasReportesEntregados,
+  sincronizarCorreoReportesEntregados,
 } from "@/lib/googleSheets";
 
 import { exigirPermiso } from "@/lib/autorizacion";
@@ -425,21 +425,12 @@ export async function POST(
 
     }
 
-    const correoNuevo = String(body.correo ?? "").trim();
-    if (correoNuevo) await asegurarColumnasReportesEntregados(64);
     const reportesResponse = await sheets.spreadsheets.values.get({
       spreadsheetId: MODULO_CAJA_SHEET_ID,
       range: "ReportesEntregados!A:H",
     });
     const reportesRows = reportesResponse.data.values || [];
-    const correosResponse = correoNuevo ? await sheets.spreadsheets.values.get({
-      spreadsheetId: MODULO_CAJA_SHEET_ID,
-      range: "ReportesEntregados!BL:BL",
-    }) : null;
-    const reportesCorreos = correosResponse?.data.values || [];
     const actualizacionesReportes: Array<{ range: string; values: string[][] }> = [];
-    const correoAnterior = String(rows[fila - 1]?.[11] ?? "").trim().toLowerCase();
-    let actualizarCorreoReportes = false;
 
     reportesRows.slice(1).forEach((reporte, index) => {
       if (normalizarDocumento(reporte[7]) !== buscado) return;
@@ -448,31 +439,9 @@ export async function POST(
         range: `ReportesEntregados!H${filaReporte}`,
         values: [[documentoPrincipal]],
       });
-      const correoGuardado = String(reportesCorreos[index + 1]?.[0] ?? "").trim().toLowerCase();
-      if (correoNuevo && (!correoGuardado || (correoAnterior && correoGuardado === correoAnterior))) {
-        actualizarCorreoReportes = true;
-        actualizacionesReportes.push({
-          range: `ReportesEntregados!BL${filaReporte}`,
-          values: [[correoNuevo]],
-        });
-      }
     });
 
     if (actualizacionesReportes.length) {
-      if (actualizarCorreoReportes) {
-        const encabezadoCorreo = await sheets.spreadsheets.values.get({
-          spreadsheetId: MODULO_CAJA_SHEET_ID,
-          range: "ReportesEntregados!BL1",
-        });
-        if (!String(encabezadoCorreo.data.values?.[0]?.[0] ?? "").trim()) {
-          await sheets.spreadsheets.values.update({
-            spreadsheetId: MODULO_CAJA_SHEET_ID,
-            range: "ReportesEntregados!BL1",
-            valueInputOption: "RAW",
-            requestBody: { values: [["CORREO SOLICITANTE CONSTANCIA CONSULAR"]] },
-          });
-        }
-      }
       await sheets.spreadsheets.values.batchUpdate({
         spreadsheetId: MODULO_CAJA_SHEET_ID,
         requestBody: {
@@ -482,6 +451,10 @@ export async function POST(
       });
       invalidarCacheHojaGoogle(MODULO_CAJA_SHEET_ID, "ReportesEntregados");
     }
+    await sincronizarCorreoReportesEntregados(
+      [buscado, rows[fila - 1]?.[1], rows[fila - 1]?.[14], body.cedula, body.pasaporte, documentoPrincipal],
+      String(body.correo ?? "")
+    );
     invalidarCacheHojaGoogle(MODULO_CAJA_SHEET_ID, "Caja");
 
     return NextResponse.json({

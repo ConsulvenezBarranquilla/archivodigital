@@ -9,6 +9,7 @@ import {
   sheets,
   REGISTRO_CONSULAR_SHEET_ID,
   MODULO_CAJA_SHEET_ID,
+  sincronizarCorreoReportesEntregados,
 } from "@/lib/googleSheets";
 
 export async function POST(
@@ -362,6 +363,12 @@ if (actualizaciones.length) {
   });
 
 }
+
+await sincronizarCorreoReportesEntregados(
+  [buscado, rows[fila - 1]?.[1], rows[fila - 1]?.[14], body.cedula, body.pasaporte],
+  String(body.correo ?? "")
+);
+
     return NextResponse.json({
 
       ok: true,

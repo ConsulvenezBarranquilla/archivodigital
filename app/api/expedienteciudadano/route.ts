@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { exigirPermiso } from "@/lib/autorizacion";
 import { actualizarDocumentoExpedienteCiudadano, buscarExpedienteCiudadano, guardarDatosEditablesExpediente, normalizarDocumentoExpediente, type HijoExpediente } from "@/lib/expedienteCiudadano";
-import { obtenerDocumentoPrincipal } from "@/lib/googleSheets";
+import { obtenerDocumentoPrincipal, sincronizarCorreoReportesEntregados } from "@/lib/googleSheets";
 import { subirArchivoDrive } from "@/lib/googleDrive";
 import { sheets, REGISTRO_CONSULAR_SHEET_ID, MODULO_CAJA_SHEET_ID } from "@/lib/googleSheets";
 import { listarCasosConsularesSoloLectura } from "@/lib/casosConsulares";
@@ -157,6 +157,10 @@ export async function PUT(request: NextRequest) {
       if (actualizacionesCaja.length) {
         await sheets.spreadsheets.values.batchUpdate({ spreadsheetId: MODULO_CAJA_SHEET_ID, requestBody: { valueInputOption: "USER_ENTERED", data: actualizacionesCaja } });
       }
+      await sincronizarCorreoReportesEntregados(
+        [original, expediente.cedula, expediente.pasaporte, cedulaNueva, pasaporteNuevo],
+        datosGenerales[10]
+      );
     }
 
     const hijosEntrada = Array.isArray(body?.hijos)
