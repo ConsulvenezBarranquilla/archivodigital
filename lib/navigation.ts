@@ -88,6 +88,11 @@ export const navigation: NavigationItem[] = [
         permiso: MODULOS.GESTION_CONSULAR,
       },
       {
+        label: "Perfil Consular",
+        href: "/perfil-consular",
+        permiso: MODULOS.CONSULTAS,
+      },
+      {
         label: "Casos",
         href: "/casos",
         permiso: MODULOS.CASOS,

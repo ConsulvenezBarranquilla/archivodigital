@@ -22,6 +22,7 @@ const ACTUACIONES_REGISTRO_CIVIL = {
   "REG-REC": { actuacion: "Reconocimiento", tipoRegistroCivil: "Reconocimiento" },
   "REG-MAT": { actuacion: "Matrimonio", tipoRegistroCivil: "Matrimonio" },
   "REG-DEF": { actuacion: "Defunción", tipoRegistroCivil: "Defunción" },
+  RN: { actuacion: "Renuncia a la Nacionalidad", tipoRegistroCivil: "Renuncia a la Nacionalidad" },
 } as const;
 
 export class ErrorValidacionCaso extends Error {}
@@ -110,9 +111,12 @@ export function validarDatosCaso(categoria: CategoriaCaso, entrada: unknown): Re
     if (!["Sindicado", "Condenado"].includes(String(normalizados.situacionJuridica))) throw new ErrorValidacionCaso("Selecciona una situación jurídica válida.");
     normalizados.estadoPenitenciario = campoObligatorio(datos, "estadoPenitenciario", "estado");
     if (!["Detención Domiciliaria", "Intramural", "Prisión Domiciliaria", "Vigilancia Electrónica", "Otros"].includes(String(normalizados.estadoPenitenciario))) throw new ErrorValidacionCaso("Selecciona un estado penitenciario válido.");
-    for (const campo of ["motivo", "estatus", "sentencia", "fechaCulminacion", "verificadoFuente", "pplImportacionId"]) normalizados[campo] = cadena(datos[campo]);
+    for (const campo of ["motivo", "estatus", "sentencia", "fechaCulminacion", "verificadoFuente", "pplImportacionId", "condicionSalud", "fechaUltimaVisitaConsular", "observaciones"]) normalizados[campo] = cadena(datos[campo]);
     if (normalizados.fechaCulminacion && !esFechaISOValida(String(normalizados.fechaCulminacion))) {
       throw new ErrorValidacionCaso("La fecha de culminación no es válida.");
+    }
+    if (normalizados.fechaUltimaVisitaConsular && !esFechaISOValida(String(normalizados.fechaUltimaVisitaConsular))) {
+      throw new ErrorValidacionCaso("La fecha de la última visita consular no es válida.");
     }
   } else if (categoria === "Verificación de Identidad") {
     normalizados.cedula = cadena(datos.cedula ?? datos.numeroDocumento);
@@ -130,6 +134,10 @@ export function validarDatosCaso(categoria: CategoriaCaso, entrada: unknown): Re
     normalizados.verificaciones = Array.isArray(datos.verificaciones) ? datos.verificaciones : [];
   } else if (categoria === "Fallecidos") {
     normalizados.cedula = campoObligatorio(datos, "cedula", "cédula");
+    normalizados.genero = cadena(datos.genero);
+    if (normalizados.genero && !["Masculino", "Femenino"].includes(String(normalizados.genero))) {
+      throw new ErrorValidacionCaso("El género debe ser Masculino, Femenino o quedar sin indicar.");
+    }
     normalizados.motivo = campoObligatorio(datos, "motivo", "motivo");
     if (!["Homicidio", "Suicidio", "Natural", "Otros"].includes(String(normalizados.motivo))) throw new ErrorValidacionCaso("Selecciona un motivo válido.");
     normalizados.detalleMotivo = cadena(datos.detalleMotivo);
@@ -148,6 +156,12 @@ export function validarDatosCaso(categoria: CategoriaCaso, entrada: unknown): Re
       };
     }) : [];
   } else if (categoria === "Registro Civil") {
+    normalizados.genero = cadena(datos.genero);
+    const tipoRegistroCivil = cadena(datos.tipoRegistroCivil);
+    normalizados.generoDe = ["Nacimiento", "Defunción"].includes(tipoRegistroCivil) ? "Titular" : "Solicitante";
+    if (normalizados.genero && !["Masculino", "Femenino"].includes(String(normalizados.genero))) {
+      throw new ErrorValidacionCaso("El género del titular debe ser Masculino, Femenino o quedar sin indicar.");
+    }
     const titularesEntrada = Array.isArray(datos.titulares) ? datos.titulares : [];
     normalizados.titulares = titularesEntrada.map((titular, indice) => {
       const titularNombre = cadena(titular);
@@ -167,7 +181,7 @@ export function validarDatosCaso(categoria: CategoriaCaso, entrada: unknown): Re
     if ((normalizados.presentantes as unknown[]).length === 0) throw new ErrorValidacionCaso("Agrega al menos un presentante.");
 
     normalizados.tipoRegistroCivil = campoObligatorio(datos, "tipoRegistroCivil", "tipo de Registro Civil");
-    if (!["Nacimiento", "Reconocimiento", "Matrimonio", "Defunción"].includes(String(normalizados.tipoRegistroCivil))) {
+    if (!["Nacimiento", "Reconocimiento", "Matrimonio", "Defunción", "Renuncia a la Nacionalidad"].includes(String(normalizados.tipoRegistroCivil))) {
       throw new ErrorValidacionCaso("Selecciona un tipo de Registro Civil válido.");
     }
     normalizados.eventos = normalizarEventos(datos.eventos, true);

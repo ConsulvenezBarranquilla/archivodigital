@@ -33,9 +33,9 @@ export type VerificacionIdentidad = {
 export type EstadoCaso = "Abierto" | "Finalizado" | "Eliminado";
 export type PendienteRegistroCivil = {
   recibo: string;
-  codigoActuacion: "INSER-N" | "REG-REC" | "REG-MAT" | "REG-DEF";
+  codigoActuacion: "INSER-N" | "REG-REC" | "REG-MAT" | "REG-DEF" | "RN";
   actuacion: string;
-  tipoRegistroCivil: "Nacimiento" | "Reconocimiento" | "Matrimonio" | "Defunción";
+  tipoRegistroCivil: "Nacimiento" | "Reconocimiento" | "Matrimonio" | "Defunción" | "Renuncia a la Nacionalidad";
   fecha: string;
   presentante: string;
   documentoPresentante: string;

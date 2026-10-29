@@ -84,6 +84,7 @@ export const HOJA_REPORTES_ENTREGADOS =
   "ReportesEntregados";
 
 export const HOJA_CASOS_CONSULARES = "CasosConsulares";
+export const HOJA_PERFIL_CONSULAR = "PerfilConsular";
 export const HOJA_TURNOS_ATENCION = "TurnosAtencion";
 const ENCABEZADOS_CASOS_CONSULARES = [
   "ID",
@@ -246,6 +247,80 @@ export async function leerHojaRegistro(
   const rangoReal = separador >= 0 ? rango.substring(separador + 1) : rango;
 
   return await leerHojaConCache(REGISTRO_CONSULAR_SHEET_ID, hoja, rangoReal);
+}
+
+const ENCABEZADOS_PERFIL_CONSULAR = [
+  "Periodo",
+  "Atlantico",
+  "Magdalena",
+  "San Andres y Providencia",
+  "Total",
+  "Actualizado por",
+  "Actualizado el",
+];
+
+export async function leerDatosJurisdiccionPerfil() {
+  if (!REGISTRO_CONSULAR_SHEET_ID) throw new Error("Falta configurar REGISTRO_CONSULAR_SHEET_ID.");
+  const metadata = await sheets.spreadsheets.get({
+    spreadsheetId: REGISTRO_CONSULAR_SHEET_ID,
+    fields: "sheets.properties(title)",
+  });
+  const existe = (metadata.data.sheets ?? []).some((item) => item.properties?.title === HOJA_PERFIL_CONSULAR);
+  if (!existe) return { existe: false, filas: [] as unknown[][] };
+  const filas = await leerHojaRegistro(`${HOJA_PERFIL_CONSULAR}!A:G`);
+  return { existe: true, filas };
+}
+
+export async function guardarDatosJurisdiccionPerfil(fila: Array<string | number>) {
+  if (!REGISTRO_CONSULAR_SHEET_ID) throw new Error("Falta configurar REGISTRO_CONSULAR_SHEET_ID.");
+  if (fila.length !== ENCABEZADOS_PERFIL_CONSULAR.length) throw new Error("La fila de estadísticas de jurisdicción no tiene el formato esperado.");
+
+  const metadata = await sheets.spreadsheets.get({
+    spreadsheetId: REGISTRO_CONSULAR_SHEET_ID,
+    fields: "sheets.properties(title)",
+  });
+  const existe = (metadata.data.sheets ?? []).some((item) => item.properties?.title === HOJA_PERFIL_CONSULAR);
+  if (!existe) {
+    try {
+      await sheets.spreadsheets.batchUpdate({
+        spreadsheetId: REGISTRO_CONSULAR_SHEET_ID,
+        requestBody: { requests: [{ addSheet: { properties: { title: HOJA_PERFIL_CONSULAR } } }] },
+      });
+    } catch {
+      const confirmar = await sheets.spreadsheets.get({
+        spreadsheetId: REGISTRO_CONSULAR_SHEET_ID,
+        fields: "sheets.properties(title)",
+      });
+      if (!(confirmar.data.sheets ?? []).some((item) => item.properties?.title === HOJA_PERFIL_CONSULAR)) {
+        throw new Error("No fue posible crear la pestaña PerfilConsular.");
+      }
+    }
+  }
+
+  const encabezado = await sheets.spreadsheets.values.get({
+    spreadsheetId: REGISTRO_CONSULAR_SHEET_ID,
+    range: `${HOJA_PERFIL_CONSULAR}!A1:G1`,
+  });
+  const actual = encabezado.data.values?.[0] ?? [];
+  if (!actual.length) {
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: REGISTRO_CONSULAR_SHEET_ID,
+      range: `${HOJA_PERFIL_CONSULAR}!A1:G1`,
+      valueInputOption: "RAW",
+      requestBody: { values: [ENCABEZADOS_PERFIL_CONSULAR] },
+    });
+  } else if (ENCABEZADOS_PERFIL_CONSULAR.some((valor, indice) => actual[indice] !== valor)) {
+    throw new Error("La pestaña PerfilConsular tiene encabezados distintos a los esperados; no se guardaron cambios.");
+  }
+
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: REGISTRO_CONSULAR_SHEET_ID,
+    range: `${HOJA_PERFIL_CONSULAR}!A:G`,
+    valueInputOption: "RAW",
+    insertDataOption: "INSERT_ROWS",
+    requestBody: { values: [fila] },
+  });
+  invalidarCacheHoja(REGISTRO_CONSULAR_SHEET_ID, HOJA_PERFIL_CONSULAR);
 }
 
 async function asegurarHojaCasosConsulares() {

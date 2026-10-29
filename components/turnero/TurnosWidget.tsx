@@ -155,7 +155,7 @@ export default function TurnosWidget({ titulo = "Turnos pendientes", cola, onIni
       } else {
         programarCarga();
       }
-      if (accion === "iniciar_atencion") {
+      if (accion === "iniciar_atencion" && turno.tipoVisita === "Trámite") {
         setAbierto(false);
         await onIniciarAtencion?.((data.turno || turno) as Turno);
       }
