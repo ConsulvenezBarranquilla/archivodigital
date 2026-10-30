@@ -1,6 +1,5 @@
 import crypto from "node:crypto";
 import { Redis } from "@upstash/redis";
-import { guardarEventoTurnoEnSheet } from "@/lib/googleSheets";
 
 export type TipoVisitaTurnero = "Informaci\u00F3n" | "Tr\u00E1mite";
 export type EstadoTurno = "pendiente" | "llamado" | "en_atencion" | "atendido";
@@ -391,6 +390,9 @@ async function vaciarOutbox() {
       const valorEvento = valorLista.startsWith("OUTBOX:") ? valorLista.slice(7) : JSON.stringify(raw);
       const evento = JSON.parse(valorEvento) as TurnoAtencion;
       try {
+        // Import diferido: "googleapis" es muy pesado y los streams SSE / lecturas de cola
+        // no lo necesitan. Así solo se carga al vaciar el outbox.
+        const { guardarEventoTurnoEnSheet } = await import("@/lib/googleSheets");
         await guardarEventoTurnoEnSheet(evento as unknown as Record<string, unknown>);
         await redis.lrem(KEY_OUTBOX, 1, valorLista);
       } catch (error) {

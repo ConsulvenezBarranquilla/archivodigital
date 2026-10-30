@@ -4,9 +4,8 @@ import {
 } from "next/server";
 
 import {
-  sheets,
-  MODULO_CAJA_SHEET_ID,
-  } from "@/lib/googleSheets";
+  leerHoja,
+} from "@/lib/googleSheets";
 
 import {
   exigirPermiso,
@@ -30,18 +29,18 @@ export async function GET(
         "documento"
       );
 
-    const response =
-      await sheets.spreadsheets.values.get({
-        spreadsheetId:
-          MODULO_CAJA_SHEET_ID,
-        range:
-          "BitacoraVisitas!A:F",
-      });
-
     const rows =
-      response.data.values || [];
+      await leerHoja(
+        "BitacoraVisitas",
+        "A:F"
+      );
 
       
+    const buscado =
+      documento
+        ?.trim()
+        .toUpperCase();
+
     const historial =
   rows
     .slice(1)
@@ -63,11 +62,6 @@ export async function GET(
 
 }))
     .filter((item) => {
-
-  const buscado =
-    documento
-      ?.trim()
-      .toUpperCase();
 
   return (
 
