@@ -273,23 +273,25 @@ if (
       }
       numerosActuacionSolicitud.add(numeroActuacionClave);
 
-      const usosActuacionExistentes = filasGestion.filter((fila) =>
-        claveNumeroConsular(fila[11]) === numeroActuacionClave
-      );
-      const usoNoPermitido = usosActuacionExistentes.some((fila) => {
-        const mismaAccion =
-          String(fila[0] ?? "").trim() === correlativo &&
-          String(fila[1] ?? "").trim().toUpperCase() === codigo.toUpperCase();
-        const estaDesvinculada =
-          String(fila[6] ?? "").trim().toUpperCase() === "DESVINCULADO";
-        return !mismaAccion || !estaDesvinculada;
-      });
-      if (usoNoPermitido) {
-        return NextResponse.json({
-          ok: false,
-          error: `El numero de actuacion ${numeroActuacion} ya esta asignado a otra vinculacion.`,
-        }, { status: 409 });
-      }
+      
+const usosActuacionExistentes = filasGestion.filter((fila) =>
+  claveNumeroConsular(fila[11]) === numeroActuacionClave
+);
+
+const usoNoPermitido = usosActuacionExistentes.some((fila) => {
+  const estado = String(fila[6] ?? "").trim().toUpperCase();
+
+  // Solo impedir la reutilización si existe una asignación activa.
+  return estado !== "DESVINCULADO";
+});
+
+if (usoNoPermitido) {
+  return NextResponse.json({
+    ok: false,
+    error: `El numero de actuacion ${numeroActuacion} ya esta asignado a otra vinculacion.`,
+  }, { status: 409 });
+}
+
 
       const llaveActuacion = [correlativo, codigo, numeroActuacion]
         .map((valor) => valor.trim().toUpperCase())

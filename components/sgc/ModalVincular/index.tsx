@@ -47,6 +47,8 @@ export default function ModalVincular({
 
   const [guardando, setGuardando] = useState(false);
 
+  const [errorGuardar, setErrorGuardar] = useState("");
+
   useEffect(() => {
 
     if (!open) return;
@@ -70,6 +72,7 @@ export default function ModalVincular({
 );
 
     setGuardando(false);
+    setErrorGuardar("");
 
   }, [open, actuaciones]);
 
@@ -90,99 +93,64 @@ export default function ModalVincular({
   const ciudadano = actuaciones[0];
 
   async function guardar() {
+  setErrorGuardar("");
 
   // 1. Validar planilla
   if (!planilla.trim()) {
-
-    alert(
-      "Debe indicar el número de la Planilla."
-    );
-
+    alert("Debe indicar el número de la Planilla.");
     return;
-
   }
 
   // 2. Validar que todas tengan Actuación Nro
-  if (
-    numerosActuacion.some(
-      n => !n.trim()
-    )
-  ) {
-
-    alert(
-      "Debe indicar el número de todas las actuaciones."
-    );
-
+  if (numerosActuacion.some((n) => !n.trim())) {
+    alert("Debe indicar el número de todas las actuaciones.");
     return;
-
   }
 
   // 3. Validar que no existan números repetidos
   const unicos = new Set(
-    numerosActuacion.map(
-      n => n.trim().toUpperCase()
-    )
+    numerosActuacion.map((n) => n.trim().toUpperCase())
   );
 
-  if (
-    unicos.size !==
-    numerosActuacion.length
-  ) {
-
-    alert(
-      "Existen números de actuación repetidos."
-    );
-
+  if (unicos.size !== numerosActuacion.length) {
+    alert("Existen números de actuación repetidos.");
     return;
-
   }
 
   // 4. Construir el objeto a enviar
-  const actuacionesEnviar: ActuacionGestion[] =
-    actuaciones.map(
-      (item, index) => ({
+  const actuacionesEnviar: ActuacionGestion[] = actuaciones.map(
+    (item, index) => ({
+      recibo: item.recibo,
+      codigo: item.codigo,
+      actuacion: item.actuacion,
+      numeroActuacion: numerosActuacion[index].trim(),
+      filaDetalle: item.filaDetalle,
+    })
+  );
 
-        recibo: item.recibo,
-
-        codigo: item.codigo,
-
-        actuacion: item.actuacion,
-
-        numeroActuacion:
-          numerosActuacion[index].trim(),
-
-        filaDetalle: item.filaDetalle,
-
-      })
-    );
-
-  // 5. Guardar
+  // 5. Guardar y mostrar errores
   try {
-
     setGuardando(true);
 
     await onGuardar({
-
       actuaciones: actuacionesEnviar,
-
       planilla,
-
       fechaPlanilla,
-
       observaciones,
-
     });
+  } catch (error) {
+    console.error("Error al vincular planilla:", error);
 
-  }
-  finally {
-
+    setErrorGuardar(
+      error instanceof Error
+        ? error.message
+        : "No fue posible guardar la vinculación."
+    );
+  } finally {
     setGuardando(false);
-
   }
-
 }
-console.log("Button =", Button);
-console.log("Input =", Input);
+
   if (!open) {
 
     return null;
@@ -463,7 +431,12 @@ console.log("Input =", Input);
           />
 
         </div>
-
+{errorGuardar && (
+  <div className="rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-700">
+    <strong>No se pudo guardar la vinculación.</strong>
+    <p className="mt-1">{errorGuardar}</p>
+  </div>
+)}
         <div className="space-y-2">
 
           <label

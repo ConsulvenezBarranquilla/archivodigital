@@ -204,24 +204,21 @@ const registrosMostrados = useMemo(() => {
   `${row.recibo}-${row.codigo}-${row.documento}-${index}`;
 
 
-  async function guardar(
-
-    datos: VincularPlanillaForm
-
-  ) {
-
-    await onGuardar(
-
-      datos
-
-    );
+  async function guardar(datos: VincularPlanillaForm) {
+  try {
+    await onGuardar(datos);
 
     setModalAbierto(false);
-
     setSeleccion([]);
     setSelectedKeys([]);
-
+  } catch (error) {
+    alert(
+      error instanceof Error
+        ? error.message
+        : "No fue posible guardar la vinculación."
+    );
   }
+}
 
   async function registrarSinPlanilla() {
 

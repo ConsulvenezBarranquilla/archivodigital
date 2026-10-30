@@ -434,38 +434,25 @@ export default function SistemaGestionConsular() {
   // ======================================================
 
   async function guardarPlanilla(
+  datos: VincularPlanillaForm
+) {
+  const request: VincularPlanillaRequest = {
+    ...datos,
+    usuario: obtenerUsuarioActual(),
+  };
 
-    datos: VincularPlanillaForm
+  const respuesta = await vincularPlanillaSGC(request);
 
-  ) {
-
-    const request:
-      VincularPlanillaRequest = {
-
-      ...datos,
-
-      usuario:
-        obtenerUsuarioActual(),
-
-    };
-
-    const respuesta =
-      await vincularPlanillaSGC(
-        request
-      );
-
-    if (
-      !respuesta.ok
-    ) {
-
-      alert(respuesta.error || respuesta.mensaje);
-      return;
-
-    }
-
-    await cargarTodo();
-
+  if (!respuesta.ok) {
+    throw new Error(
+      respuesta.error ||
+      respuesta.mensaje ||
+      "No fue posible vincular las actuaciones."
+    );
   }
+
+  await cargarTodo();
+}
 
   // ======================================================
   // SIN PLANILLA
