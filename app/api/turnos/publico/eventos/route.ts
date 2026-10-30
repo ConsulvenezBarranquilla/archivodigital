@@ -21,7 +21,10 @@ function extraerMensajeRedis(data: string) {
   if (!data.startsWith("message,")) return "";
 
   const primerSeparador = data.indexOf(",");
-  const segundoSeparador = data.indexOf(",", primerSeparador + 1);
+  const segundoSeparador = data.indexOf(
+    ",",
+    primerSeparador + 1
+  );
 
   return segundoSeparador < 0
     ? ""
@@ -33,7 +36,11 @@ function respuestaSinVinculo(estado: {
   codigo?: string;
 }) {
   return NextResponse.json(
-    { tipo: "estado", ...estado, llamados: [] },
+    {
+      tipo: "estado",
+      ...estado,
+      llamados: [],
+    },
     {
       headers: {
         "Cache-Control": "no-store, max-age=0",
@@ -50,25 +57,33 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
 
     deviceId =
-      typeof body.deviceId === "string" ? body.deviceId : "";
+      typeof body.deviceId === "string"
+        ? body.deviceId
+        : "";
 
     tokenDispositivo =
-      typeof body.token === "string" ? body.token : "";
+      typeof body.token === "string"
+        ? body.token
+        : "";
 
     if (
       !/^[a-f0-9-]{36}$/i.test(deviceId) ||
       !/^[a-f0-9]{64}$/i.test(tokenDispositivo)
     ) {
       return NextResponse.json(
-        { ok: false, error: "Dispositivo no valido." },
+        {
+          ok: false,
+          error: "Dispositivo no valido.",
+        },
         { status: 401 }
       );
     }
 
-    const estadoInicial = await solicitarVinculacionDispositivo(
-      deviceId,
-      tokenDispositivo
-    );
+    const estadoInicial =
+      await solicitarVinculacionDispositivo(
+        deviceId,
+        tokenDispositivo
+      );
 
     if (!estadoInicial.vinculado) {
       return respuestaSinVinculo(estadoInicial);
@@ -78,18 +93,25 @@ export async function POST(request: NextRequest) {
     const redisToken = process.env.KV_REST_API_TOKEN;
 
     if (!url || !redisToken) {
-      console.error("Turnero público: configuración Redis incompleta", {
-        urlConfigurada: Boolean(url),
-        tokenConfigurado: Boolean(redisToken),
-      });
+      console.error(
+        "Turnero público: configuración Redis incompleta",
+        {
+          urlConfigurada: Boolean(url),
+          tokenConfigurado: Boolean(redisToken),
+        }
+      );
 
-      return NextResponse.json({ ok: false }, { status: 503 });
+      return NextResponse.json(
+        { ok: false },
+        { status: 503 }
+      );
     }
 
     if (request.signal.aborted) {
       return new Response(null, { status: 204 });
     }
 
+    // Abrir la suscripción a Redis.
     const upstream = await fetch(
       `${url.replace(/\/$/, "")}/subscribe/${encodeURIComponent(
         CANAL_EVENTOS_TURNERO
@@ -106,31 +128,41 @@ export async function POST(request: NextRequest) {
     );
 
     if (!upstream.ok || !upstream.body) {
-      console.warn("Turnero público: suscripción Redis rechazada", {
-        status: upstream.status,
-      });
+      console.warn(
+        "Turnero público: suscripción Redis rechazada",
+        {
+          status: upstream.status,
+        }
+      );
 
       await upstream.body?.cancel().catch(() => undefined);
 
-      return NextResponse.json({ ok: false }, { status: 503 });
+      return NextResponse.json(
+        { ok: false },
+        { status: 503 }
+      );
     }
 
-    // Se conserva la segunda validación para evitar perder
-    // un evento de vinculación durante la apertura del stream.
-    const estadoActual = await solicitarVinculacionDispositivo(
-      deviceId,
-      tokenDispositivo
-    );
+    // Segunda validación para no perder un evento de vinculación
+    // durante la apertura de la suscripción.
+    const estadoActual =
+      await solicitarVinculacionDispositivo(
+        deviceId,
+        tokenDispositivo
+      );
 
     if (!estadoActual.vinculado) {
       await upstream.body.cancel().catch(() => undefined);
+
       return respuestaSinVinculo(estadoActual);
     }
 
-    const llamadosIniciales = await obtenerLlamadosPublicos();
+    const llamadosIniciales =
+      await obtenerLlamadosPublicos();
 
     if (request.signal.aborted) {
       await upstream.body.cancel().catch(() => undefined);
+
       return new Response(null, { status: 204 });
     }
 
@@ -140,67 +172,89 @@ export async function POST(request: NextRequest) {
 
     let cerrado = false;
     let dispositivoVinculado = true;
-    let limiteStream: ReturnType<typeof setTimeout> | undefined;
+    let limiteStream: ReturnType<typeof setTimeout> | null =
+      null;
 
     let buffer = "";
 
-    let cerrarStream: (
-      motivo: string,
-      controller?: ReadableStreamDefaultController<Uint8Array>
-    ) => Promise<void>;
+    let controllerRef:
+      | ReadableStreamDefaultController<Uint8Array>
+      | null = null;
+
+    let cierreEnCurso: Promise<void> | null = null;
+
+    const cerrarStream = (
+      motivo: string
+    ): Promise<void> => {
+      if (cierreEnCurso) {
+        return cierreEnCurso;
+      }
+
+      cerrado = true;
+
+      cierreEnCurso = (async () => {
+        if (limiteStream !== null) {
+          clearTimeout(limiteStream);
+          limiteStream = null;
+        }
+
+        console.info(
+          "Turnero público: stream finalizado",
+          { motivo }
+        );
+
+        try {
+          controllerRef?.close();
+        } catch {
+          // El cliente ya pudo cerrar la conexión.
+        }
+
+        try {
+          await reader.cancel();
+        } catch {
+          // Redis pudo cerrar antes la conexión.
+        }
+      })();
+
+      return cierreEnCurso;
+    };
 
     const stream = new ReadableStream<Uint8Array>({
       start(controller) {
+        controllerRef = controller;
+
         const enviar = (data: unknown) => {
           if (cerrado) return;
 
           try {
             controller.enqueue(
-              encoder.encode(`data: ${JSON.stringify(data)}\n\n`)
+              encoder.encode(
+                `data: ${JSON.stringify(data)}\n\n`
+              )
             );
           } catch {
             void cerrarStream("error_envio");
           }
         };
 
-        cerrarStream = async (motivo, controlador) => {
+        const procesarEvento = async (
+          evento: EventoTurnero
+        ) => {
           if (cerrado) return;
 
-          cerrado = true;
-
-          if (limiteStream) {
-            clearTimeout(limiteStream);
-            limiteStream = undefined;
-          }
-
-          console.info("Turnero público: stream finalizado", {
-            motivo,
-          });
-
-          try {
-            controlador?.close();
-          } catch {
-            // El cliente ya pudo cerrar la conexión.
-          }
-
-          try {
-            await reader.cancel();
-          } catch {
-            // Redis pudo cerrar antes la conexión.
-          }
-        };
-
-        const procesarEvento = async (evento: EventoTurnero) => {
-          if (cerrado) return;
-
+          // El dispositivo puede vincularse o desvincularse
+          // mientras mantiene abierta la pantalla.
           if (
             evento.tipo === "dispositivo" &&
             evento.deviceId === deviceId
           ) {
-            const estado = await solicitarVinculacionDispositivo(
-              deviceId,
-              tokenDispositivo
-            );
+            const estado =
+              await solicitarVinculacionDispositivo(
+                deviceId,
+                tokenDispositivo
+              );
+
+            if (cerrado) return;
 
             dispositivoVinculado = estado.vinculado;
 
@@ -212,14 +266,16 @@ export async function POST(request: NextRequest) {
               });
 
               await cerrarStream(
-                "dispositivo_desvinculado",
-                controller
+                "dispositivo_desvinculado"
               );
 
               return;
             }
 
-            const llamados = await obtenerLlamadosPublicos();
+            const llamados =
+              await obtenerLlamadosPublicos();
+
+            if (cerrado) return;
 
             enviar({
               tipo: "estado",
@@ -231,12 +287,16 @@ export async function POST(request: NextRequest) {
             return;
           }
 
+          // Actualizaciones de llamados.
           if (
             evento.tipo === "actualizacion" &&
             evento.accion === "llamar" &&
             dispositivoVinculado
           ) {
-            const llamados = await obtenerLlamadosPublicos();
+            const llamados =
+              await obtenerLlamadosPublicos();
+
+            if (cerrado) return;
 
             enviar({
               tipo: "llamados",
@@ -254,11 +314,29 @@ export async function POST(request: NextRequest) {
 
           if (!contenido) return;
 
+          let evento: EventoTurnero;
+
           try {
-            const evento = JSON.parse(contenido) as EventoTurnero;
-            await procesarEvento(evento);
+            evento = JSON.parse(
+              contenido
+            ) as EventoTurnero;
           } catch {
-            // Ignorar mensajes inválidos sin interrumpir el stream.
+            // Ignorar mensajes Redis que no sean JSON válido.
+            return;
+          }
+
+          try {
+            await procesarEvento(evento);
+          } catch (error) {
+            console.warn(
+              "Turnero público: error procesando evento",
+              {
+                tipo:
+                  error instanceof Error
+                    ? error.name
+                    : "unknown",
+              }
+            );
           }
         };
 
@@ -268,37 +346,46 @@ export async function POST(request: NextRequest) {
               const { value, done } = await reader.read();
 
               if (done) {
-                await cerrarStream("upstream_eof", controller);
+                await cerrarStream("upstream_eof");
                 break;
               }
 
-              buffer += decoder.decode(value, { stream: true });
+              buffer += decoder.decode(value, {
+                stream: true,
+              });
 
               const lineas = buffer.split(/\r?\n/);
+
               buffer = lineas.pop() ?? "";
 
               for (const linea of lineas) {
                 if (cerrado) break;
+
                 await procesarLinea(linea);
               }
             }
           } catch (error) {
             if (!request.signal.aborted && !cerrado) {
-              console.warn("Turnero público: error leyendo stream", {
-                tipo: error instanceof Error ? error.name : "unknown",
-              });
+              console.warn(
+                "Turnero público: error leyendo stream",
+                {
+                  tipo:
+                    error instanceof Error
+                      ? error.name
+                      : "unknown",
+                }
+              );
             }
 
             await cerrarStream(
               request.signal.aborted
                 ? "cliente_cancelado"
-                : "error_lectura",
-              controller
+                : "error_lectura"
             );
           } finally {
-            if (limiteStream) {
+            if (limiteStream !== null) {
               clearTimeout(limiteStream);
-              limiteStream = undefined;
+              limiteStream = null;
             }
 
             try {
@@ -309,43 +396,19 @@ export async function POST(request: NextRequest) {
           }
         };
 
-        cerrarStream = async (motivo, controlador) => {
-          if (cerrado) return;
-
-          cerrado = true;
-
-          if (limiteStream) {
-            clearTimeout(limiteStream);
-            limiteStream = undefined;
-          }
-
-          console.info("Turnero público: stream finalizado", {
-            motivo,
-          });
-
-          try {
-            controlador?.close();
-          } catch {
-            // El cliente ya pudo cerrar la conexión.
-          }
-
-          try {
-            await reader.cancel();
-          } catch {
-            // Redis pudo cerrar antes la conexión.
-          }
-        };
-
+        // Enviar el estado inicial al navegador.
         enviar({
           tipo: "estado",
           ...estadoActual,
           llamados: llamadosIniciales,
         });
 
+        // Limitar la duración de cada conexión.
         limiteStream = setTimeout(() => {
-          void cerrarStream("limite_de_duracion", controller);
+          void cerrarStream("limite_de_duracion");
         }, DURACION_STREAM_MS);
 
+        // Comenzar la lectura de Redis.
         void leer();
       },
 
@@ -354,13 +417,21 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // Si Next.js detecta la cancelación de la petición,
+    // cerrar también la suscripción de Redis.
+    const manejarAbort = () => {
+      void cerrarStream("cliente_cancelado");
+    };
+
     request.signal.addEventListener(
       "abort",
-      () => {
-        void cerrarStream("cliente_cancelado");
-      },
+      manejarAbort,
       { once: true }
     );
+
+    if (request.signal.aborted) {
+      void cerrarStream("cliente_cancelado");
+    }
 
     return new Response(stream, {
       headers: {
@@ -371,9 +442,15 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.warn("Turnero público: no fue posible iniciar el stream", {
-      tipo: error instanceof Error ? error.name : "unknown",
-    });
+    console.warn(
+      "Turnero público: no fue posible iniciar el stream",
+      {
+        tipo:
+          error instanceof Error
+            ? error.name
+            : "unknown",
+      }
+    );
 
     return NextResponse.json(
       {
